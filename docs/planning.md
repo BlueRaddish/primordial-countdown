@@ -256,18 +256,50 @@ extends Resource
 ## 9. Build order
 
 **Milestone 1: it moves**
-Player controller, one flat arena, one enemy type, basic melee. No devolution at all.
+Project scaffolding and basic player movement in a flat arena. No combat, no enemies, no devolution.
 
-**Milestone 2: the loop exists**
+Done when:
+- Project directory matches section 8
+- Autoloads registered and loading
+- Player character renders with placeholder art, moves left/right, jumps, and lands on a solid floor
+- Camera follows the player
+- One flat test arena exists with visible ground
+
+**Milestone 2: it fights**
+One enemy type, basic melee combat, health as a separate track.
+
+Done when:
+- One enemy type spawns in the arena and has basic AI (patrol/chase)
+- Player has a basic melee attack with hitbox
+- Enemies take damage and die
+- Player takes damage from enemies
+- Health bar visible on HUD
+- Knockback works on both player and enemies
+
+**Milestone 3: the loop exists**
 Spawner supporting both waves and continuous, devolution bar, traits with a fixed degradation order. Test both spawn models and pick one.
 
-**Milestone 3: both systems run**
+Done when:
+- Spawner runs and populates the arena
+- Devolution bar fills from combat performance
+- A full bar triggers a devolution step (fixed order)
+- At least three traits degrade visibly
+- Both spawn models tested, one chosen
+
+**Milestone 4: both systems run**
 Evolution system running independently against the player. Full trait list. One boss. Tune the clock driver here, once there is something to tune against.
 
-**Milestone 4: content**
+Done when:
+- Evolution system advances on wave/boss clear
+- Enemies gain capability at each evolution step
+- Full trait list implemented
+- One boss with a unique pattern
+- Clock driver decided and tuned
+
+**Milestone 5: content**
 Stage content, art pass, audio.
 
-**Milestone 5: expand, if time allows**
+**Milestone 6: expand, if time allows**
 Scope to be decided with the team.
 
-Do not start milestone 3 until milestone 2 is fun without any art.
+Do not start milestone 4 until milestone 3 is fun without any art.

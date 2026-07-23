@@ -18,3 +18,7 @@ export_credentials.cfg
 
 # Personal Settings
 .vscode
+
+# Downloaded asset packs (originals kept outside version control)
+kenney_pixel-platformer.zip
+kenney_pixel-platformer_extracted/

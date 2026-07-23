@@ -1,0 +1,17 @@
+# Godot 4+ internal cache (DO NOT commit)
+.godot/
+.nomedia
+
+# Build outputs & temporary files
+*.tmp
+export.cfg
+export_credentials.cfg
+~*.dll
+
+# C# / Mono build folders (if applicable)
+.mono/
+*.csproj.html
+
+# Assets (only commit the source PNGs, not the generated DDS files)
+!/assets/pixel_art_source/
+/assets/*.dds

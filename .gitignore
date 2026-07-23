@@ -15,3 +15,6 @@ export_credentials.cfg
 # Assets (only commit the source PNGs, not the generated DDS files)
 !/assets/pixel_art_source/
 /assets/*.dds
+
+# Personal Settings
+.vscode

@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://arena_stage_01_scene"]
+
+[node name="ArenaStage01" type="Node2D"]

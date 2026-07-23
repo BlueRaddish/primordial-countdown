@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://base_arena_scene"]
+
+[node name="BaseArena" type="Node2D"]

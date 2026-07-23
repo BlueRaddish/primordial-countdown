@@ -8,7 +8,7 @@ extends Node2D
 @export var arena_width_tiles: int = 40
 @export var floor_depth_tiles: int = 3
 
-const TILE_SIZE := 18
+const TILE_SIZE: int = 18
 
 func _ready() -> void:
 	queue_redraw()
@@ -18,12 +18,12 @@ func _draw() -> void:
 		return
 
 	# Draw top row of ground.
-	for x in range(arena_width_tiles):
-		var pos := Vector2(x * TILE_SIZE, 0)
+	for x: int in range(arena_width_tiles):
+		var pos: Vector2 = Vector2(float(x * TILE_SIZE), 0.0)
 		draw_texture(ground_top_texture, pos)
 
 	# Draw fill rows below.
-	for y in range(1, floor_depth_tiles):
-		for x in range(arena_width_tiles):
-			var pos := Vector2(x * TILE_SIZE, y * TILE_SIZE)
+	for y: int in range(1, floor_depth_tiles):
+		for x: int in range(arena_width_tiles):
+			var pos: Vector2 = Vector2(float(x * TILE_SIZE), float(y * TILE_SIZE))
 			draw_texture(ground_fill_texture, pos)

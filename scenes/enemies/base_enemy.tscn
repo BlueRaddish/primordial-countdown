@@ -1,4 +1,53 @@
-[gd_scene format=3 uid="uid://base_enemy_scene"]
+[gd_scene load_steps=7 format=3 uid="uid://base_enemy_scene"]
+
+[ext_resource type="Script" path="res://scripts/enemies/base_enemy.gd" id="1_enemy"]
+[ext_resource type="Texture2D" uid="uid://player_chars_tex" path="res://assets/sprites/player/tilemap-characters_packed.png" id="2_chars"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_enemy_idle"]
+atlas = ExtResource("2_chars")
+region = Rect2(100, 0, 24, 24)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_enemy_walk"]
+atlas = ExtResource("2_chars")
+region = Rect2(125, 0, 24, 24)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_enemy"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_enemy_idle")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_enemy_idle")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_enemy_walk")
+}],
+"loop": true,
+"name": &"walk",
+"speed": 6.0
+}]
+
+[sub_resource type="RectangleShape2D" id="shape_enemy_col"]
+size = Vector2(14, 20)
 
 [node name="BaseEnemy" type="CharacterBody2D"]
-script = ExtResource("res://scripts/enemies/base_enemy.gd")
+collision_layer = 2
+collision_mask = 5
+script = ExtResource("1_enemy")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+texture_filter = 0
+position = Vector2(0, -12)
+sprite_frames = SubResource("SpriteFrames_enemy")
+animation = &"idle"
+autoplay = "idle"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -10)
+shape = SubResource("shape_enemy_col")

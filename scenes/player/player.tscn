@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://player_scene"]
+[gd_scene load_steps=9 format=3 uid="uid://player_scene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Texture2D" uid="uid://player_chars_tex" path="res://assets/sprites/player/tilemap-characters_packed.png" id="2_chars"]
@@ -39,10 +39,24 @@ animations = [{
 "loop": false,
 "name": &"jump",
 "speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_walk")
+}],
+"loop": false,
+"name": &"attack",
+"speed": 10.0
 }]
 
 [sub_resource type="RectangleShape2D" id="shape_player_col"]
 size = Vector2(14, 20)
+
+[sub_resource type="RectangleShape2D" id="shape_attack"]
+size = Vector2(28, 16)
+
+[sub_resource type="RectangleShape2D" id="shape_contact"]
+size = Vector2(12, 18)
 
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 1
@@ -59,3 +73,22 @@ autoplay = "idle"
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -10)
 shape = SubResource("shape_player_col")
+
+[node name="AttackHitbox" type="Area2D" parent="."]
+position = Vector2(18, -10)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox"]
+shape = SubResource("shape_attack")
+disabled = true
+
+[node name="ContactHitbox" type="Area2D" parent="."]
+position = Vector2(0, -10)
+collision_layer = 1
+collision_mask = 2
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ContactHitbox"]
+shape = SubResource("shape_contact")

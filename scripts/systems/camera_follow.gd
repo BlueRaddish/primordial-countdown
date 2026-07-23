@@ -11,16 +11,17 @@ var _target: Node2D
 
 func _ready() -> void:
 	if target_path:
-		_target = get_node(target_path)
+		_target = get_node_or_null(target_path) as Node2D
 
 
 func _physics_process(delta: float) -> void:
 	if not _target:
 		return
 
-	var target_pos := _target.global_position
+	var target_pos: Vector2 = _target.global_position
 	# Look ahead in the direction the target is moving.
 	if _target is CharacterBody2D:
-		target_pos.x += sign(_target.velocity.x) * look_ahead
+		var cb: CharacterBody2D = _target as CharacterBody2D
+		target_pos.x += sign(cb.velocity.x) * look_ahead
 
 	global_position = global_position.lerp(target_pos, 1.0 - exp(-smoothing * delta))

@@ -1,26 +1,27 @@
-[gd_scene load_steps=9 format=3 uid="uid://evbvmfl63m1n"]
+[gd_scene load_steps=12 format=3 uid="uid://evbvmfl63m1n"]
 
 [ext_resource type="PackedScene" uid="uid://player_scene" path="res://scenes/player/player.tscn" id="1_player_scene"]
-[ext_resource type="Script" path="res://scripts/systems/arena_renderer.gd" id="2_arena_renderer"]
-[ext_resource type="Script" path="res://scripts/systems/camera_follow.gd" id="3_camera_follow"]
-[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top.png" id="4_ground_top"]
-[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_fill.png" id="5_ground_fill"]
+[ext_resource type="PackedScene" uid="uid://base_enemy_scene" path="res://scenes/enemies/base_enemy.tscn" id="2_enemy_scene"]
+[ext_resource type="PackedScene" uid="uid://hud_scene" path="res://scenes/ui/hud.tscn" id="3_hud"]
+[ext_resource type="PackedScene" uid="uid://death_screen_scene" path="res://scenes/ui/death_screen.tscn" id="4_death_screen"]
+[ext_resource type="Script" path="res://scripts/systems/arena_renderer.gd" id="5_arena_renderer"]
+[ext_resource type="Script" path="res://scripts/systems/camera_follow.gd" id="6_camera_follow"]
+[ext_resource type="Script" path="res://scripts/systems/death_zone.gd" id="7_death_zone"]
+[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top.png" id="8_ground_top"]
+[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_fill.png" id="9_ground_fill"]
 
 [sub_resource type="RectangleShape2D" id="floor_shape"]
 size = Vector2(720, 18)
 
-[sub_resource type="RectangleShape2D" id="wall_left_shape"]
-size = Vector2(18, 360)
-
-[sub_resource type="RectangleShape2D" id="wall_right_shape"]
-size = Vector2(18, 360)
+[sub_resource type="RectangleShape2D" id="death_zone_shape"]
+size = Vector2(2000, 40)
 
 [node name="Game" type="Node2D"]
 
 [node name="Camera" type="Camera2D" parent="."]
 position = Vector2(320, 180)
 position_smoothing_enabled = true
-script = ExtResource("3_camera_follow")
+script = ExtResource("6_camera_follow")
 target_path = NodePath("../Player")
 smoothing = 8.0
 look_ahead = 30.0
@@ -30,9 +31,9 @@ look_ahead = 30.0
 [node name="ArenaRenderer" type="Node2D" parent="Arena"]
 position = Vector2(0, 288)
 texture_filter = 0
-script = ExtResource("2_arena_renderer")
-ground_top_texture = ExtResource("4_ground_top")
-ground_fill_texture = ExtResource("5_ground_fill")
+script = ExtResource("5_arena_renderer")
+ground_top_texture = ExtResource("8_ground_top")
+ground_fill_texture = ExtResource("9_ground_fill")
 arena_width_tiles = 40
 floor_depth_tiles = 4
 
@@ -44,21 +45,27 @@ collision_mask = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/Floor"]
 shape = SubResource("floor_shape")
 
-[node name="WallLeft" type="StaticBody2D" parent="Arena"]
-position = Vector2(-9, 180)
-collision_layer = 4
-collision_mask = 0
+[node name="DeathZone" type="Area2D" parent="Arena"]
+position = Vector2(360, 500)
+collision_layer = 0
+collision_mask = 1
+script = ExtResource("7_death_zone")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/WallLeft"]
-shape = SubResource("wall_left_shape")
-
-[node name="WallRight" type="StaticBody2D" parent="Arena"]
-position = Vector2(729, 180)
-collision_layer = 4
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/WallRight"]
-shape = SubResource("wall_right_shape")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/DeathZone"]
+shape = SubResource("death_zone_shape")
 
 [node name="Player" parent="." instance=ExtResource("1_player_scene")]
 position = Vector2(320, 288)
+
+[node name="Enemy1" parent="." instance=ExtResource("2_enemy_scene")]
+position = Vector2(500, 288)
+
+[node name="Enemy2" parent="." instance=ExtResource("2_enemy_scene")]
+position = Vector2(180, 288)
+
+[node name="Enemy3" parent="." instance=ExtResource("2_enemy_scene")]
+position = Vector2(600, 288)
+
+[node name="HUD" parent="." instance=ExtResource("3_hud")]
+
+[node name="DeathScreen" parent="." instance=ExtResource("4_death_screen")]

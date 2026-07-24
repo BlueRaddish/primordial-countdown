@@ -17,25 +17,36 @@
     *   Player registers damage from enemy contacts.
     *   Health bar is fully operational and visible on the active HUD layer.
     *   Smash-style knockback physics function perfectly on both player and enemy characters.
-### 🕒 Milestone 3: The Clock Triggers (NEXT UP)Integrating the reverse historical timeline, wave mechanics, and the 5-stage structural degradation loop.
+### 🕒 Milestone 3: The Clock Triggers (NEXT UP)Integrating the reverse historical timeline, wave mechanics, and the 5-stage structural degradation loop.*   **Done When:**
+    *   Time Progression Bar functions on HUD, processing backward increments strictly on enemy deaths.
+    *   Enemy deaths send numerical time-reduction signals to the Time Tracker based on era multipliers.
+    *   Horde waves clear completely before subsequent groups instance.
+    *   Devolution pause-menu popup intercepts gameplay at exact chronological milestones.
+### 🕒 Milestone 4: Metamorphosis (LOGISTICS SPRINT)Scaling performance attributes downward across the 5 degradation steps per system.*   **Done When:**
+    *   Trait modifiers hook into physical components (speed, jump, melee range, sight vignettes).
+    *   Reaching Stage 5 toggles functional block states (disabling inputs like walking or attacking).
+    *   Titan Buff selection panels offer game-breaking replacement abilities upon trait death.
+### 🕒 Milestone 5: The Prehistoric Apex (FINAL POLISH)Adding visual variety, unique era backgrounds, distinctive wave variables, and the final win loop.*   **Done When:**
+    *   Four complete environmental themes render dynamically as eras cycle.
+    *   Boss encounters block timeline progress until specific hitboxes dissipate.
+    *   Reaching 3.5 Billion B.C. triggers the final transformation cinematic and victory text.
 ---## 🕒 1. SYSTEM ARCHITECTURE: THE REVERSE TIME ENGINE
-The game features no traditional XP. Instead, a **Time Progression Bar** tracks your travel backward into Prehistory. You start in the present day and fight down to the dawn of life.
-### 📉 The B.C. Scale & Era TriggersThe 20-minute run is strictly partitioned into 4 distinct historical eras. To survive, you must clear enemy waves to force the timeline backward. 
+The game features no passive time deduction. The clock is static; **only killing enemies subtracts years from the timeline** to push you toward the past.
+### 📉 The B.C. Scale & Era TriggersThe progression scale is mapped to total enemy kills per era, with years scaled exponentially so ancient eras require clearing massive prehistoric hordes.
 
 
 [Start: 2026 A.D.] ➔ [Ice Age: 10,000 B.C.] ➔ [Mesozoic: 2.5M B.C.] ➔ [Primordial: 250M B.C.] ➔ [Win: 3.5B B.C.]
 
 
-*   **Total Match Duration:** 1,200 Seconds (20 Minutes).
-*   **Time Calculation:** Every second alive automatically subtracts time from the current era. Every enemy kill drops large chunk-modifiers of time.
-*   **Devolution Pacing:** A Devolution Selection Menu triggers automatically at fixed historical intervals within each era (5 Devolutions per Era = 20 Total Choices per run).
+*   **Pacing Mechanism:** Survival relies on clear speed. The game does not progress if you do not get kills.
+*   **Devolution Pacing:** A Devolution Selection Menu triggers automatically at fixed kill milestones within each era (5 Devolutions per Era = 20 Total Choices per run).
 
-| Era | Timeline Window | Duration in Run | Waves Config | Era Boss |
+| Era | Timeline Window | Target Years per Kill | Waves Config | Era Boss |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Modern Holocene** | 2026 A.D. to 10,000 B.C. | Minutes 0:00 – 4:00 | 5 Waves (Hounds/Drones) | **The Industrial Mech** |
-| **2. Pleistocene Ice Age** | 10,000 B.C. to 2.5M B.C. | Minutes 4:00 – 9:00 | 6 Waves (Neanderthals/Mammoths) | **The Mammoth King** |
-| **3. Mesozoic Era** | 2.5M B.C. to 250M B.C. | Minutes 9:00 – 15:00 | 8 Waves (Raptors/Pterodactyls) | **The Apex Carnivore** |
-| **4. Archean Primordial** | 250M B.C. to 3.5B B.C. | Minutes 15:00 – 20:00 | 10 Waves (Trilobites/Anomalocaris) | **The Core Sentient Ooze** |
+| **1. Modern Holocene** | 2026 A.D. to 10,000 B.C. | -100 Years / Kill | 5 Waves (Hounds/Drones) | **The Industrial Mech** |
+| **2. Pleistocene Ice Age** | 10,000 B.C. to 2.5M B.C. | -15,000 Years / Kill | 6 Waves (Neanderthals/Mammoths) | **The Mammoth King** |
+| **3. Mesozoic Era** | 2.5M B.C. to 250M B.C. | -1,500,000 Years / Kill | 8 Waves (Raptors/Pterodactyls) | **The Apex Carnivore** |
+| **4. Archean Primordial** | 250M B.C. to 3.5B B.C. | -20,000,000 Years / Kill | 10 Waves (Trilobites/Anomalocaris) | **The Core Sentient Ooze** |
 
 ---
 
@@ -116,7 +127,7 @@ Stage 0 (Intact) ➔ Stages 1-4 (Performance Degrades) ➔ Stage 5 (Extinction &
 ### 🧠 Head
 *   **The Penalty:** Stat feedback and textual information on future upgrade choices vanish.
     *   *Stage 1:* Numerical values on upgrade panels display as generalized statements (e.g., `+10% Speed` turns to `+More Speed`).
-    *   *Stage 2:* The UI clock engine glitched out, spinning characters wildly.
+    *   *Stage 2:* The UI clock engine glitches out, spinning characters wildly.
     *   *Stage 3:* Upgrade choice card headers turn to garbled characters, revealing only basic descriptive flavor text blocks.
     *   *Stage 4:* The master screen Health Bar vanishes. Player damage feedback relies entirely on how bright red the character model flashes.
 *   **Stage 5 (Extinct):** **The entire HUD layer is stripped from view.** Future choice cards display as blind click selections showing a single `?` icon block.
@@ -292,8 +303,9 @@ alive_enemies.append(random_enemy_type)
 func _on_enemy_killed(enemy_reference: Node) -> void:
 if alive_enemies.has(enemy_reference):
 alive_enemies.erase(enemy_reference)
-# Insert Reverse Time Engine trigger updates here
-# TimeManager.subtract_years(500)
+# Hook to the timeline manager upon death confirmation
+if TimeManager.has_method("subtract_years"):
+TimeManager.subtract_years()
 # Strict structural clear verification: triggers the next wave layout instantly
 if alive_enemies.is_empty():
 print("Wave Cleared completely! Pushing next era surge.")
@@ -335,5 +347,88 @@ text res:// ├── .godot/ ├── assets/ │ ├── audio/ │ │ ├
 
 
 
+# =======================================================================================
+# 🕒 EXTEMPORANEOUS ADDENDUM: THE TIMEMANAGER GDSCRIPT AUTOLOAD
+# =======================================================================================
+# Path: res://src/autoloads/TimeManager.gd
+# Purpose: Manages static timeline progression linked purely to active enemy destruction mechanics.
+
+extends Node
+
+signal era_changed(new_era_name: String)
+signal devolution_milestone_reached()
+signal victory_achieved()
+
+var current_era_index: int = 0
+var current_years_bc: float = -2026.0 # Negative equals A.D. scale start points
+
+# Configuration matrices for progression metrics matching Section 1
+var era_names: Array[String] = ["Modern Holocene", "Pleistocene Ice Age", "Mesozoic Era", "Archean Primordial"]
+var era_boundaries: Array[float] = [10000.0, 2500000.0, 250000000.0, 3500000000.0]
+var era_kill_values: Array[float] = [100.0, 15000.0, 1500000.0, 20000000.0]
+
+var kills_in_current_era: int = 0
+var kills_per_devolution_milestone: int = 5 # 5 Milestones per era * 4 eras = 20 total run de-evolutions
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	print_debug("Time Engine online. Initial epoch position: 2026 A.D.")
+
+# Triggered explicitly by active targets inside the registration block of WaveSpawner.gd
+func subtract_years() -> void:
+	if current_era_index >= era_names.size():
+		return
+		
+	# Calculate structural year reductions matching active era scales
+	var reduction_amt = era_kill_values[current_era_index]
+	current_years_bc += reduction_amt
+	kills_in_current_era += 1
+	
+	print_debug("Target Eliminated. Jumped ", reduction_amt, " years back. Current Time: ", current_years_bc, " B.C.")
+	
+	# Evaluate Devolution Selection Menu intervals
+	if kills_in_current_era % kills_per_devolution_milestone == 0:
+		emit_signal("devolution_milestone_reached")
+		if DevolutionManager:
+			# Automatically sample a structural degradation flag option randomly
+			var random_trait = DevolutionManager.traits.keys().pick_random()
+			DevolutionManager.devolve_trait(random_trait)
+			
+	# Evaluate Chronological Boundary crossings
+	evaluate_era_transitions()
+
+func evaluate_era_transitions() -> void:
+	if current_era_index >= era_boundaries.size():
+		return
+		
+	if current_years_bc >= era_boundaries[current_era_index]:
+		current_era_index += 1
+		kills_in_current_era = 0
+		
+		if current_era_index < era_names.size():
+			emit_signal("era_changed", era_names[current_era_index])
+			print_all_era_transition_logs(era_names[current_era_index])
+		else:
+			emit_signal("victory_achieved")
+			trigger_cellular_victory_sequence()
+
+func print_all_era_transition_logs(era_name: String) -> void:
+	print_debug("CRITICAL EPOCH BREAKPOINT MET: Entering ", era_name)
+
+func trigger_cellular_victory_sequence() -> void:
+	get_tree().paused = true
+	print("CRITICAL SUCCESS: Chronological core target 3.5 Billion B.C. achieved.")
+	print("Player structural integrity completely decomposed back into prehistoric primordial cell block matrices.")
+
+------------------------------
+## ⚖️ 9. BALANCING MATRIX: EXPERIMENTAL PACING SPECIFICATION
+To ensure that your 20-minute target length feels fast and punchy across your 4 eras, use this math reference sheet for balancing wave scaling inside your WaveSpawner.gd node configuration:
+
+* Era 1 (Modern Holocene): Requires 25 total kills to transition. Hounds and drones are assigned low health variables so that the player burns through them quickly to feel strong during the start phase.
+* Era 2 (Pleistocene Ice Age): Requires 30 total kills to transition. Neanderthals introduce structural platform guard parameters to counter player hitboxes.
+* Era 3 (Mesozoic Era): Requires 40 total kills to transition. Raptors feature high run velocity values and execute vertical lunge tracking routines.
+* Era 4 (Archean Primordial): Requires 50 total kills to transition. Trilobites pack together in tight spawn counts, pressing you onto minimal platform spaces while your limbs drop completely.
+
+------------------------------
 
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://evbvmfl63m1n"]
+[gd_scene load_steps=16 format=3 uid="uid://evbvmfl63m1n"]
 
 [ext_resource type="PackedScene" uid="uid://player_scene" path="res://scenes/player/player.tscn" id="1_player_scene"]
 [ext_resource type="PackedScene" uid="uid://base_enemy_scene" path="res://scenes/enemies/base_enemy.tscn" id="2_enemy_scene"]
@@ -9,6 +9,10 @@
 [ext_resource type="Script" path="res://scripts/systems/death_zone.gd" id="7_death_zone"]
 [ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top.png" id="8_ground_top"]
 [ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_fill.png" id="9_ground_fill"]
+[ext_resource type="Script" path="res://scripts/systems/wave_spawner.gd" id="10_wave_spawner"]
+[ext_resource type="Script" path="res://scripts/ui/character_screen.gd" id="11_char_screen"]
+[ext_resource type="Script" path="res://scripts/ui/skill_unlock_popup.gd" id="12_skill_popup"]
+[ext_resource type="Script" path="res://scripts/ui/devolution_popup.gd" id="13_devo_popup"]
 
 [sub_resource type="RectangleShape2D" id="floor_shape"]
 size = Vector2(720, 18)
@@ -57,15 +61,46 @@ shape = SubResource("death_zone_shape")
 [node name="Player" parent="." instance=ExtResource("1_player_scene")]
 position = Vector2(320, 288)
 
-[node name="Enemy1" parent="." instance=ExtResource("2_enemy_scene")]
-position = Vector2(500, 288)
-
-[node name="Enemy2" parent="." instance=ExtResource("2_enemy_scene")]
-position = Vector2(180, 288)
-
-[node name="Enemy3" parent="." instance=ExtResource("2_enemy_scene")]
-position = Vector2(600, 288)
+[node name="WaveSpawner" type="Node2D" parent="."]
+position = Vector2(360, 288)
+script = ExtResource("10_wave_spawner")
+enemy_scene = ExtResource("2_enemy_scene")
+spawn_min_x = -280.0
+spawn_max_x = 280.0
 
 [node name="HUD" parent="." instance=ExtResource("3_hud")]
 
 [node name="DeathScreen" parent="." instance=ExtResource("4_death_screen")]
+
+[node name="CharacterScreen" type="CanvasLayer" parent="."]
+layer = 10
+process_mode = 2
+
+[node name="CharScreenControl" type="Control" parent="CharacterScreen"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("11_char_screen")
+
+[node name="SkillUnlockPopup" type="CanvasLayer" parent="."]
+layer = 11
+process_mode = 2
+
+[node name="PopupControl" type="Control" parent="SkillUnlockPopup"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("12_skill_popup")
+
+[node name="DevolutionPopup" type="CanvasLayer" parent="."]
+layer = 12
+process_mode = 2
+
+[node name="DevoControl" type="Control" parent="DevolutionPopup"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("13_devo_popup")

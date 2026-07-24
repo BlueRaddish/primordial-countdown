@@ -1,8 +1,16 @@
 # player.gd
 # Player controller — side-view platformer movement + 360° mouse-aimed AoE melee combat.
+# Stats are rebuilt from TraitManager on every trait change via recalculate_from_traits().
 extends CharacterBody2D
 
-# --- Movement tuning ---
+# --- Base constants (never change) ---
+const BASE_MOVE_SPEED: float = 120.0
+const BASE_ACCELERATION: float = 900.0
+const BASE_JUMP_FORCE: float = -260.0
+const BASE_ATTACK_DAMAGE: float = 25.0
+const BASE_MELEE_RANGE: float = 24.0 # Offset of hitbox center from player
+
+# --- Live values (rebuilt from traits) ---
 @export var move_speed: float = 120.0
 @export var acceleration: float = 900.0
 @export var friction: float = 1200.0
@@ -25,6 +33,12 @@ extends CharacterBody2D
 @export var knockback_up: float = -80.0
 @export var invincibility_duration: float = 0.6
 @export var hit_knockback_force: float = 150.0
+@export var melee_aoe_color: Color = Color("4ecdc4")
+
+# --- Capability gates (set by TraitManager) ---
+var movement_enabled: bool = true
+var _can_jump: bool = true
+var arms_blocked: bool = false
 
 # --- Internal state ---
 var _coyote_timer: float = 0.0
@@ -46,6 +60,8 @@ var _aim_dir: Vector2 = Vector2.RIGHT
 @onready var _attack_hitbox: Area2D = $AttackHitbox
 @onready var _attack_shape: CollisionShape2D = $AttackHitbox/CollisionShape2D
 @onready var _slash_effect: SlashEffect = $SlashEffect
+@onready var _trait_manager: TraitManager = $TraitManager
+@onready var _ability_manager: AbilityManager = $AbilityManager
 
 
 func _ready() -> void:
@@ -69,12 +85,49 @@ func _physics_process(delta: float) -> void:
 	_handle_jump()
 	_handle_horizontal_movement(delta)
 	_handle_attack(delta)
+	_handle_skill_input()
 	_handle_invincibility(delta)
 	_update_animation()
 
 	move_and_slide()
 
 	_was_on_floor = is_on_floor()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _is_dead:
+		return
+	if event.is_action_pressed("character_screen"):
+		EventBus.character_screen_toggled.emit(true)
+
+
+# ---- Trait integration ----
+
+func recalculate_from_traits(trait_mgr: TraitManager) -> void:
+	"""Rebuild all live stats from current trait state."""
+	# Movement modifiers.
+	var leg_mod: float = trait_mgr.get_modifier("legs")
+	move_speed = BASE_MOVE_SPEED * leg_mod
+	acceleration = BASE_ACCELERATION * leg_mod
+	jump_force = BASE_JUMP_FORCE * trait_mgr.get_leg_jump_mod()
+
+	# Combat modifiers.
+	var arm_damage_mod: float = trait_mgr.get_arm_damage_mod()
+	attack_damage = BASE_ATTACK_DAMAGE * arm_damage_mod
+
+	# Capability gates.
+	movement_enabled = not trait_mgr.is_movement_blocked()
+	_can_jump = trait_mgr.can_jump()
+	arms_blocked = trait_mgr.is_arms_blocked()
+
+	# Update hitbox offset based on arm range modifier.
+	var arm_mod: float = trait_mgr.get_modifier("arms")
+	if _attack_shape:
+		_attack_shape.position.x = BASE_MELEE_RANGE * arm_mod
+
+
+func get_aim_direction() -> Vector2:
+	return _aim_dir
 
 
 # ---- Gravity ----
@@ -103,8 +156,10 @@ func _handle_timers(delta: float) -> void:
 
 
 func _handle_jump() -> void:
-	var can_jump: bool = is_on_floor() or _coyote_timer > 0.0
-	if _jump_buffer_timer > 0.0 and can_jump:
+	if not _can_jump:
+		return
+	var floor_jump: bool = is_on_floor() or _coyote_timer > 0.0
+	if _jump_buffer_timer > 0.0 and floor_jump:
 		velocity.y = jump_force
 		_coyote_timer = 0.0
 		_jump_buffer_timer = 0.0
@@ -116,6 +171,10 @@ func _handle_jump() -> void:
 # ---- Horizontal movement ----
 
 func _handle_horizontal_movement(delta: float) -> void:
+	if not movement_enabled:
+		velocity.x = move_toward(velocity.x, 0.0, friction * delta)
+		return
+
 	if _is_attacking:
 		velocity.x = move_toward(velocity.x, 0.0, friction * 0.5 * delta)
 		return
@@ -139,6 +198,9 @@ func _handle_attack(delta: float) -> void:
 		_attack_timer -= delta
 		if _attack_timer <= 0.0:
 			_finish_attack()
+		return
+
+	if arms_blocked:
 		return
 
 	if Input.is_action_just_pressed("attack") and _attack_cooldown_timer <= 0.0:
@@ -167,6 +229,7 @@ func _start_attack() -> void:
 	_attack_hitbox.rotation = _aim_angle
 	_attack_shape.disabled = false
 
+	# Show AoE fill for the melee attack.
 	if _slash_effect:
 		_slash_effect.play(attack_duration, _aim_angle)
 
@@ -189,6 +252,19 @@ func _finish_attack() -> void:
 
 	if hit_count > 0:
 		EventBus.attack_landed.emit(hit_count)
+
+
+# ---- Skill Input ----
+
+func _handle_skill_input() -> void:
+	if not _ability_manager:
+		return
+	if Input.is_action_just_pressed("skill_q"):
+		_ability_manager.activate_skill(0)
+	elif Input.is_action_just_pressed("skill_e"):
+		_ability_manager.activate_skill(1)
+	elif Input.is_action_just_pressed("skill_r"):
+		_ability_manager.activate_skill(2)
 
 
 # ---- Damage / Health ----

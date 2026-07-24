@@ -4,41 +4,57 @@
 # lives in one place instead of being split between script and scene.
 #
 # Platform spacing is sized against the player's actual jump arc:
-#   jump_force = -260, gravity = 800
-#   peak rise  = 260^2 / (2 * 800) = 42.2 px
-#   at a 27 px rise the player is above the ledge for ~0.39 s, which at 120 px/s
-#   move speed carries ~47 px horizontally.
-# So the layout uses 27 px vertical steps and gaps no wider than 36 px, leaving
-# margin on both axes. Anything tighter than that is not a jump, it is a coin flip.
+#
+#   intact legs:  jump_force = -330  ->  peak rise 330^2 / (2*800) = 68 px
+#   partial legs: jump_force = -264  ->  peak rise 264^2 / (2*800) = 44 px
+#                 and move speed drops to 78 px/s
+#
+# At a 27 px rise with partial legs the player is above the ledge for ~0.41 s,
+# carrying ~32 px horizontally. So the MAIN ROUTE uses 27 px steps and gaps of
+# 18 px, which stays climbable on degraded legs.
+#
+# The HIGH ROUTE uses 45 px steps, which partial legs (44 px peak) cannot make.
+# That is deliberate: losing a trait should close off parts of the arena.
 extends Node2D
 
 const TILE_SIZE: int = 18
 const GROUND_Y: float = 288.0
-const VERTICAL_STEP: float = 27.0
 const TERRAIN_LAYER: int = 3 # project.godot: 2d_physics/layer_3 = "terrain"
+
+# One-way platforms get a thin collider pinned to their top surface rather than a
+# full-height one. A thick one-way box lets the player end up inside it on the way
+# up and pop out at the wrong edge, which is what made the platforms feel wrong.
+const ONE_WAY_THICKNESS: float = 8.0
+const ONE_WAY_MARGIN: float = 6.0
 
 @export var ground_top_texture: Texture2D
 @export var ground_fill_texture: Texture2D
 @export var arena_width_tiles: int = 60
 @export var floor_depth_tiles: int = 4
-@export var wall_height: float = 220.0
+@export var wall_height: float = 320.0
 
 # Platform surfaces in world pixels: Rect2(x, top_y, width, height).
-# Laid out as a climbable route left to right, dropping back down on the far side.
+#
+# MAIN ROUTE (indices 0-7): 27 px steps, 18 px gaps. Climbs left to right to the
+# summit at y=153, then descends the right-hand side back to the ground.
+#
+# HIGH ROUTE (indices 8-10): 45 px steps above the summit. Intact legs only.
 @export var platforms: Array[Rect2] = [
 	Rect2(126, 261, 90, 18),   # 0: first step up off the ground
-	Rect2(180, 207, 54, 18),   # 1: small floating block, pure jump test
-	Rect2(252, 234, 90, 18),   # 2: one-way, drop through to reset the climb
-	Rect2(378, 207, 108, 18),  # 3: mid shelf
-	Rect2(522, 180, 90, 18),   # 4: upper shelf
-	Rect2(432, 153, 72, 18),   # 5: one-way, the high perch
-	Rect2(648, 207, 108, 18),  # 6: step down on the right
-	Rect2(792, 234, 90, 18),   # 7
-	Rect2(918, 207, 72, 18),   # 8: one-way, far ledge
+	Rect2(234, 234, 90, 18),   # 1: one-way — drop through to restart the climb
+	Rect2(342, 207, 108, 18),  # 2: mid shelf
+	Rect2(468, 180, 90, 18),   # 3: one-way
+	Rect2(576, 153, 108, 18),  # 4: summit of the main route
+	Rect2(720, 180, 90, 18),   # 5: descending the right side
+	Rect2(846, 207, 90, 18),   # 6: one-way
+	Rect2(972, 234, 72, 18),   # 7: last step down to the ground
+	Rect2(612, 108, 54, 18),   # 8: HIGH — 45 px above the summit
+	Rect2(504, 63, 54, 18),    # 9: HIGH — one-way, top of the arena
+	Rect2(378, 99, 54, 18),    # 10: HIGH — descent perch on the far left
 ]
 
 # Indices into `platforms` that the player can jump up through from below.
-@export var one_way_platforms: Array[int] = [2, 5, 8]
+@export var one_way_platforms: Array[int] = [1, 3, 6, 9]
 
 
 func _ready() -> void:
@@ -105,12 +121,25 @@ func _build_colliders() -> void:
 	# Platforms.
 	for i: int in range(platforms.size()):
 		var rect: Rect2 = platforms[i]
-		_make_body(
-			"Platform%d" % i,
-			rect.position + rect.size * 0.5,
-			rect.size,
-			one_way_platforms.has(i)
-		)
+		if one_way_platforms.has(i):
+			# Thin collider sitting on the top surface only, so the player passes
+			# cleanly through the body of the platform on the way up.
+			_make_body(
+				"Platform%d" % i,
+				Vector2(
+					rect.position.x + rect.size.x * 0.5,
+					rect.position.y + ONE_WAY_THICKNESS * 0.5
+				),
+				Vector2(rect.size.x, ONE_WAY_THICKNESS),
+				true
+			)
+		else:
+			_make_body(
+				"Platform%d" % i,
+				rect.position + rect.size * 0.5,
+				rect.size,
+				false
+			)
 
 
 func _make_body(node_name: String, center: Vector2, size: Vector2, one_way: bool) -> void:
@@ -126,7 +155,10 @@ func _make_body(node_name: String, center: Vector2, size: Vector2, one_way: bool
 	rect_shape.size = size
 	shape_node.shape = rect_shape
 	shape_node.one_way_collision = one_way
-	shape_node.one_way_collision_margin = 4.0
+	if one_way:
+		# Margin has to exceed the per-frame fall distance or fast falls tunnel
+		# straight through the thin collider.
+		shape_node.one_way_collision_margin = ONE_WAY_MARGIN
 	body.add_child(shape_node)
 
 	add_child(body)

@@ -154,7 +154,7 @@ func _chase_as_walker(dir: float) -> void:
 	if is_on_floor() and _is_ledge_ahead(dir):
 		velocity.x = move_toward(velocity.x, 0.0, knockback_decay * 0.02)
 		return
-	velocity.x = dir * chase_speed
+	velocity.x = dir * _effective_chase_speed()
 
 
 func _chase_as_lunger(dist: float, dir: float) -> void:
@@ -167,7 +167,17 @@ func _chase_as_lunger(dist: float, dir: float) -> void:
 	if is_on_floor() and _is_ledge_ahead(dir):
 		velocity.x = 0.0
 		return
-	velocity.x = dir * chase_speed
+	velocity.x = dir * _effective_chase_speed()
+
+
+func _effective_chase_speed() -> float:
+	"""Chase speed after the player's speech-driven intimidation aura.
+	A player with an intact voice keeps enemies at bay; as speech degrades the
+	aura shrinks and weakens, and at full loss it is gone entirely."""
+	var player: Node2D = _find_player()
+	if player and player.has_method("get_intimidation_factor"):
+		return chase_speed * (player.call("get_intimidation_factor", global_position) as float)
+	return chase_speed
 
 
 func _chase_as_hopper(delta: float, to_player: Vector2, dir: float) -> void:
@@ -185,7 +195,7 @@ func _chase_as_hopper(delta: float, to_player: Vector2, dir: float) -> void:
 	if _hop_timer <= 0.0 or player_is_above or blocked:
 		_hop_timer = hop_interval
 		velocity.y = hop_force
-		velocity.x = dir * hop_horizontal
+		velocity.x = dir * hop_horizontal * (_effective_chase_speed() / maxf(chase_speed, 0.01))
 
 
 # ---- State: WINDUP / LUNGE / RECOVER (lunger pattern) ----

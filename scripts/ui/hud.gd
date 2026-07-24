@@ -27,9 +27,18 @@ var _devolution_system: Node
 var _timeline_clock: Node
 var _status_effects: StatusEffects
 
+# Head trait stage. Drives how precise the readouts are:
+#   0 intact  — exact numbers
+#   1 partial — numbers rounded and prefixed with ~
+#   2 lost    — numbers replaced with ???
+# The bars themselves are never hidden. Hiding the whole HUD would make the run
+# unreadable rather than harder.
+var _head_stage: int = TraitManager.STAGE_INTACT
+
 
 func _ready() -> void:
 	EventBus.player_health_changed.connect(_on_health_changed)
+	EventBus.trait_changed.connect(_on_trait_changed)
 	EventBus.wave_started.connect(_on_wave_started)
 	EventBus.wave_cleared.connect(_on_wave_cleared)
 	EventBus.god_mode_changed.connect(_on_god_mode_changed)
@@ -63,18 +72,38 @@ func _process(_delta: float) -> void:
 		_devolution_bar.value = _devolution_system.call("get_progress") * 100.0
 
 	if _countdown_label and _timeline_clock:
-		_countdown_label.text = "%s yr" % _timeline_clock.call("get_countdown_text")
+		if _head_stage >= TraitManager.STAGE_LOST:
+			_countdown_label.text = "??? yr"
+		elif _head_stage == TraitManager.STAGE_PARTIAL:
+			_countdown_label.text = "~%s yr" % _timeline_clock.call("get_countdown_text")
+		else:
+			_countdown_label.text = "%s yr" % _timeline_clock.call("get_countdown_text")
 
 	if _time_label and _timeline_clock:
 		_time_label.text = _timeline_clock.call("get_elapsed_text")
 
 	if _kill_label and _devolution_system:
-		_kill_label.text = "Kills: %d   Atk: %d" % [
-			GameState.kill_count,
-			_devolution_system.get("attacks_made"),
-		]
+		var kills: int = GameState.kill_count
+		var attacks: int = _devolution_system.get("attacks_made") as int
+		_kill_label.text = "Kills: %s   Atk: %s" % [_vague(kills, 5), _vague(attacks, 10)]
 
 	_update_buff_label()
+
+
+func _vague(value: int, bucket: int) -> String:
+	"""Render a number at the precision the head trait still allows."""
+	match _head_stage:
+		TraitManager.STAGE_LOST:
+			return "??"
+		TraitManager.STAGE_PARTIAL:
+			return "~%d" % (int(round(float(value) / float(bucket))) * bucket)
+		_:
+			return str(value)
+
+
+func _on_trait_changed(trait_name: String, new_stage: int) -> void:
+	if trait_name == TraitManager.TRAIT_HEAD:
+		_head_stage = new_stage
 
 
 # ---- Builders ----

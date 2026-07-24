@@ -39,17 +39,41 @@ var traits: Dictionary = {
 	"speech": 0,
 }
 
-# --- Modifier lookup arrays (indexed by stage 0-2) ---
-# Each returns a multiplier: 1.0 = full capability, 0.0 = none.
-# Partial is a scaling penalty. Full loss zeroes the function out entirely.
-var leg_speed_mods: Array[float] = [1.0, 0.6, 0.0]
-var leg_jump_mods: Array[float] = [1.0, 0.75, 0.0]
-var arm_range_mods: Array[float] = [1.0, 0.6, 0.0]
+# --- Modifier lookup arrays (indexed by stage: 0 intact, 1 partial, 2 lost) ---
+#
+# Every trait carries a real, applied effect at BOTH partial and lost. Partial is a
+# scaling penalty with no reward; lost removes the function outright and hands over
+# a skill instead. Nothing here is decorative — if a number is in this file, some
+# system reads it.
+
+# Arms — PLANNING1: shorter reach at partial, no arm attacks at full loss.
 var arm_damage_mods: Array[float] = [1.0, 0.7, 0.0]
-var gut_regen_mods: Array[float] = [1.0, 0.5, 0.0]
-var throat_stamina_mods: Array[float] = [1.0, 0.5, 0.0]
-var speech_cry_range_mods: Array[float] = [1.0, 0.5, 0.0]
-var eyes_vision_mods: Array[float] = [1.0, 0.6, 0.0]
+var arm_range_mods: Array[float] = [1.0, 0.65, 0.0] # Scales melee hitbox length AND offset
+
+# Legs — PLANNING1: slower and shorter dash at partial, no walking at full loss.
+var leg_speed_mods: Array[float] = [1.0, 0.65, 0.0]
+var leg_jump_mods: Array[float] = [1.0, 0.8, 0.0]
+
+# Gut — PLANNING1: worse health regen at partial, none at full loss.
+# Absolute health per second rather than a multiplier, so the value is readable.
+var gut_regen_rates: Array[float] = [1.5, 0.5, 0.0]
+
+# Throat — PLANNING1: slower stamina regen at partial, none at full loss.
+# Expressed as how fast the player can swing again, rather than a separate bar.
+var throat_cooldown_mults: Array[float] = [1.0, 1.5, 2.2]
+
+# Eyes — PLANNING1: vision dims at partial, see only moving things at full loss.
+# Drives world brightness. 1.0 = untouched.
+var eyes_vision_mods: Array[float] = [1.0, 0.55, 0.22]
+
+# Speech — PLANNING1: weaker battle cry at partial, none at full loss.
+# A passive intimidation aura that slows nearby enemies.
+var speech_intimidation_radius: Array[float] = [92.0, 46.0, 0.0]
+var speech_intimidation_slow: Array[float] = [0.35, 0.18, 0.0]
+
+# Head — PLANNING1: readouts get vaguer at partial, numbers hidden at full loss.
+# The HUD reads the stage directly. Bars are never hidden, only the numbers:
+# hiding the whole HUD would make the run unreadable rather than harder.
 var head_info_mods: Array[float] = [1.0, 0.5, 0.0]
 
 # --- Cached player reference ---
@@ -95,15 +119,15 @@ func get_modifier(trait_name: String) -> float:
 		"legs":
 			return leg_speed_mods[stage]
 		"gut":
-			return gut_regen_mods[stage]
+			return gut_regen_rates[stage]
 		"throat":
-			return throat_stamina_mods[stage]
+			return throat_cooldown_mults[stage]
 		"eyes":
 			return eyes_vision_mods[stage]
 		"head":
 			return head_info_mods[stage]
 		"speech":
-			return speech_cry_range_mods[stage]
+			return speech_intimidation_slow[stage]
 	return 1.0
 
 
@@ -111,8 +135,36 @@ func get_arm_damage_mod() -> float:
 	return arm_damage_mods[get_trait_stage("arms")]
 
 
+func get_arm_range_mod() -> float:
+	return arm_range_mods[get_trait_stage("arms")]
+
+
 func get_leg_jump_mod() -> float:
 	return leg_jump_mods[get_trait_stage("legs")]
+
+
+func get_gut_regen_rate() -> float:
+	"""Health per second restored passively."""
+	return gut_regen_rates[get_trait_stage("gut")]
+
+
+func get_throat_cooldown_mult() -> float:
+	"""Multiplier on attack cooldown. Above 1.0 means slower recovery between swings."""
+	return throat_cooldown_mults[get_trait_stage("throat")]
+
+
+func get_eyes_vision_mod() -> float:
+	"""World brightness, 1.0 = untouched."""
+	return eyes_vision_mods[get_trait_stage("eyes")]
+
+
+func get_intimidation_radius() -> float:
+	return speech_intimidation_radius[get_trait_stage("speech")]
+
+
+func get_intimidation_slow() -> float:
+	"""Fraction of chase speed removed from enemies inside the intimidation radius."""
+	return speech_intimidation_slow[get_trait_stage("speech")]
 
 
 func is_arms_blocked() -> bool:

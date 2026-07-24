@@ -35,7 +35,30 @@ through three stages, per `PLANNING1.md` section 6:
 The buff softens the fall. It does not reverse it — every one is temporary and on a
 cooldown, and none of them restores the capability that was lost.
 
-Seven traits: **arms, legs, gut, throat, eyes, head, speech**.
+Every trait has a real, applied effect at **both** stages. Nothing here is decorative — if
+a number is in `trait_manager.gd`, some system reads it.
+
+| Trait | Intact | Partial | Lost |
+| --- | --- | --- | --- |
+| **Arms** | 25 dmg, 40px reach | 17.5 dmg, 26px reach | No attack at all |
+| **Legs** | 120 speed, 68px jump | 78 speed, 44px jump | No walking, no jump |
+| **Gut** | 1.5 hp/s regen | 0.5 hp/s regen | No regen |
+| **Throat** | Normal swing recovery | Swing recovery ×1.5 | Swing recovery ×2.2 |
+| **Eyes** | Full brightness | World dims to 55% | World dims to 22% |
+| **Speech** | Enemies within 92px chase 35% slower | 46px, 18% slower | No aura |
+| **Head** | Exact HUD numbers | Numbers rounded, shown as `~25` | Numbers shown as `??` |
+
+Two of these interact with the arena and the skills in ways worth knowing:
+
+- **Partial legs cannot reach the high route.** A 44px peak rise does not clear the 45px
+  steps above the summit. Losing legs closes off part of the arena before it stops you
+  walking.
+- **Throat degrades your baseline swing speed, and its own full-loss skill fixes it.**
+  Lost throat leaves you swinging at ×2.2, but Second Wind cuts it to ×0.25 in bursts.
+  Same shape for eyes: the world goes dark, and Echo Sense is how you find things in it.
+
+Head never hides the bars, only the numbers — hiding the whole HUD would make the run
+unreadable rather than harder.
 
 ---
 
@@ -127,20 +150,28 @@ requiring the menu.
 
 ## Arena
 
-The test arena is layered: ground, side walls, and nine platforms, three of which are
-one-way (marked with a teal highlight — you can jump up through them).
+Ground, side walls, and eleven platforms in two routes. Four are one-way — marked with a
+teal highlight, you can jump up through them.
 
 Spacing is sized against the actual jump arc rather than guessed:
 
 ```
-jump_force = -260, gravity = 800
-peak rise  = 260² / (2 × 800) = 42.2 px
-at a 27 px rise the player is above the ledge for ~0.39 s,
-which at 120 px/s carries ~47 px horizontally
+intact legs:   jump_force = -330  ->  peak rise 330² / (2 × 800) = 68 px
+partial legs:  jump_force = -264  ->  peak rise 264² / (2 × 800) = 44 px
+                                      and move speed drops to 78 px/s
 ```
 
-So the layout uses 27px vertical steps and gaps no wider than 36px. Layout lives in
-`scripts/systems/arena_renderer.gd`, which generates both the tiles and the colliders.
+- **Main route** (P0–P7): 27px steps with 18px gaps, climbing left to right to the summit
+  at y=153 and descending the right-hand side. Stays climbable on partial legs.
+- **High route** (P8–P10): 45px steps above the summit. Partial legs peak at 44px, so this
+  is intact-legs-only by design.
+
+One-way platforms use a thin 8px collider pinned to the top surface rather than a
+full-height one. A thick one-way box lets the player end up *inside* it on the way up and
+pop out at the wrong edge — that was the source of the platforms feeling wrong.
+
+Layout lives in `scripts/systems/arena_renderer.gd`, which generates both the tiles and the
+colliders from one list.
 
 ---
 

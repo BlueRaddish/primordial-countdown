@@ -6,9 +6,12 @@ extends CharacterBody2D
 # --- Base constants (never change) ---
 const BASE_MOVE_SPEED: float = 120.0
 const BASE_ACCELERATION: float = 900.0
-const BASE_JUMP_FORCE: float = -260.0
+# Peak rise = JUMP_FORCE^2 / (2 * gravity) = 330^2 / 1600 = 68 px.
+# The arena's optional high routes are built against that number.
+const BASE_JUMP_FORCE: float = -330.0
 const BASE_ATTACK_DAMAGE: float = 25.0
 const BASE_MELEE_RANGE: float = 24.0 # Offset of hitbox center from player
+const BASE_MELEE_LENGTH: float = 40.0 # Hitbox length along the aim direction
 
 # --- Live values (rebuilt from traits) ---
 @export var move_speed: float = 120.0
@@ -17,7 +20,7 @@ const BASE_MELEE_RANGE: float = 24.0 # Offset of hitbox center from player
 @export var air_friction: float = 400.0
 
 # --- Jump tuning ---
-@export var jump_force: float = -260.0
+@export var jump_force: float = -330.0
 @export var gravity: float = 800.0
 @export var fall_gravity_mult: float = 1.5
 @export var max_fall_speed: float = 400.0
@@ -39,6 +42,13 @@ const BASE_MELEE_RANGE: float = 24.0 # Offset of hitbox center from player
 var movement_enabled: bool = true
 var _can_jump: bool = true
 var arms_blocked: bool = false
+
+# --- Live trait-derived stats (rebuilt by recalculate_from_traits) ---
+var health_regen: float = 1.5 # Gut: health per second
+var attack_cooldown_mult: float = 1.0 # Throat: swing recovery
+var intimidation_radius: float = 92.0 # Speech: aura that slows nearby enemies
+var intimidation_slow: float = 0.35
+var vision_mod: float = 1.0 # Eyes: world brightness
 
 # --- Internal state ---
 var _coyote_timer: float = 0.0
@@ -70,10 +80,28 @@ func _ready() -> void:
 	add_to_group("player")
 	_spawn_position = global_position
 	_attack_shape.disabled = true
+
+	# The hitbox shape is resized as the arms degrade, so give this instance its
+	# own copy rather than mutating a resource shared with the packed scene.
+	if _attack_shape.shape:
+		_attack_shape.shape = _attack_shape.shape.duplicate()
+
+	# Stick to platforms when running across them instead of skipping off ledges.
+	floor_snap_length = 6.0
+
 	EventBus.player_died.connect(_on_player_died)
 	EventBus.player_hit.connect(_on_player_hit)
 	# Sync health display.
 	EventBus.player_health_changed.emit(GameState.player_health, GameState.player_max_health)
+
+	# Traits are all intact at this point, but this establishes every derived stat
+	# (regen, reach, vision) from one place instead of relying on the defaults.
+	call_deferred("_initial_recalculate")
+
+
+func _initial_recalculate() -> void:
+	if _trait_manager:
+		_trait_manager.recalculate_all()
 
 
 func _physics_process(delta: float) -> void:
@@ -89,6 +117,7 @@ func _physics_process(delta: float) -> void:
 	_handle_attack(delta)
 	_handle_skill_input()
 	_handle_invincibility(delta)
+	_handle_regen(delta)
 	_update_animation()
 
 	move_and_slide()
@@ -106,26 +135,75 @@ func _unhandled_input(event: InputEvent) -> void:
 # ---- Trait integration ----
 
 func recalculate_from_traits(trait_mgr: TraitManager) -> void:
-	"""Rebuild all live stats from current trait state."""
-	# Movement modifiers.
+	"""Rebuild all live stats from current trait state.
+
+	Every stat is rebuilt from scratch rather than nudged by deltas, so trait
+	changes can be applied in any order and undone freely (the dev +/- buttons
+	depend on this)."""
+	# Legs: movement speed and jump height.
 	var leg_mod: float = trait_mgr.get_modifier("legs")
 	move_speed = BASE_MOVE_SPEED * leg_mod
 	acceleration = BASE_ACCELERATION * leg_mod
 	jump_force = BASE_JUMP_FORCE * trait_mgr.get_leg_jump_mod()
 
-	# Combat modifiers.
-	var arm_damage_mod: float = trait_mgr.get_arm_damage_mod()
-	attack_damage = BASE_ATTACK_DAMAGE * arm_damage_mod
+	# Arms: damage and reach.
+	attack_damage = BASE_ATTACK_DAMAGE * trait_mgr.get_arm_damage_mod()
+	_apply_melee_reach(trait_mgr.get_arm_range_mod())
+
+	# Gut: passive health regen.
+	health_regen = trait_mgr.get_gut_regen_rate()
+
+	# Throat: how fast the player recovers between swings.
+	attack_cooldown_mult = trait_mgr.get_throat_cooldown_mult()
+
+	# Speech: passive intimidation aura read by enemies while chasing.
+	intimidation_radius = trait_mgr.get_intimidation_radius()
+	intimidation_slow = trait_mgr.get_intimidation_slow()
+
+	# Eyes: world brightness.
+	vision_mod = trait_mgr.get_eyes_vision_mod()
+	_apply_vision()
 
 	# Capability gates.
 	movement_enabled = not trait_mgr.is_movement_blocked()
 	_can_jump = trait_mgr.can_jump()
 	arms_blocked = trait_mgr.is_arms_blocked()
 
-	# Update hitbox offset based on arm range modifier.
-	var arm_mod: float = trait_mgr.get_modifier("arms")
-	if _attack_shape:
-		_attack_shape.position.x = BASE_MELEE_RANGE * maxf(arm_mod, 0.2)
+
+func _apply_melee_reach(range_mod: float) -> void:
+	"""Shrink the melee hitbox toward the player as the arms degrade.
+
+	Both the length and the offset scale, so partial arms genuinely have shorter
+	reach rather than just a box sitting closer in."""
+	if not _attack_shape:
+		return
+	var scale_factor: float = maxf(range_mod, 0.25)
+	var rect: RectangleShape2D = _attack_shape.shape as RectangleShape2D
+	if rect:
+		rect.size.x = BASE_MELEE_LENGTH * scale_factor
+	_attack_shape.position.x = BASE_MELEE_RANGE * scale_factor
+	if _slash_effect:
+		_slash_effect.aoe_radius = BASE_MELEE_LENGTH * scale_factor
+
+
+func _apply_vision() -> void:
+	"""Eyes drive world brightness through the arena's CanvasModulate."""
+	var modulators: Array[Node] = get_tree().get_nodes_in_group("vision_modulate")
+	for node: Node in modulators:
+		var cm: CanvasModulate = node as CanvasModulate
+		if cm:
+			var v: float = clampf(vision_mod, 0.0, 1.0)
+			cm.color = Color(v, v, minf(v + 0.06, 1.0))
+
+
+func get_intimidation_factor(from_position: Vector2) -> float:
+	"""Chase-speed multiplier applied to an enemy at the given position.
+	1.0 = unaffected. Degrades to 1.0 everywhere once speech is fully lost."""
+	if intimidation_radius <= 0.0 or intimidation_slow <= 0.0:
+		return 1.0
+	if global_position.distance_to(from_position) > intimidation_radius:
+		return 1.0
+	return 1.0 - intimidation_slow
 
 
 func get_aim_direction() -> Vector2:
@@ -247,9 +325,10 @@ func _start_attack() -> void:
 	_is_attacking = true
 	_attack_timer = attack_duration
 
-	var cd_mult: float = 1.0
+	# Throat sets the baseline swing recovery; a buff (Second Wind) can cut it back down.
+	var cd_mult: float = attack_cooldown_mult
 	if _status_effects:
-		cd_mult = _status_effects.get_attack_cooldown_mult()
+		cd_mult *= _status_effects.get_attack_cooldown_mult()
 	_attack_cooldown_timer = attack_cooldown * cd_mult
 
 	# Calculate mouse aim direction relative to player center.
@@ -354,6 +433,16 @@ func _on_player_died() -> void:
 		_status_effects.clear_all()
 	set_collision_layer_value(1, false)
 	set_collision_mask_value(3, false)
+
+
+# ---- Gut: passive regen ----
+
+func _handle_regen(delta: float) -> void:
+	if health_regen <= 0.0:
+		return
+	if GameState.player_health >= GameState.player_max_health:
+		return
+	GameState.heal_player(health_regen * delta)
 
 
 # ---- Invincibility ----

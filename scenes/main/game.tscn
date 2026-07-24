@@ -40,6 +40,8 @@ script = ExtResource("16_timeline_clock")
 
 [node name="Arena" type="Node2D" parent="."]
 
+[node name="VisionModulate" type="CanvasModulate" parent="Arena" groups=["vision_modulate"]]
+
 [node name="ArenaRenderer" type="Node2D" parent="Arena"]
 texture_filter = 0
 script = ExtResource("5_arena_renderer")

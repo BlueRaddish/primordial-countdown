@@ -1,5 +1,5 @@
 # player.gd
-# Player controller — side-view platformer movement + AoE melee combat.
+# Player controller — side-view platformer movement + 360° mouse-aimed AoE melee combat.
 extends CharacterBody2D
 
 # --- Movement tuning ---
@@ -21,7 +21,7 @@ extends CharacterBody2D
 @export var attack_damage: float = 25.0
 @export var attack_duration: float = 0.2
 @export var attack_cooldown: float = 0.35
-@export var knockback_force: float = 200.0
+@export var knockback_force: float = 220.0
 @export var knockback_up: float = -80.0
 @export var invincibility_duration: float = 0.6
 @export var hit_knockback_force: float = 150.0
@@ -39,6 +39,8 @@ var _attack_cooldown_timer: float = 0.0
 var _is_attacking: bool = false
 var _invincibility_timer: float = 0.0
 var _facing_right: bool = true
+var _aim_angle: float = 0.0
+var _aim_dir: Vector2 = Vector2.RIGHT
 
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var _attack_hitbox: Area2D = $AttackHitbox
@@ -115,7 +117,6 @@ func _handle_jump() -> void:
 
 func _handle_horizontal_movement(delta: float) -> void:
 	if _is_attacking:
-		# Slow down during attack but don't stop instantly.
 		velocity.x = move_toward(velocity.x, 0.0, friction * 0.5 * delta)
 		return
 
@@ -129,7 +130,7 @@ func _handle_horizontal_movement(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, fric * delta)
 
 
-# ---- AoE Attack ----
+# ---- 360° Mouse-Aimed AoE Attack ----
 
 func _handle_attack(delta: float) -> void:
 	_attack_cooldown_timer -= delta
@@ -148,37 +149,46 @@ func _start_attack() -> void:
 	_is_attacking = true
 	_attack_timer = attack_duration
 	_attack_cooldown_timer = attack_cooldown
-	# Enable and position the hitbox in front of the player.
+
+	# Calculate mouse aim direction relative to player center.
+	var player_center: Vector2 = global_position + Vector2(0.0, -10.0)
+	var mouse_pos: Vector2 = get_global_mouse_position()
+	var dir_to_mouse: Vector2 = mouse_pos - player_center
+
+	if dir_to_mouse.length_squared() > 0.001:
+		_aim_dir = dir_to_mouse.normalized()
+	else:
+		_aim_dir = Vector2.RIGHT if _facing_right else Vector2.LEFT
+
+	_aim_angle = _aim_dir.angle()
+	_facing_right = _aim_dir.x >= 0.0
+
+	# Rotate AttackHitbox toward mouse angle.
+	_attack_hitbox.rotation = _aim_angle
 	_attack_shape.disabled = false
-	_update_hitbox_direction()
+
 	if _slash_effect:
-		_slash_effect.play(attack_duration, _facing_right)
+		_slash_effect.play(attack_duration, _aim_angle)
 
 
 func _finish_attack() -> void:
 	_is_attacking = false
 	_attack_shape.disabled = true
-	# AoE: damage ALL enemies currently overlapping the hitbox.
+	# AoE: damage ALL enemies currently overlapping the rotated hitbox.
 	var hit_count: int = 0
 	var overlapping: Array[Node2D] = _attack_hitbox.get_overlapping_bodies()
 	for body: Node2D in overlapping:
 		if body.is_in_group("enemies") and body.has_method("take_damage"):
-			var dir: float = sign(body.global_position.x - global_position.x)
-			if dir == 0.0:
-				dir = 1.0 if _facing_right else -1.0
-			var kb: Vector2 = Vector2(dir * knockback_force, knockback_up)
+			var player_center: Vector2 = global_position + Vector2(0.0, -10.0)
+			var kb_dir: Vector2 = (body.global_position - player_center).normalized()
+			if kb_dir == Vector2.ZERO:
+				kb_dir = _aim_dir
+			var kb: Vector2 = Vector2(kb_dir.x * knockback_force, knockback_up)
 			body.call("take_damage", attack_damage, kb)
 			hit_count += 1
+
 	if hit_count > 0:
 		EventBus.attack_landed.emit(hit_count)
-
-
-func _update_hitbox_direction() -> void:
-	# Flip the attack area to face the player's direction.
-	if _facing_right:
-		_attack_hitbox.position.x = absf(_attack_hitbox.position.x)
-	else:
-		_attack_hitbox.position.x = -absf(_attack_hitbox.position.x)
 
 
 # ---- Damage / Health ----
@@ -192,10 +202,8 @@ func take_damage(amount: float, knockback_dir: Vector2 = Vector2.ZERO) -> void:
 func _on_player_hit(_damage: float, knockback_dir: Vector2) -> void:
 	if _is_dead:
 		return
-	# Apply knockback.
 	velocity = knockback_dir * hit_knockback_force
-	velocity.y = minf(velocity.y, -60.0) # Always pop up a bit.
-	# Start invincibility.
+	velocity.y = minf(velocity.y, -60.0)
 	_invincibility_timer = invincibility_duration
 
 
@@ -204,7 +212,6 @@ func _on_player_died() -> void:
 	_attack_shape.disabled = true
 	if _slash_effect:
 		_slash_effect.stop()
-	# Disable collision so the body can fall through.
 	set_collision_layer_value(1, false)
 	set_collision_mask_value(3, false)
 
@@ -214,7 +221,6 @@ func _on_player_died() -> void:
 func _handle_invincibility(delta: float) -> void:
 	if _invincibility_timer > 0.0:
 		_invincibility_timer -= delta
-		# Flash the sprite.
 		_sprite.modulate.a = 0.3 if fmod(_invincibility_timer, 0.1) > 0.05 else 1.0
 	else:
 		_sprite.modulate.a = 1.0
@@ -226,7 +232,6 @@ func _update_animation() -> void:
 	if not _sprite:
 		return
 
-	# Flip sprite to face movement direction.
 	if _facing_right:
 		_sprite.flip_h = false
 	else:

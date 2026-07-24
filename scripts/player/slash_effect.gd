@@ -1,5 +1,5 @@
 # slash_effect.gd
-# Visual indicator for the player's melee attack arc.
+# Visual indicator for the player's 360-degree directional melee attack.
 class_name SlashEffect
 extends Node2D
 
@@ -9,18 +9,18 @@ extends Node2D
 var _timer: float = 0.0
 var _duration: float = 0.2
 var _active: bool = false
-var _facing_right: bool = true
+var _aim_angle: float = 0.0
 
 
 func _ready() -> void:
 	visible = false
 
 
-func play(duration: float, facing_right: bool) -> void:
+func play(duration: float, aim_angle: float) -> void:
 	_duration = duration
 	_timer = duration
 	_active = true
-	_facing_right = facing_right
+	_aim_angle = aim_angle
 	visible = true
 	queue_redraw()
 
@@ -47,25 +47,25 @@ func _draw() -> void:
 	var progress: float = 1.0 - (_timer / _duration) # 0.0 -> 1.0
 	var alpha: float = clampf(1.0 - (progress * 0.8), 0.0, 1.0)
 
-	var radius: float = 16.0 + progress * 8.0 # expanding outward sweep
-	var start_angle: float = -PI * 0.4
-	var end_angle: float = PI * 0.4
+	# Increased radius for further reach (22px -> 40px)
+	var radius: float = 24.0 + progress * 16.0
+	var half_arc: float = PI * 0.42
+	var start_angle: float = _aim_angle - half_arc
+	var end_angle: float = _aim_angle + half_arc
 
 	var points_outer: PackedVector2Array = []
 	var points_inner: PackedVector2Array = []
-	var steps: int = 12
+	var steps: int = 16
 
 	for i: int in range(steps + 1):
 		var t: float = float(i) / float(steps)
 		var angle: float = lerpf(start_angle, end_angle, t)
-		if not _facing_right:
-			angle = PI - angle
 
 		var out_r: float = radius
 		# Crescent shape: thickest in center (t = 0.5), tapering at ends
-		var thickness: float = 8.0 * (1.0 - absf(t - 0.5) * 1.8)
-		thickness = maxf(thickness, 1.0)
-		var in_r: float = maxf(out_r - thickness, 2.0)
+		var thickness: float = 14.0 * (1.0 - absf(t - 0.5) * 1.8)
+		thickness = maxf(thickness, 1.5)
+		var in_r: float = maxf(out_r - thickness, 3.0)
 
 		var cos_a: float = cos(angle)
 		var sin_a: float = sin(angle)
@@ -90,4 +90,4 @@ func _draw() -> void:
 
 	if poly.size() > 2:
 		draw_colored_polygon(poly, draw_slash_col)
-		draw_polyline(points_outer, draw_core_col, 2.0)
+		draw_polyline(points_outer, draw_core_col, 2.5)

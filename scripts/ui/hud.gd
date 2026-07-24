@@ -9,8 +9,8 @@ extends CanvasLayer
 @onready var _settings_panel: SettingsPanel = $Control/SettingsPanel
 
 # Dynamically created UI elements.
-var _devolution_bar: ProgressBar
-var _devolution_label: Label
+var _year_label: Label
+var _year_tag_label: Label
 var _countdown_label: Label
 var _wave_label: Label
 var _kill_label: Label
@@ -51,7 +51,7 @@ func _ready() -> void:
 	_health_bar.max_value = GameState.player_max_health
 	_health_bar.value = GameState.player_health
 
-	_build_devolution_bar()
+	_build_year_counter()
 	_build_run_info()
 	_build_boss_bar()
 	_build_skill_slots()
@@ -68,8 +68,19 @@ func _find_systems() -> void:
 
 
 func _process(_delta: float) -> void:
-	if _devolution_bar and _devolution_system:
-		_devolution_bar.value = _devolution_system.call("get_progress") * 100.0
+	if _year_label and _devolution_system:
+		var years: float = _devolution_system.call("get_years_remaining")
+		if _head_stage >= TraitManager.STAGE_LOST:
+			_year_label.text = "???"
+		elif _head_stage == TraitManager.STAGE_PARTIAL:
+			_year_label.text = "~%d" % (int(round(years / 5.0)) * 5)
+		else:
+			_year_label.text = "%d" % int(ceil(years))
+		# Redden as the countdown runs out.
+		var t: float = 1.0 - (_devolution_system.call("get_years_fraction") as float)
+		_year_label.add_theme_color_override(
+			"font_color", Color("e8b0b0").lerp(Color("ff2d2d"), t)
+		)
 
 	if _countdown_label and _timeline_clock:
 		if _head_stage >= TraitManager.STAGE_LOST:
@@ -108,46 +119,31 @@ func _on_trait_changed(trait_name: String, new_stage: int) -> void:
 
 # ---- Builders ----
 
-func _build_devolution_bar() -> void:
+func _build_year_counter() -> void:
+	"""The year counter IS the devolution counter. There is no separate bar:
+	a normal attack costs 1 year, a skill costs its own, and hitting 0 means
+	fully devolved."""
 	var control: Control = $Control
 
-	_devolution_bar = ProgressBar.new()
-	_devolution_bar.position = Vector2(8, 24)
-	_devolution_bar.size = Vector2(100, 8)
-	_devolution_bar.max_value = 100.0
-	_devolution_bar.value = 0.0
-	_devolution_bar.show_percentage = false
+	_year_label = Label.new()
+	_year_label.text = "--"
+	_year_label.position = Vector2(8, 20)
+	_year_label.add_theme_font_size_override("font_size", 14)
+	_year_label.add_theme_color_override("font_color", Color("e74c3c"))
+	control.add_child(_year_label)
 
-	var bg_style: StyleBoxFlat = StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.15, 0.15, 0.2, 0.8)
-	bg_style.corner_radius_top_left = 1
-	bg_style.corner_radius_top_right = 1
-	bg_style.corner_radius_bottom_left = 1
-	bg_style.corner_radius_bottom_right = 1
-	_devolution_bar.add_theme_stylebox_override("background", bg_style)
+	_year_tag_label = Label.new()
+	_year_tag_label.text = "YEARS LEFT"
+	_year_tag_label.position = Vector2(58, 25)
+	_year_tag_label.add_theme_font_size_override("font_size", 7)
+	_year_tag_label.add_theme_color_override("font_color", Color(0.65, 0.5, 0.5))
+	control.add_child(_year_tag_label)
 
-	var fill_style: StyleBoxFlat = StyleBoxFlat.new()
-	fill_style.bg_color = Color("e74c3c")
-	fill_style.corner_radius_top_left = 1
-	fill_style.corner_radius_top_right = 1
-	fill_style.corner_radius_bottom_left = 1
-	fill_style.corner_radius_bottom_right = 1
-	_devolution_bar.add_theme_stylebox_override("fill", fill_style)
-
-	control.add_child(_devolution_bar)
-
-	_devolution_label = Label.new()
-	_devolution_label.text = "DEVO"
-	_devolution_label.position = Vector2(112, 22)
-	_devolution_label.add_theme_font_size_override("font_size", 7)
-	_devolution_label.add_theme_color_override("font_color", Color("e74c3c"))
-	control.add_child(_devolution_label)
-
-	# PLANNING1 section 5: the bar drives devolution, the readout is a display
-	# layer, and the readout is logarithmic.
+	# PLANNING1 section 5 settles that the era readout is logarithmic. It is a
+	# display layer over the same counter, never a second source of truth.
 	_countdown_label = Label.new()
 	_countdown_label.text = "--"
-	_countdown_label.position = Vector2(142, 22)
+	_countdown_label.position = Vector2(120, 25)
 	_countdown_label.add_theme_font_size_override("font_size", 7)
 	_countdown_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.85))
 	control.add_child(_countdown_label)

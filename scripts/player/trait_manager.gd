@@ -53,6 +53,9 @@ var arm_range_mods: Array[float] = [1.0, 0.65, 0.0] # Scales melee hitbox length
 # Legs — PLANNING1: slower and shorter dash at partial, no walking at full loss.
 var leg_speed_mods: Array[float] = [1.0, 0.65, 0.0]
 var leg_jump_mods: Array[float] = [1.0, 0.8, 0.0]
+# Mid-air jumps. Intact legs get a double jump; degraded legs lose it, which is
+# what keeps the arena's high route behind intact legs.
+var leg_air_jumps: Array[int] = [1, 0, 0]
 
 # Gut — PLANNING1: worse health regen at partial, none at full loss.
 # Absolute health per second rather than a multiplier, so the value is readable.
@@ -141,6 +144,10 @@ func get_arm_range_mod() -> float:
 
 func get_leg_jump_mod() -> float:
 	return leg_jump_mods[get_trait_stage("legs")]
+
+
+func get_air_jumps() -> int:
+	return leg_air_jumps[get_trait_stage("legs")]
 
 
 func get_gut_regen_rate() -> float:

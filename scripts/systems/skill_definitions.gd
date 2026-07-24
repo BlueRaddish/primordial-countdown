@@ -35,6 +35,7 @@ static func get_all_skills() -> Array[SkillData]:
 	gorge.flavor = "Nothing digests any more. It feeds on the blow itself."
 	gorge.kind = SkillData.Kind.BUFF
 	gorge.cooldown = 14.0
+	gorge.year_cost = 8.0
 	gorge.aoe_color = Color("2ecc71") # Green
 	gorge.is_directional = false
 	gorge.aoe_radius = 34.0
@@ -52,6 +53,7 @@ static func get_all_skills() -> Array[SkillData]:
 	aura.flavor = "It cannot cry out. It simply becomes something you do not approach."
 	aura.kind = SkillData.Kind.BUFF
 	aura.cooldown = 16.0
+	aura.year_cost = 8.0
 	aura.aoe_color = Color("f39c12") # Orange
 	aura.is_directional = false
 	aura.aoe_radius = 40.0
@@ -70,6 +72,7 @@ static func get_all_skills() -> Array[SkillData]:
 	surge.flavor = "No hands to aim with. Only weight, and the will to throw it."
 	surge.kind = SkillData.Kind.BUFF
 	surge.cooldown = 15.0
+	surge.year_cost = 10.0
 	surge.aoe_color = Color("e74c3c") # Red
 	surge.is_directional = false
 	surge.aoe_radius = 30.0
@@ -86,6 +89,7 @@ static func get_all_skills() -> Array[SkillData]:
 	echo.flavor = "It stopped looking. The floor tells it everything it needs."
 	echo.kind = SkillData.Kind.BUFF
 	echo.cooldown = 13.0
+	echo.year_cost = 8.0
 	echo.aoe_color = Color("9b59b6") # Purple
 	echo.is_directional = false
 	echo.aoe_radius = 30.0
@@ -104,6 +108,7 @@ static func get_all_skills() -> Array[SkillData]:
 	wind.flavor = "It has stopped budgeting its breath. There is none left to budget."
 	wind.kind = SkillData.Kind.BUFF
 	wind.cooldown = 14.0
+	wind.year_cost = 8.0
 	wind.aoe_color = Color("1abc9c") # Teal
 	wind.is_directional = false
 	wind.aoe_radius = 28.0
@@ -120,6 +125,7 @@ static func get_all_skills() -> Array[SkillData]:
 	pounce.flavor = "It no longer walks anywhere. It arrives."
 	pounce.kind = SkillData.Kind.MOVEMENT
 	pounce.cooldown = 3.0
+	pounce.year_cost = 0.0
 	pounce.aoe_color = Color("3498db") # Blue
 	pounce.is_directional = true
 	pounce.aoe_radius = 26.0
@@ -139,6 +145,7 @@ static func get_all_skills() -> Array[SkillData]:
 	kick.flavor = "One capability collapses onto another and sharpens it."
 	kick.kind = SkillData.Kind.OFFENSIVE
 	kick.cooldown = 2.5
+	kick.year_cost = 1.0
 	kick.aoe_damage = 60.0
 	kick.aoe_radius = 32.0
 	kick.aoe_color = Color("e67e22") # Dark orange
@@ -153,6 +160,7 @@ static func get_all_skills() -> Array[SkillData]:
 	apex.flavor = "Two silences at once. What remains is entirely appetite."
 	apex.kind = SkillData.Kind.BUFF
 	apex.cooldown = 24.0
+	apex.year_cost = 15.0
 	apex.aoe_color = Color("f1c40f") # Gold
 	apex.is_directional = false
 	apex.aoe_radius = 46.0
@@ -170,6 +178,7 @@ static func get_all_skills() -> Array[SkillData]:
 	fury.flavor = "It cannot see what it is hitting. It hits anyway."
 	fury.kind = SkillData.Kind.OFFENSIVE
 	fury.cooldown = 4.0
+	fury.year_cost = 2.0
 	fury.aoe_damage = 38.0
 	fury.aoe_radius = 44.0
 	fury.aoe_color = Color("8e44ad") # Deep purple

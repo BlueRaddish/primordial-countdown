@@ -4,6 +4,7 @@
 extends Control
 
 var _slot_labels: Array[Label] = []
+var _cost_labels: Array[Label] = []
 var _cooldown_overlays: Array[ColorRect] = []
 var _key_labels: Array[Label] = []
 
@@ -52,6 +53,17 @@ func _ready() -> void:
 		slot_panel.add_child(name_lbl)
 		_slot_labels.append(name_lbl)
 
+		# Year cost, top-right of the slot.
+		var cost_lbl: Label = Label.new()
+		cost_lbl.text = ""
+		cost_lbl.position = Vector2(16, 0)
+		cost_lbl.size = Vector2(30, 10)
+		cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		cost_lbl.add_theme_font_size_override("font_size", 7)
+		cost_lbl.add_theme_color_override("font_color", Color("e08b6b"))
+		slot_panel.add_child(cost_lbl)
+		_cost_labels.append(cost_lbl)
+
 		# Cooldown overlay (fills downward).
 		var cd_rect: ColorRect = ColorRect.new()
 		cd_rect.color = Color(0.0, 0.0, 0.0, 0.5)
@@ -82,13 +94,7 @@ func _process(_delta: float) -> void:
 
 
 func _on_skill_assigned(slot_index: int, skill_data: Resource) -> void:
-	if slot_index < 0 or slot_index > 2:
-		return
-	if skill_data == null:
-		_slot_labels[slot_index].text = "---"
-	else:
-		var skill: SkillData = skill_data as SkillData
-		_slot_labels[slot_index].text = skill.skill_name
+	update_slot(slot_index, skill_data as SkillData)
 
 
 func update_slot(slot_index: int, skill: SkillData) -> void:
@@ -96,5 +102,10 @@ func update_slot(slot_index: int, skill: SkillData) -> void:
 		return
 	if skill == null:
 		_slot_labels[slot_index].text = "---"
+		_cost_labels[slot_index].text = ""
 	else:
 		_slot_labels[slot_index].text = skill.skill_name
+		_cost_labels[slot_index].text = skill.get_cost_label()
+		_cost_labels[slot_index].add_theme_color_override(
+			"font_color", Color(0.4, 0.75, 0.45) if skill.year_cost <= 0.0 else Color("e08b6b")
+		)

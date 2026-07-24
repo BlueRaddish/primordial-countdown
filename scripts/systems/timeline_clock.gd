@@ -33,40 +33,15 @@ func get_elapsed_text() -> String:
 
 
 func get_run_fraction() -> float:
-	"""0.0 at the start of the run, 1.0 once every trait is fully lost.
+	"""0.0 at the start of the run, 1.0 when the year counter reaches zero.
 
-	Derived from actual trait state rather than from the devolution step counter,
-	so the readout stays honest when traits are moved by anything other than the
-	bar — the character screen's dev buttons, for instance."""
-	var trait_mgr: TraitManager = _find_trait_manager()
-	if not trait_mgr:
-		return 0.0
-
-	var max_total: int = TraitManager.ALL_TRAITS.size() * TraitManager.MAX_STAGE
-	if max_total <= 0:
-		return 0.0
-
-	var stages: int = 0
-	for trait_name: String in TraitManager.ALL_TRAITS:
-		stages += trait_mgr.get_trait_stage(trait_name)
-
-	var done: float = float(stages)
-
-	# Blend in the partially filled bar, so the readout creeps between steps
-	# instead of only moving when a devolution lands.
+	Derived straight from the year counter, which is the run's single source of
+	progression truth now that the devolution bar is gone."""
 	if not _devolution_system:
 		_find_devolution_system()
-	if _devolution_system and stages < max_total:
-		done += _devolution_system.call("get_progress")
-
-	return clampf(done / float(max_total), 0.0, 1.0)
-
-
-func _find_trait_manager() -> TraitManager:
-	var players: Array[Node] = get_tree().get_nodes_in_group("player")
-	if players.size() > 0 and players[0].has_node("TraitManager"):
-		return players[0].get_node("TraitManager") as TraitManager
-	return null
+	if not _devolution_system:
+		return 0.0
+	return 1.0 - (_devolution_system.call("get_years_fraction") as float)
 
 
 func get_countdown_years() -> float:

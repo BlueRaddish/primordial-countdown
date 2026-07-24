@@ -26,6 +26,9 @@ const BASE_MELEE_LENGTH: float = 40.0 # Hitbox length along the aim direction
 @export var max_fall_speed: float = 400.0
 @export var coyote_time: float = 0.08
 @export var jump_buffer_time: float = 0.1
+# Mid-air jumps available after leaving the ground. Rebuilt from the legs trait.
+@export var max_air_jumps: int = 1
+@export var air_jump_force_mult: float = 0.9
 
 # --- Combat tuning ---
 @export var max_health: float = 100.0
@@ -53,6 +56,7 @@ var vision_mod: float = 1.0 # Eyes: world brightness
 # --- Internal state ---
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
+var _air_jumps_left: int = 0
 var _was_on_floor: bool = false
 var _is_dead: bool = false
 var _spawn_position: Vector2 = Vector2.ZERO
@@ -145,6 +149,8 @@ func recalculate_from_traits(trait_mgr: TraitManager) -> void:
 	move_speed = BASE_MOVE_SPEED * leg_mod
 	acceleration = BASE_ACCELERATION * leg_mod
 	jump_force = BASE_JUMP_FORCE * trait_mgr.get_leg_jump_mod()
+	max_air_jumps = trait_mgr.get_air_jumps()
+	_air_jumps_left = mini(_air_jumps_left, max_air_jumps)
 
 	# Arms: damage and reach.
 	attack_damage = BASE_ATTACK_DAMAGE * trait_mgr.get_arm_damage_mod()
@@ -207,6 +213,20 @@ func get_intimidation_factor(from_position: Vector2) -> float:
 
 
 func get_aim_direction() -> Vector2:
+	"""Recomputed from the cursor on every call, so skills fired without attacking
+	first (Pounce especially) aim where the player is actually pointing rather than
+	at wherever the last swing happened to land."""
+	return _refresh_aim_from_mouse()
+
+
+func _refresh_aim_from_mouse() -> Vector2:
+	var player_center: Vector2 = global_position + Vector2(0.0, -10.0)
+	var dir_to_mouse: Vector2 = get_global_mouse_position() - player_center
+	if dir_to_mouse.length_squared() > 0.001:
+		_aim_dir = dir_to_mouse.normalized()
+	else:
+		_aim_dir = Vector2.RIGHT if _facing_right else Vector2.LEFT
+	_aim_angle = _aim_dir.angle()
 	return _aim_dir
 
 
@@ -253,6 +273,9 @@ func _apply_gravity(delta: float) -> void:
 func _handle_timers(delta: float) -> void:
 	if is_on_floor():
 		_coyote_timer = coyote_time
+		# Refilled here rather than on landing, so the count is always correct even
+		# if the player is pushed onto a surface without a clean landing frame.
+		_air_jumps_left = max_air_jumps
 	else:
 		_coyote_timer -= delta
 
@@ -268,14 +291,33 @@ func _handle_timers(delta: float) -> void:
 func _handle_jump() -> void:
 	if not _can_jump:
 		return
-	var floor_jump: bool = is_on_floor() or _coyote_timer > 0.0
-	if _jump_buffer_timer > 0.0 and floor_jump:
-		velocity.y = jump_force
-		_coyote_timer = 0.0
-		_jump_buffer_timer = 0.0
+
+	if _jump_buffer_timer > 0.0:
+		var floor_jump: bool = is_on_floor() or _coyote_timer > 0.0
+		if floor_jump:
+			velocity.y = jump_force
+			_coyote_timer = 0.0
+			_jump_buffer_timer = 0.0
+		elif _air_jumps_left > 0:
+			# Mid-air jump: reset vertical velocity rather than adding to it, so a
+			# double jump behaves the same whether it is used rising or falling.
+			_air_jumps_left -= 1
+			velocity.y = jump_force * air_jump_force_mult
+			_jump_buffer_timer = 0.0
+			_spawn_air_jump_puff()
 
 	if Input.is_action_just_released("jump") and velocity.y < 0.0:
 		velocity.y *= 0.4
+
+
+func _spawn_air_jump_puff() -> void:
+	"""Small burst under the player so the second jump reads visually."""
+	var puff: AoEIndicator = AoEIndicator.new()
+	puff.aoe_center = global_position
+	puff.aoe_radius = 12.0
+	puff.aoe_color = Color(0.8, 0.9, 1.0)
+	puff.is_directional = false
+	get_parent().add_child(puff)
 
 
 # ---- Horizontal movement ----
@@ -331,17 +373,7 @@ func _start_attack() -> void:
 		cd_mult *= _status_effects.get_attack_cooldown_mult()
 	_attack_cooldown_timer = attack_cooldown * cd_mult
 
-	# Calculate mouse aim direction relative to player center.
-	var player_center: Vector2 = global_position + Vector2(0.0, -10.0)
-	var mouse_pos: Vector2 = get_global_mouse_position()
-	var dir_to_mouse: Vector2 = mouse_pos - player_center
-
-	if dir_to_mouse.length_squared() > 0.001:
-		_aim_dir = dir_to_mouse.normalized()
-	else:
-		_aim_dir = Vector2.RIGHT if _facing_right else Vector2.LEFT
-
-	_aim_angle = _aim_dir.angle()
+	_refresh_aim_from_mouse()
 	_facing_right = _aim_dir.x >= 0.0
 
 	# Rotate AttackHitbox toward mouse angle.

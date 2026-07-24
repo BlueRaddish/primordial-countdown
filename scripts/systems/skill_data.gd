@@ -23,6 +23,11 @@ enum Kind { OFFENSIVE, BUFF, MOVEMENT }
 @export var kind: Kind = Kind.OFFENSIVE
 @export var cooldown: float = 3.0
 
+# Years burned off the countdown when this skill fires. A normal attack costs 1.
+# Zero means the skill is free: reserved for skills the player has no alternative
+# to, like the movement that replaces walking once the legs are gone.
+@export var year_cost: float = 0.0
+
 # --- Offensive component ---
 @export var aoe_damage: float = 0.0
 @export var aoe_radius: float = 30.0
@@ -75,6 +80,12 @@ func get_trait_tags() -> Array[String]:
 	for trait_name: String in unlock_conditions:
 		tags.append(trait_name)
 	return tags
+
+
+func get_cost_label() -> String:
+	if year_cost <= 0.0:
+		return "free"
+	return "%d yr" % int(round(year_cost))
 
 
 func get_kind_label() -> String:

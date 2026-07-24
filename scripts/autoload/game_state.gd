@@ -17,6 +17,7 @@ var current_wave: int = 0
 
 # ---- Dev / testing ----
 var god_mode: bool = false
+var no_skill_cooldown: bool = false
 
 # PLANNING1 milestone 3 wants a FIXED degradation order. Player-chosen degradation
 # is section 6's "possible later", so it stays off unless a tester flips it.

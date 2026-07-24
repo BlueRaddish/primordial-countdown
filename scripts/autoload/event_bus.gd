@@ -35,7 +35,9 @@ signal buff_expired(buff_id: String)
 # actually degrades once something calls TraitManager.devolve_trait().
 signal devolution_pending(trait_name: String, step_index: int)
 signal devolution_applied(trait_name: String, new_stage: int)
-signal devolution_progress_changed(progress: float)
+# The year counter is the devolution counter. Attacks and skills burn years.
+signal years_changed(remaining: float, total: float)
+signal skill_cost_paid(years: float)
 signal wave_cleared(wave_number: int)
 signal wave_started(wave_number: int, enemy_count: int)
 

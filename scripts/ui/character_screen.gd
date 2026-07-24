@@ -17,6 +17,7 @@ var _skill_slot_labels: Array[Label] = []
 var _available_skills_container: VBoxContainer
 var _panel: Panel
 var _god_mode_btn: Button
+var _no_cooldown_btn: Button
 var _choice_mode_btn: Button
 var _skill_detail_label: Label
 
@@ -249,8 +250,15 @@ func _build_dev_panel() -> void:
 	_god_mode_btn.pressed.connect(_on_god_mode_pressed)
 	_panel.add_child(_god_mode_btn)
 
+	_no_cooldown_btn = Button.new()
+	_no_cooldown_btn.position = Vector2(10, 246)
+	_no_cooldown_btn.custom_minimum_size = Vector2(220, 20)
+	_no_cooldown_btn.add_theme_font_size_override("font_size", 8)
+	_no_cooldown_btn.pressed.connect(_on_no_cooldown_pressed)
+	_panel.add_child(_no_cooldown_btn)
+
 	_choice_mode_btn = Button.new()
-	_choice_mode_btn.position = Vector2(10, 248)
+	_choice_mode_btn.position = Vector2(10, 268)
 	_choice_mode_btn.custom_minimum_size = Vector2(220, 20)
 	_choice_mode_btn.add_theme_font_size_override("font_size", 8)
 	_choice_mode_btn.pressed.connect(_on_choice_mode_pressed)
@@ -258,7 +266,7 @@ func _build_dev_panel() -> void:
 
 	var reset_btn: Button = Button.new()
 	reset_btn.text = "Reset all traits to intact"
-	reset_btn.position = Vector2(10, 272)
+	reset_btn.position = Vector2(10, 290)
 	reset_btn.custom_minimum_size = Vector2(220, 20)
 	reset_btn.add_theme_font_size_override("font_size", 8)
 	reset_btn.pressed.connect(_on_reset_traits)
@@ -356,8 +364,17 @@ func _refresh_skills() -> void:
 		cd_lbl.text = "%.0fs" % skill.cooldown
 		cd_lbl.add_theme_font_size_override("font_size", 6)
 		cd_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
-		cd_lbl.custom_minimum_size = Vector2(20, 14)
+		cd_lbl.custom_minimum_size = Vector2(18, 14)
 		hbox.add_child(cd_lbl)
+
+		var cost_lbl: Label = Label.new()
+		cost_lbl.text = skill.get_cost_label()
+		cost_lbl.add_theme_font_size_override("font_size", 6)
+		cost_lbl.add_theme_color_override(
+			"font_color", Color(0.4, 0.75, 0.45) if skill.year_cost <= 0.0 else Color("e08b6b")
+		)
+		cost_lbl.custom_minimum_size = Vector2(26, 14)
+		hbox.add_child(cost_lbl)
 
 		for i: int in range(3):
 			var btn: Button = Button.new()
@@ -370,7 +387,7 @@ func _refresh_skills() -> void:
 
 		_available_skills_container.add_child(hbox)
 
-	_skill_detail_label.text = "* = multi-trait skill. Hover an assign button for details."
+	_skill_detail_label.text = "* = multi-trait. Costs are years off the countdown; a normal attack costs 1."
 
 
 func _refresh_dev_toggles() -> void:
@@ -378,6 +395,12 @@ func _refresh_dev_toggles() -> void:
 		_god_mode_btn.text = "Take no damage: %s" % ("ON" if GameState.god_mode else "OFF")
 		var col: Color = Color("2ecc71") if GameState.god_mode else Color(0.7, 0.7, 0.8)
 		_god_mode_btn.add_theme_color_override("font_color", col)
+	if _no_cooldown_btn:
+		_no_cooldown_btn.text = "Zero skill cooldown: %s" % (
+			"ON" if GameState.no_skill_cooldown else "OFF"
+		)
+		var cd_col: Color = Color("2ecc71") if GameState.no_skill_cooldown else Color(0.7, 0.7, 0.8)
+		_no_cooldown_btn.add_theme_color_override("font_color", cd_col)
 	if _choice_mode_btn:
 		var mode: String = "PLAYER CHOICE" if GameState.devolution_player_choice else "FIXED ORDER"
 		_choice_mode_btn.text = "Devolution order: %s" % mode
@@ -398,7 +421,9 @@ func _on_skill_assigned(_slot_index: int, _skill_data: Resource) -> void:
 func _on_skill_hovered(skill: SkillData) -> void:
 	if not _skill_detail_label:
 		return
-	_skill_detail_label.text = "%s  —  Requires: %s" % [skill.description, skill.get_requirement_text()]
+	_skill_detail_label.text = "%s  —  Cost: %s  —  Requires: %s" % [
+		skill.description, skill.get_cost_label(), skill.get_requirement_text()
+	]
 
 
 func _on_dev_inc(trait_name: String) -> void:
@@ -428,6 +453,11 @@ func _on_reset_traits() -> void:
 
 func _on_god_mode_pressed() -> void:
 	GameState.toggle_god_mode()
+	_refresh_dev_toggles()
+
+
+func _on_no_cooldown_pressed() -> void:
+	GameState.no_skill_cooldown = not GameState.no_skill_cooldown
 	_refresh_dev_toggles()
 
 

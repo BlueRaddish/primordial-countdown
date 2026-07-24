@@ -140,7 +140,9 @@ func _show(skill: SkillData) -> void:
 	_kind_label.text = skill.get_kind_label() + ("  MULTI" if skill.is_multi_trait() else "")
 	_desc_label.text = skill.description
 	_flavor_label.text = skill.flavor
-	_req_label.text = "Requires: %s" % skill.get_requirement_text()
+	_req_label.text = "Cost: %s   |   Requires: %s" % [
+		skill.get_cost_label(), skill.get_requirement_text()
+	]
 	visible = true
 	_is_open = true
 	GameState.push_pause(PAUSE_ID)

@@ -120,7 +120,12 @@ func activate_skill(slot_index: int) -> void:
 		return
 
 	var skill: SkillData = skill_slots[slot_index] as SkillData
-	slot_cooldowns[slot_index] = skill.cooldown
+	slot_cooldowns[slot_index] = 0.0 if GameState.no_skill_cooldown else skill.cooldown
+
+	# Skills are paid for in years off the countdown. Free skills (Pounce) charge
+	# nothing, because the player has no alternative once the legs are gone.
+	if skill.year_cost > 0.0:
+		EventBus.skill_cost_paid.emit(skill.year_cost)
 
 	_execute_skill(skill)
 
@@ -182,9 +187,8 @@ func _execute_offensive(skill: SkillData, aim_dir: Vector2) -> void:
 		if _player.has_method("report_damage_dealt"):
 			_player.call("report_damage_dealt", damage * float(hit_count))
 
-	# An offensive skill is a swing, so it feeds the devolution clock like one.
-	EventBus.attack_made.emit()
-
+	# Note: offensive skills do NOT also emit attack_made. They already paid their
+	# own year_cost in activate_skill, and charging both would double-bill them.
 	_show_aoe(center, skill.aoe_radius, skill.aoe_color, skill.is_directional, aim_dir)
 
 
@@ -212,6 +216,8 @@ func get_skill_in_slot(slot_index: int) -> SkillData:
 func get_cooldown_fraction(slot_index: int) -> float:
 	"""Returns 0.0 (ready) to 1.0 (full cooldown)."""
 	if slot_index < 0 or slot_index > 2:
+		return 0.0
+	if GameState.no_skill_cooldown:
 		return 0.0
 	var skill: SkillData = get_skill_in_slot(slot_index)
 	if skill == null or skill.cooldown <= 0.0:

@@ -1,6 +1,9 @@
 # ability_manager.gd
 # Manages player abilities derived from current trait state.
 # Handles Q/E/R skill slots, skill unlock detection, and skill activation.
+#
+# Skills are never bought or found. They appear and disappear purely as a function
+# of what the player can currently do, which is TraitManager's job to know.
 class_name AbilityManager
 extends Node
 
@@ -14,9 +17,6 @@ var all_skills: Array[SkillData] = []
 # Currently unlocked skills (conditions met by current traits).
 var available_skills: Array[SkillData] = []
 
-# Previously unlocked set — to detect newly unlocked skills.
-var _previously_available: Array[SkillData] = []
-
 # Parent player reference.
 var _player: CharacterBody2D
 
@@ -25,6 +25,7 @@ func _ready() -> void:
 	all_skills = SkillDefinitions.get_all_skills()
 	_player = get_parent() as CharacterBody2D
 	EventBus.trait_changed.connect(_on_trait_changed)
+	call_deferred("refresh_available_skills")
 
 
 func _process(delta: float) -> void:
@@ -86,6 +87,7 @@ func assign_skill(slot_index: int, skill: SkillData) -> void:
 			if existing.skill_name == skill.skill_name:
 				skill_slots[i] = null
 				slot_cooldowns[i] = 0.0
+				EventBus.skill_assigned.emit(i, null)
 	skill_slots[slot_index] = skill
 	slot_cooldowns[slot_index] = 0.0
 	EventBus.skill_assigned.emit(slot_index, skill)
@@ -97,6 +99,15 @@ func unassign_skill(slot_index: int) -> void:
 	skill_slots[slot_index] = null
 	slot_cooldowns[slot_index] = 0.0
 	EventBus.skill_assigned.emit(slot_index, null)
+
+
+func auto_assign(skill: SkillData) -> int:
+	"""Drop a skill into the first free slot. Returns the slot used, or -1."""
+	for i: int in range(3):
+		if skill_slots[i] == null:
+			assign_skill(i, skill)
+			return i
+	return -1
 
 
 func activate_skill(slot_index: int) -> void:
@@ -111,47 +122,73 @@ func activate_skill(slot_index: int) -> void:
 	var skill: SkillData = skill_slots[slot_index] as SkillData
 	slot_cooldowns[slot_index] = skill.cooldown
 
-	# Execute the skill: deal damage in AoE.
 	_execute_skill(skill)
 
 
 func _execute_skill(skill: SkillData) -> void:
-	"""Deal AoE damage and show visualization."""
 	if not _player:
 		return
 
 	var aim_dir: Vector2 = Vector2.RIGHT
 	if _player.has_method("get_aim_direction"):
-		aim_dir = _player.get_aim_direction()
+		aim_dir = _player.call("get_aim_direction")
 
-	var center: Vector2 = _player.global_position
+	# 1. Offensive component.
+	if skill.aoe_damage > 0.0:
+		_execute_offensive(skill, aim_dir)
+	else:
+		# Buff and movement skills still show a burst centred on the player.
+		_show_aoe(_player.global_position + Vector2(0.0, -10.0), skill.aoe_radius,
+			skill.aoe_color, false, aim_dir)
+
+	# 2. Buff component.
+	if skill.buff_duration > 0.0:
+		var status: StatusEffects = _get_status_effects()
+		if status:
+			status.apply_buff(skill)
+
+	# 3. Impulse component (alternative movement).
+	if skill.impulse_speed > 0.0 and _player.has_method("apply_impulse"):
+		_player.call("apply_impulse", aim_dir, skill.impulse_speed, skill.impulse_upward_bias)
+
+	EventBus.skill_used.emit(skill)
+
+
+func _execute_offensive(skill: SkillData, aim_dir: Vector2) -> void:
+	var center: Vector2 = _player.global_position + Vector2(0.0, -10.0)
 	if skill.is_directional:
 		center += aim_dir * skill.aoe_radius * 0.6
 
-	# Find all enemies in AoE radius.
-	var enemies: Array[Node] = get_tree().get_nodes_in_group("enemies")
+	var damage: float = skill.aoe_damage
+	var status: StatusEffects = _get_status_effects()
+	if status:
+		damage *= status.get_damage_mult()
+
 	var hit_count: int = 0
-	for enemy_node: Node in enemies:
-		var enemy: Node2D = enemy_node as Node2D
-		if not enemy or not enemy_node.is_in_group("enemies"):
+	for node: Node in get_tree().get_nodes_in_group("enemies"):
+		var enemy: Node2D = node as Node2D
+		if not enemy or not enemy.has_method("take_damage"):
 			continue
-		var dist: float = center.distance_to(enemy.global_position)
-		if dist <= skill.aoe_radius:
-			var knockback_dir: Vector2 = (enemy.global_position - _player.global_position).normalized()
-			if knockback_dir.length_squared() < 0.01:
-				knockback_dir = aim_dir
-			EventBus.enemy_hit.emit(enemy_node, skill.damage, knockback_dir)
-			hit_count += 1
+		if center.distance_to(enemy.global_position) > skill.aoe_radius:
+			continue
+		var kb_dir: Vector2 = (enemy.global_position - _player.global_position).normalized()
+		if kb_dir.length_squared() < 0.01:
+			kb_dir = aim_dir
+		enemy.call("take_damage", damage, Vector2(kb_dir.x * 220.0, -90.0))
+		hit_count += 1
 
 	if hit_count > 0:
 		EventBus.attack_landed.emit(hit_count)
+		if _player.has_method("report_damage_dealt"):
+			_player.call("report_damage_dealt", damage * float(hit_count))
 
-	# Show AoE visualization.
+	# An offensive skill is a swing, so it feeds the devolution clock like one.
+	EventBus.attack_made.emit()
+
 	_show_aoe(center, skill.aoe_radius, skill.aoe_color, skill.is_directional, aim_dir)
 
 
 func _show_aoe(center: Vector2, radius: float, color: Color, directional: bool, aim_dir: Vector2) -> void:
-	"""Create an AoE indicator at the given position."""
 	if not _player:
 		return
 	var indicator: AoEIndicator = AoEIndicator.new()
@@ -185,4 +222,10 @@ func get_cooldown_fraction(slot_index: int) -> float:
 func _get_trait_manager() -> TraitManager:
 	if _player and _player.has_node("TraitManager"):
 		return _player.get_node("TraitManager") as TraitManager
+	return null
+
+
+func _get_status_effects() -> StatusEffects:
+	if _player and _player.has_node("StatusEffects"):
+		return _player.get_node("StatusEffects") as StatusEffects
 	return null

@@ -9,5 +9,12 @@ func _ready() -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
-	if body.is_in_group("player"):
-		EventBus.player_died.emit()
+	if not body.is_in_group("player"):
+		return
+
+	# While testing with damage off, a bad jump should not end the run.
+	if GameState.god_mode and body.has_method("respawn_at_start"):
+		body.call("respawn_at_start")
+		return
+
+	EventBus.player_died.emit()

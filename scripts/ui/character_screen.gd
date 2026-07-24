@@ -1,16 +1,24 @@
 # character_screen.gd
-# Toggle on C key press. Pauses game when open.
-# Left panel: traits with stage indicators + dev mode buttons
-# Right panel: skill slots Q/E/R + available skills
+# Toggle on C key press. Freezes game time while open, so choosing a devolution or
+# reassigning skills is never a rushed decision.
+#
+# Left panel:  traits with stage indicators + dev +/- buttons
+# Right panel: skill slots Q/E/R + available skills with assign buttons
+# Bottom:      dev toggles (take no damage, player-chosen devolution)
 extends Control
+
+const PAUSE_ID: String = "character_screen"
 
 var _is_open: bool = false
 
 # UI references built in _ready.
-var _trait_rows: Array[Dictionary] = [] # [{label, stage_label, inc_btn, dec_btn}]
+var _trait_rows: Array[Dictionary] = []
 var _skill_slot_labels: Array[Label] = []
 var _available_skills_container: VBoxContainer
 var _panel: Panel
+var _god_mode_btn: Button
+var _choice_mode_btn: Button
+var _skill_detail_label: Label
 
 
 func _ready() -> void:
@@ -39,16 +47,21 @@ func _on_toggle_requested(_open: bool) -> void:
 
 
 func open() -> void:
+	if _is_open:
+		return
 	_is_open = true
 	visible = true
-	get_tree().paused = true
+	# Freeze game time. Nothing ticks while the player is reading.
+	GameState.push_pause(PAUSE_ID)
 	_refresh_all()
 
 
 func close() -> void:
+	if not _is_open:
+		return
 	_is_open = false
 	visible = false
-	get_tree().paused = false
+	GameState.pop_pause(PAUSE_ID)
 
 
 func _build_ui() -> void:
@@ -61,8 +74,8 @@ func _build_ui() -> void:
 	# Main panel.
 	_panel = Panel.new()
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.size = Vector2(500, 300)
-	_panel.position = Vector2(-250, -150)
+	_panel.size = Vector2(540, 320)
+	_panel.position = Vector2(-270, -160)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.06, 0.06, 0.1, 0.95)
 	style.border_color = Color("4ecdc4")
@@ -85,15 +98,27 @@ func _build_ui() -> void:
 	title.add_theme_color_override("font_color", Color("4ecdc4"))
 	_panel.add_child(title)
 
+	var paused_hint: Label = Label.new()
+	paused_hint.text = "— time frozen —"
+	paused_hint.position = Vector2(148, 9)
+	paused_hint.add_theme_font_size_override("font_size", 8)
+	paused_hint.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7))
+	_panel.add_child(paused_hint)
+
 	# Close hint.
 	var close_hint: Label = Label.new()
 	close_hint.text = "[C] Close"
-	close_hint.position = Vector2(430, 8)
+	close_hint.position = Vector2(470, 8)
 	close_hint.add_theme_font_size_override("font_size", 8)
 	close_hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	_panel.add_child(close_hint)
 
-	# --- Left side: Traits ---
+	_build_trait_panel()
+	_build_skill_panel()
+	_build_dev_panel()
+
+
+func _build_trait_panel() -> void:
 	var traits_header: Label = Label.new()
 	traits_header.text = "TRAITS"
 	traits_header.position = Vector2(10, 28)
@@ -103,7 +128,7 @@ func _build_ui() -> void:
 
 	var dev_header: Label = Label.new()
 	dev_header.text = "(DEV)"
-	dev_header.position = Vector2(210, 28)
+	dev_header.position = Vector2(190, 29)
 	dev_header.add_theme_font_size_override("font_size", 8)
 	dev_header.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	_panel.add_child(dev_header)
@@ -113,7 +138,6 @@ func _build_ui() -> void:
 		var y: float = 46.0 + float(i) * 22.0
 		var tname: String = trait_names[i]
 
-		# Trait name label.
 		var name_lbl: Label = Label.new()
 		name_lbl.text = tname.capitalize()
 		name_lbl.position = Vector2(10, y)
@@ -121,26 +145,24 @@ func _build_ui() -> void:
 		name_lbl.add_theme_color_override("font_color", Color.WHITE)
 		_panel.add_child(name_lbl)
 
-		# Stage indicator — colored blocks.
+		# Stage indicator — one block per degradation step.
 		var stage_lbl: Label = Label.new()
-		stage_lbl.text = "■ ■ ■ ■ ■"
-		stage_lbl.position = Vector2(80, y)
+		stage_lbl.text = "□ □"
+		stage_lbl.position = Vector2(70, y)
 		stage_lbl.add_theme_font_size_override("font_size", 9)
 		stage_lbl.add_theme_color_override("font_color", Color(0.3, 0.8, 0.3))
 		_panel.add_child(stage_lbl)
 
-		# Stage number.
 		var num_lbl: Label = Label.new()
-		num_lbl.text = "0/5"
-		num_lbl.position = Vector2(170, y)
+		num_lbl.text = "Intact"
+		num_lbl.position = Vector2(110, y)
 		num_lbl.add_theme_font_size_override("font_size", 8)
 		num_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 		_panel.add_child(num_lbl)
 
-		# Dev buttons: + and -.
 		var inc_btn: Button = Button.new()
 		inc_btn.text = "+"
-		inc_btn.position = Vector2(210, y - 2)
+		inc_btn.position = Vector2(190, y - 2)
 		inc_btn.custom_minimum_size = Vector2(18, 18)
 		inc_btn.add_theme_font_size_override("font_size", 8)
 		inc_btn.pressed.connect(_on_dev_inc.bind(tname))
@@ -148,7 +170,7 @@ func _build_ui() -> void:
 
 		var dec_btn: Button = Button.new()
 		dec_btn.text = "-"
-		dec_btn.position = Vector2(232, y - 2)
+		dec_btn.position = Vector2(212, y - 2)
 		dec_btn.custom_minimum_size = Vector2(18, 18)
 		dec_btn.add_theme_font_size_override("font_size", 8)
 		dec_btn.pressed.connect(_on_dev_dec.bind(tname))
@@ -162,43 +184,91 @@ func _build_ui() -> void:
 			"dec_btn": dec_btn,
 		})
 
-	# --- Right side: Skills ---
+
+func _build_skill_panel() -> void:
 	var skills_header: Label = Label.new()
 	skills_header.text = "SKILL SLOTS"
-	skills_header.position = Vector2(270, 28)
+	skills_header.position = Vector2(250, 28)
 	skills_header.add_theme_font_size_override("font_size", 10)
 	skills_header.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(skills_header)
 
 	var keys: Array[String] = ["Q", "E", "R"]
 	for i: int in range(3):
-		var y: float = 48.0 + float(i) * 22.0
 		var slot_lbl: Label = Label.new()
 		slot_lbl.text = "[%s] ---" % keys[i]
-		slot_lbl.position = Vector2(270, y)
+		slot_lbl.position = Vector2(250.0 + float(i) * 96.0, 46.0)
 		slot_lbl.add_theme_font_size_override("font_size", 9)
 		slot_lbl.add_theme_color_override("font_color", Color.WHITE)
 		_panel.add_child(slot_lbl)
 		_skill_slot_labels.append(slot_lbl)
 
-	# Available skills section.
 	var avail_header: Label = Label.new()
 	avail_header.text = "AVAILABLE SKILLS"
-	avail_header.position = Vector2(270, 120)
+	avail_header.position = Vector2(250, 68)
 	avail_header.add_theme_font_size_override("font_size", 9)
 	avail_header.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
 	_panel.add_child(avail_header)
 
-	# Scrollable list of available skills with assign buttons.
+	var avail_hint: Label = Label.new()
+	avail_hint.text = "(granted by lost traits)"
+	avail_hint.position = Vector2(360, 69)
+	avail_hint.add_theme_font_size_override("font_size", 7)
+	avail_hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+	_panel.add_child(avail_hint)
+
 	_available_skills_container = VBoxContainer.new()
-	_available_skills_container.position = Vector2(270, 138)
-	_available_skills_container.size = Vector2(220, 150)
+	_available_skills_container.position = Vector2(250, 84)
+	_available_skills_container.size = Vector2(280, 160)
+	_available_skills_container.add_theme_constant_override("separation", 1)
 	_panel.add_child(_available_skills_container)
+
+	_skill_detail_label = Label.new()
+	_skill_detail_label.text = ""
+	_skill_detail_label.position = Vector2(250, 248)
+	_skill_detail_label.size = Vector2(280, 24)
+	_skill_detail_label.custom_minimum_size = Vector2(280, 24)
+	_skill_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_skill_detail_label.add_theme_font_size_override("font_size", 7)
+	_skill_detail_label.add_theme_color_override("font_color", Color(0.65, 0.65, 0.75))
+	_panel.add_child(_skill_detail_label)
+
+
+func _build_dev_panel() -> void:
+	var dev_header: Label = Label.new()
+	dev_header.text = "TESTING"
+	dev_header.position = Vector2(10, 208)
+	dev_header.add_theme_font_size_override("font_size", 9)
+	dev_header.add_theme_color_override("font_color", Color("f1c40f"))
+	_panel.add_child(dev_header)
+
+	_god_mode_btn = Button.new()
+	_god_mode_btn.position = Vector2(10, 224)
+	_god_mode_btn.custom_minimum_size = Vector2(220, 20)
+	_god_mode_btn.add_theme_font_size_override("font_size", 8)
+	_god_mode_btn.pressed.connect(_on_god_mode_pressed)
+	_panel.add_child(_god_mode_btn)
+
+	_choice_mode_btn = Button.new()
+	_choice_mode_btn.position = Vector2(10, 248)
+	_choice_mode_btn.custom_minimum_size = Vector2(220, 20)
+	_choice_mode_btn.add_theme_font_size_override("font_size", 8)
+	_choice_mode_btn.pressed.connect(_on_choice_mode_pressed)
+	_panel.add_child(_choice_mode_btn)
+
+	var reset_btn: Button = Button.new()
+	reset_btn.text = "Reset all traits to intact"
+	reset_btn.position = Vector2(10, 272)
+	reset_btn.custom_minimum_size = Vector2(220, 20)
+	reset_btn.add_theme_font_size_override("font_size", 8)
+	reset_btn.pressed.connect(_on_reset_traits)
+	_panel.add_child(reset_btn)
 
 
 func _refresh_all() -> void:
 	_refresh_traits()
 	_refresh_skills()
+	_refresh_dev_toggles()
 
 
 func _refresh_traits() -> void:
@@ -211,36 +281,28 @@ func _refresh_traits() -> void:
 		var stage: int = trait_mgr.get_trait_stage(tname)
 		var max_s: int = TraitManager.MAX_STAGE
 
-		# Update stage blocks — filled vs empty.
 		var blocks: String = ""
 		for s: int in range(max_s):
-			if s < stage:
-				blocks += "■ "
-			else:
-				blocks += "□ "
+			blocks += "■ " if s < stage else "□ "
 		var stage_lbl: Label = row["stage_label"] as Label
 		stage_lbl.text = blocks.strip_edges()
 
-		# Color: green → yellow → red as stage increases.
+		# Green -> yellow -> red as the trait degrades.
 		var t: float = float(stage) / float(max_s)
 		var col: Color = Color(0.3, 0.8, 0.3).lerp(Color(0.9, 0.2, 0.2), t)
-		if stage >= max_s:
-			col = Color(0.6, 0.1, 0.1)
 		stage_lbl.add_theme_color_override("font_color", col)
 
 		var num_lbl: Label = row["num_label"] as Label
+		num_lbl.text = TraitManager.STAGE_NAMES[stage]
 		if stage >= max_s:
-			num_lbl.text = "EXTINCT"
 			num_lbl.add_theme_color_override("font_color", Color("e74c3c"))
+		elif stage > 0:
+			num_lbl.add_theme_color_override("font_color", Color("f39c12"))
 		else:
-			num_lbl.text = "%d/%d" % [stage, max_s]
 			num_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 
-		# Dev buttons: disable at bounds.
-		var inc_btn: Button = row["inc_btn"] as Button
-		var dec_btn: Button = row["dec_btn"] as Button
-		inc_btn.disabled = (stage >= max_s)
-		dec_btn.disabled = (stage <= 0)
+		(row["inc_btn"] as Button).disabled = (stage >= max_s)
+		(row["dec_btn"] as Button).disabled = (stage <= 0)
 
 
 func _refresh_skills() -> void:
@@ -256,32 +318,72 @@ func _refresh_skills() -> void:
 			_skill_slot_labels[i].add_theme_color_override("font_color", skill.aoe_color)
 		else:
 			_skill_slot_labels[i].text = "[%s] ---" % keys[i]
-			_skill_slot_labels[i].add_theme_color_override("font_color", Color.WHITE)
+			_skill_slot_labels[i].add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 
-	# Rebuild available skills list.
 	for child: Node in _available_skills_container.get_children():
 		child.queue_free()
 
+	if ability_mgr.available_skills.is_empty():
+		var empty_lbl: Label = Label.new()
+		empty_lbl.text = "None yet. Skills unlock as traits are lost."
+		empty_lbl.add_theme_font_size_override("font_size", 7)
+		empty_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		_available_skills_container.add_child(empty_lbl)
+		_skill_detail_label.text = ""
+		return
+
 	for skill: SkillData in ability_mgr.available_skills:
 		var hbox: HBoxContainer = HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 2)
+
+		var kind_lbl: Label = Label.new()
+		kind_lbl.text = skill.get_kind_label()
+		kind_lbl.add_theme_font_size_override("font_size", 6)
+		kind_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		kind_lbl.custom_minimum_size = Vector2(30, 14)
+		hbox.add_child(kind_lbl)
 
 		var lbl: Label = Label.new()
 		lbl.text = skill.skill_name
+		if skill.is_multi_trait():
+			lbl.text += " *"
 		lbl.add_theme_font_size_override("font_size", 8)
 		lbl.add_theme_color_override("font_color", skill.aoe_color)
-		lbl.custom_minimum_size = Vector2(100, 16)
+		lbl.custom_minimum_size = Vector2(110, 14)
 		hbox.add_child(lbl)
+
+		var cd_lbl: Label = Label.new()
+		cd_lbl.text = "%.0fs" % skill.cooldown
+		cd_lbl.add_theme_font_size_override("font_size", 6)
+		cd_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		cd_lbl.custom_minimum_size = Vector2(20, 14)
+		hbox.add_child(cd_lbl)
 
 		for i: int in range(3):
 			var btn: Button = Button.new()
-			btn.text = keys[i]
-			btn.custom_minimum_size = Vector2(22, 16)
+			btn.text = ["Q", "E", "R"][i]
+			btn.custom_minimum_size = Vector2(20, 14)
 			btn.add_theme_font_size_override("font_size", 7)
 			btn.pressed.connect(_on_assign_skill.bind(i, skill))
+			btn.mouse_entered.connect(_on_skill_hovered.bind(skill))
 			hbox.add_child(btn)
 
 		_available_skills_container.add_child(hbox)
 
+	_skill_detail_label.text = "* = multi-trait skill. Hover an assign button for details."
+
+
+func _refresh_dev_toggles() -> void:
+	if _god_mode_btn:
+		_god_mode_btn.text = "Take no damage: %s" % ("ON" if GameState.god_mode else "OFF")
+		var col: Color = Color("2ecc71") if GameState.god_mode else Color(0.7, 0.7, 0.8)
+		_god_mode_btn.add_theme_color_override("font_color", col)
+	if _choice_mode_btn:
+		var mode: String = "PLAYER CHOICE" if GameState.devolution_player_choice else "FIXED ORDER"
+		_choice_mode_btn.text = "Devolution order: %s" % mode
+
+
+# ---- Callbacks ----
 
 func _on_trait_changed(_trait_name: String, _new_stage: int) -> void:
 	if _is_open:
@@ -291,6 +393,12 @@ func _on_trait_changed(_trait_name: String, _new_stage: int) -> void:
 func _on_skill_assigned(_slot_index: int, _skill_data: Resource) -> void:
 	if _is_open:
 		_refresh_skills()
+
+
+func _on_skill_hovered(skill: SkillData) -> void:
+	if not _skill_detail_label:
+		return
+	_skill_detail_label.text = "%s  —  Requires: %s" % [skill.description, skill.get_requirement_text()]
 
 
 func _on_dev_inc(trait_name: String) -> void:
@@ -307,6 +415,25 @@ func _on_dev_dec(trait_name: String) -> void:
 		if current > 0:
 			trait_mgr.set_trait_stage(trait_name, current - 1)
 		_refresh_all()
+
+
+func _on_reset_traits() -> void:
+	var trait_mgr: TraitManager = _find_trait_manager()
+	if trait_mgr:
+		trait_mgr.reset_all()
+		for tname: String in TraitManager.ALL_TRAITS:
+			EventBus.trait_changed.emit(tname, 0)
+		_refresh_all()
+
+
+func _on_god_mode_pressed() -> void:
+	GameState.toggle_god_mode()
+	_refresh_dev_toggles()
+
+
+func _on_choice_mode_pressed() -> void:
+	GameState.devolution_player_choice = not GameState.devolution_player_choice
+	_refresh_dev_toggles()
 
 
 func _on_assign_skill(slot_index: int, skill: SkillData) -> void:

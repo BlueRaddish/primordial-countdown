@@ -2,6 +2,10 @@
 # Holds the current stage of every trait. Single source of truth for player capability.
 # Combat, movement, and UI all query this rather than tracking capability themselves.
 # All stats are rebuilt from trait state on every change via recalculate_all().
+#
+# PLANNING1 section 6: each trait moves through intact -> partial -> fully_lost.
+#   - Partial applies a scaling penalty with no reward.
+#   - Full loss removes the trait's function entirely and grants one buff (a skill).
 class_name TraitManager
 extends Node
 
@@ -14,10 +18,17 @@ const TRAIT_EYES: String = "eyes"
 const TRAIT_HEAD: String = "head"
 const TRAIT_SPEECH: String = "speech"
 
-const MAX_STAGE: int = 5
+# --- Stages ---
+const STAGE_INTACT: int = 0
+const STAGE_PARTIAL: int = 1
+const STAGE_LOST: int = 2
+const MAX_STAGE: int = STAGE_LOST
+
+const STAGE_NAMES: Array[String] = ["Intact", "Partial", "Lost"]
+
 const ALL_TRAITS: Array[String] = ["arms", "legs", "gut", "throat", "eyes", "head", "speech"]
 
-# --- Current trait stages: 0 = intact, 5 = extinct ---
+# --- Current trait stages: 0 = intact, 1 = partial, 2 = fully lost ---
 var traits: Dictionary = {
 	"arms": 0,
 	"legs": 0,
@@ -28,17 +39,18 @@ var traits: Dictionary = {
 	"speech": 0,
 }
 
-# --- Modifier lookup arrays (indexed by stage 0–5) ---
+# --- Modifier lookup arrays (indexed by stage 0-2) ---
 # Each returns a multiplier: 1.0 = full capability, 0.0 = none.
-var leg_speed_mods: Array[float] = [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
-var leg_jump_mods: Array[float] = [1.0, 1.0, 1.0, 0.5, 0.0, 0.0]
-var arm_range_mods: Array[float] = [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
-var arm_damage_mods: Array[float] = [1.0, 0.9, 0.8, 0.7, 0.5, 0.0]
-var gut_regen_mods: Array[float] = [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
-var throat_stamina_mods: Array[float] = [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
-var speech_cry_range_mods: Array[float] = [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
-var eyes_vision_mods: Array[float] = [1.0, 0.85, 0.7, 0.5, 0.3, 0.0]
-var head_info_mods: Array[float] = [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
+# Partial is a scaling penalty. Full loss zeroes the function out entirely.
+var leg_speed_mods: Array[float] = [1.0, 0.6, 0.0]
+var leg_jump_mods: Array[float] = [1.0, 0.75, 0.0]
+var arm_range_mods: Array[float] = [1.0, 0.6, 0.0]
+var arm_damage_mods: Array[float] = [1.0, 0.7, 0.0]
+var gut_regen_mods: Array[float] = [1.0, 0.5, 0.0]
+var throat_stamina_mods: Array[float] = [1.0, 0.5, 0.0]
+var speech_cry_range_mods: Array[float] = [1.0, 0.5, 0.0]
+var eyes_vision_mods: Array[float] = [1.0, 0.6, 0.0]
+var head_info_mods: Array[float] = [1.0, 0.5, 0.0]
 
 # --- Cached player reference ---
 var _player: CharacterBody2D
@@ -61,6 +73,18 @@ func get_trait_stage(trait_name: String) -> int:
 	if traits.has(trait_name):
 		return traits[trait_name] as int
 	return 0
+
+
+func get_stage_name(trait_name: String) -> String:
+	return STAGE_NAMES[get_trait_stage(trait_name)]
+
+
+func is_intact(trait_name: String) -> bool:
+	return get_trait_stage(trait_name) == STAGE_INTACT
+
+
+func is_lost(trait_name: String) -> bool:
+	return get_trait_stage(trait_name) >= STAGE_LOST
 
 
 func get_modifier(trait_name: String) -> float:
@@ -92,15 +116,23 @@ func get_leg_jump_mod() -> float:
 
 
 func is_arms_blocked() -> bool:
-	return get_trait_stage("arms") >= MAX_STAGE
+	return get_trait_stage("arms") >= STAGE_LOST
 
 
 func is_movement_blocked() -> bool:
-	return get_trait_stage("legs") >= MAX_STAGE
+	return get_trait_stage("legs") >= STAGE_LOST
 
 
 func can_jump() -> bool:
-	return get_trait_stage("legs") < 4
+	return get_trait_stage("legs") < STAGE_LOST
+
+
+func count_lost_traits() -> int:
+	var total: int = 0
+	for trait_name: String in ALL_TRAITS:
+		if is_lost(trait_name):
+			total += 1
+	return total
 
 
 func devolve_trait(trait_name: String) -> void:

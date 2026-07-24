@@ -2,6 +2,8 @@
 # "You Died" overlay. Appears on player death, offers return to menu.
 extends CanvasLayer
 
+const PAUSE_ID: String = "death"
+
 @onready var _panel: Control = $Control
 @onready var _menu_btn: Button = $Control/VBoxContainer/MenuButton
 
@@ -14,11 +16,14 @@ func _ready() -> void:
 
 
 func _on_player_died() -> void:
-	get_tree().paused = true
+	if _panel.visible:
+		return
+	GameState.end_run()
+	GameState.push_pause(PAUSE_ID)
 	_panel.visible = true
 
 
 func _on_menu_pressed() -> void:
-	get_tree().paused = false
 	_panel.visible = false
+	GameState.pop_pause(PAUSE_ID)
 	GameState.return_to_menu()

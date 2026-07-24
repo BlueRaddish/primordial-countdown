@@ -1,0 +1,67 @@
+[gd_scene load_steps=7 format=3 uid="uid://boss_enemy_scene"]
+
+[ext_resource type="Script" path="res://scripts/enemies/boss_enemy.gd" id="1_boss"]
+[ext_resource type="Texture2D" uid="uid://player_chars_tex" path="res://assets/sprites/player/tilemap-characters_packed.png" id="2_chars"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_boss_idle"]
+atlas = ExtResource("2_chars")
+region = Rect2(200, 0, 24, 24)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_boss_walk"]
+atlas = ExtResource("2_chars")
+region = Rect2(225, 0, 24, 24)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_boss"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_boss_idle")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_boss_idle")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_boss_walk")
+}],
+"loop": true,
+"name": &"walk",
+"speed": 5.0
+}]
+
+[sub_resource type="RectangleShape2D" id="shape_boss_col"]
+size = Vector2(28, 40)
+
+[node name="BossEnemy" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 5
+script = ExtResource("1_boss")
+behavior = 1
+max_health = 420.0
+move_speed = 34.0
+chase_speed = 58.0
+detection_range = 240.0
+contact_damage = 30.0
+patrol_distance = 120.0
+lunge_range = 96.0
+windup_time = 0.55
+lunge_speed = 240.0
+lunge_time = 0.35
+recover_time = 0.7
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+texture_filter = 0
+position = Vector2(0, -24)
+scale = Vector2(2, 2)
+sprite_frames = SubResource("SpriteFrames_boss")
+animation = &"idle"
+autoplay = "idle"
+modulate = Color(1, 0.75, 0.75, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -20)
+shape = SubResource("shape_boss_col")

@@ -45,13 +45,14 @@ var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
 var _was_on_floor: bool = false
 var _is_dead: bool = false
+var _spawn_position: Vector2 = Vector2.ZERO
 
 # Combat state.
-var _current_health: float
 var _attack_timer: float = 0.0
 var _attack_cooldown_timer: float = 0.0
 var _is_attacking: bool = false
 var _invincibility_timer: float = 0.0
+var _impulse_timer: float = 0.0
 var _facing_right: bool = true
 var _aim_angle: float = 0.0
 var _aim_dir: Vector2 = Vector2.RIGHT
@@ -62,16 +63,17 @@ var _aim_dir: Vector2 = Vector2.RIGHT
 @onready var _slash_effect: SlashEffect = $SlashEffect
 @onready var _trait_manager: TraitManager = $TraitManager
 @onready var _ability_manager: AbilityManager = $AbilityManager
+@onready var _status_effects: StatusEffects = $StatusEffects
 
 
 func _ready() -> void:
 	add_to_group("player")
-	_current_health = max_health
+	_spawn_position = global_position
 	_attack_shape.disabled = true
 	EventBus.player_died.connect(_on_player_died)
 	EventBus.player_hit.connect(_on_player_hit)
 	# Sync health display.
-	EventBus.player_health_changed.emit(_current_health, max_health)
+	EventBus.player_health_changed.emit(GameState.player_health, GameState.player_max_health)
 
 
 func _physics_process(delta: float) -> void:
@@ -123,11 +125,38 @@ func recalculate_from_traits(trait_mgr: TraitManager) -> void:
 	# Update hitbox offset based on arm range modifier.
 	var arm_mod: float = trait_mgr.get_modifier("arms")
 	if _attack_shape:
-		_attack_shape.position.x = BASE_MELEE_RANGE * arm_mod
+		_attack_shape.position.x = BASE_MELEE_RANGE * maxf(arm_mod, 0.2)
 
 
 func get_aim_direction() -> Vector2:
 	return _aim_dir
+
+
+# ---- Alternative movement (skill impulse) ----
+
+func apply_impulse(direction: Vector2, speed: float, upward_bias: float) -> void:
+	"""Alternative movement hook, used when a skill takes over locomotion."""
+	if _is_dead:
+		return
+	var dir: Vector2 = direction
+	if dir.length_squared() < 0.01:
+		dir = Vector2.RIGHT if _facing_right else Vector2.LEFT
+	velocity = dir.normalized() * speed
+	velocity.y -= upward_bias
+	_impulse_timer = 0.25
+	_facing_right = dir.x >= 0.0
+
+
+# ---- Damage reporting (omnivamp routes through here) ----
+
+func report_damage_dealt(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	EventBus.player_damage_dealt.emit(amount)
+	if _status_effects:
+		var vamp: float = _status_effects.get_omnivamp()
+		if vamp > 0.0:
+			GameState.heal_player(amount * vamp)
 
 
 # ---- Gravity ----
@@ -154,6 +183,9 @@ func _handle_timers(delta: float) -> void:
 	else:
 		_jump_buffer_timer -= delta
 
+	if _impulse_timer > 0.0:
+		_impulse_timer -= delta
+
 
 func _handle_jump() -> void:
 	if not _can_jump:
@@ -171,6 +203,10 @@ func _handle_jump() -> void:
 # ---- Horizontal movement ----
 
 func _handle_horizontal_movement(delta: float) -> void:
+	# A skill impulse owns velocity for its brief window.
+	if _impulse_timer > 0.0:
+		return
+
 	if not movement_enabled:
 		velocity.x = move_toward(velocity.x, 0.0, friction * delta)
 		return
@@ -210,7 +246,11 @@ func _handle_attack(delta: float) -> void:
 func _start_attack() -> void:
 	_is_attacking = true
 	_attack_timer = attack_duration
-	_attack_cooldown_timer = attack_cooldown
+
+	var cd_mult: float = 1.0
+	if _status_effects:
+		cd_mult = _status_effects.get_attack_cooldown_mult()
+	_attack_cooldown_timer = attack_cooldown * cd_mult
 
 	# Calculate mouse aim direction relative to player center.
 	var player_center: Vector2 = global_position + Vector2(0.0, -10.0)
@@ -233,10 +273,18 @@ func _start_attack() -> void:
 	if _slash_effect:
 		_slash_effect.play(attack_duration, _aim_angle)
 
+	# This is the devolution clock's driver: every swing counts, landed or not.
+	EventBus.attack_made.emit()
+
 
 func _finish_attack() -> void:
 	_is_attacking = false
 	_attack_shape.disabled = true
+
+	var damage: float = attack_damage
+	if _status_effects:
+		damage *= _status_effects.get_damage_mult()
+
 	# AoE: damage ALL enemies currently overlapping the rotated hitbox.
 	var hit_count: int = 0
 	var overlapping: Array[Node2D] = _attack_hitbox.get_overlapping_bodies()
@@ -247,11 +295,12 @@ func _finish_attack() -> void:
 			if kb_dir == Vector2.ZERO:
 				kb_dir = _aim_dir
 			var kb: Vector2 = Vector2(kb_dir.x * knockback_force, knockback_up)
-			body.call("take_damage", attack_damage, kb)
+			body.call("take_damage", damage, kb)
 			hit_count += 1
 
 	if hit_count > 0:
 		EventBus.attack_landed.emit(hit_count)
+		report_damage_dealt(damage * float(hit_count))
 
 
 # ---- Skill Input ----
@@ -272,7 +321,20 @@ func _handle_skill_input() -> void:
 func take_damage(amount: float, knockback_dir: Vector2 = Vector2.ZERO) -> void:
 	if _is_dead or _invincibility_timer > 0.0:
 		return
-	GameState.damage_player(amount, knockback_dir)
+
+	var incoming: float = amount
+	if _status_effects:
+		incoming *= _status_effects.get_damage_taken_mult()
+		if _status_effects.is_invulnerable():
+			return
+
+	GameState.damage_player(incoming, knockback_dir)
+
+
+func respawn_at_start() -> void:
+	"""Used by the death zone while god mode is on, so falling off is not a run ender."""
+	global_position = _spawn_position
+	velocity = Vector2.ZERO
 
 
 func _on_player_hit(_damage: float, knockback_dir: Vector2) -> void:
@@ -288,6 +350,8 @@ func _on_player_died() -> void:
 	_attack_shape.disabled = true
 	if _slash_effect:
 		_slash_effect.stop()
+	if _status_effects:
+		_status_effects.clear_all()
 	set_collision_layer_value(1, false)
 	set_collision_mask_value(3, false)
 

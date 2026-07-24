@@ -1,10 +1,11 @@
-[gd_scene load_steps=10 format=3 uid="uid://player_scene"]
+[gd_scene load_steps=11 format=3 uid="uid://player_scene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Texture2D" uid="uid://player_chars_tex" path="res://assets/sprites/player/tilemap-characters_packed.png" id="2_chars"]
 [ext_resource type="Script" path="res://scripts/player/slash_effect.gd" id="3_slash"]
 [ext_resource type="Script" path="res://scripts/player/trait_manager.gd" id="4_trait_mgr"]
 [ext_resource type="Script" path="res://scripts/player/ability_manager.gd" id="5_ability_mgr"]
+[ext_resource type="Script" path="res://scripts/player/status_effects.gd" id="6_status_fx"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_idle"]
 atlas = ExtResource("2_chars")
@@ -106,3 +107,6 @@ script = ExtResource("4_trait_mgr")
 
 [node name="AbilityManager" type="Node" parent="."]
 script = ExtResource("5_ability_mgr")
+
+[node name="StatusEffects" type="Node" parent="."]
+script = ExtResource("6_status_fx")

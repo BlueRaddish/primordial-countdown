@@ -1,7 +1,8 @@
-[gd_scene load_steps=9 format=3 uid="uid://player_scene"]
+[gd_scene load_steps=8 format=3 uid="uid://player_scene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Texture2D" uid="uid://player_chars_tex" path="res://assets/sprites/player/tilemap-characters_packed.png" id="2_chars"]
+[ext_resource type="Script" path="res://scripts/player/slash_effect.gd" id="3_slash"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_idle"]
 atlas = ExtResource("2_chars")
@@ -92,3 +93,7 @@ monitorable = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ContactHitbox"]
 shape = SubResource("shape_contact")
+
+[node name="SlashEffect" type="Node2D" parent="."]
+position = Vector2(0, -10)
+script = ExtResource("3_slash")

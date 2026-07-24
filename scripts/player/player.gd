@@ -43,6 +43,7 @@ var _facing_right: bool = true
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var _attack_hitbox: Area2D = $AttackHitbox
 @onready var _attack_shape: CollisionShape2D = $AttackHitbox/CollisionShape2D
+@onready var _slash_effect: SlashEffect = $SlashEffect
 
 
 func _ready() -> void:
@@ -150,6 +151,8 @@ func _start_attack() -> void:
 	# Enable and position the hitbox in front of the player.
 	_attack_shape.disabled = false
 	_update_hitbox_direction()
+	if _slash_effect:
+		_slash_effect.play(attack_duration, _facing_right)
 
 
 func _finish_attack() -> void:
@@ -199,6 +202,8 @@ func _on_player_hit(_damage: float, knockback_dir: Vector2) -> void:
 func _on_player_died() -> void:
 	_is_dead = true
 	_attack_shape.disabled = true
+	if _slash_effect:
+		_slash_effect.stop()
 	# Disable collision so the body can fall through.
 	set_collision_layer_value(1, false)
 	set_collision_mask_value(3, false)

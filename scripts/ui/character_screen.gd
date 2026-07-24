@@ -18,6 +18,7 @@ var _available_skills_container: VBoxContainer
 var _panel: Panel
 var _god_mode_btn: Button
 var _no_cooldown_btn: Button
+var _freeze_years_btn: Button
 var _choice_mode_btn: Button
 var _skill_detail_label: Label
 
@@ -75,8 +76,8 @@ func _build_ui() -> void:
 	# Main panel.
 	_panel = Panel.new()
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.size = Vector2(540, 320)
-	_panel.position = Vector2(-270, -160)
+	_panel.size = Vector2(540, 344)
+	_panel.position = Vector2(-270, -172)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.06, 0.06, 0.1, 0.95)
 	style.border_color = Color("4ecdc4")
@@ -257,8 +258,15 @@ func _build_dev_panel() -> void:
 	_no_cooldown_btn.pressed.connect(_on_no_cooldown_pressed)
 	_panel.add_child(_no_cooldown_btn)
 
+	_freeze_years_btn = Button.new()
+	_freeze_years_btn.position = Vector2(10, 268)
+	_freeze_years_btn.custom_minimum_size = Vector2(220, 20)
+	_freeze_years_btn.add_theme_font_size_override("font_size", 8)
+	_freeze_years_btn.pressed.connect(_on_freeze_years_pressed)
+	_panel.add_child(_freeze_years_btn)
+
 	_choice_mode_btn = Button.new()
-	_choice_mode_btn.position = Vector2(10, 268)
+	_choice_mode_btn.position = Vector2(10, 290)
 	_choice_mode_btn.custom_minimum_size = Vector2(220, 20)
 	_choice_mode_btn.add_theme_font_size_override("font_size", 8)
 	_choice_mode_btn.pressed.connect(_on_choice_mode_pressed)
@@ -266,7 +274,7 @@ func _build_dev_panel() -> void:
 
 	var reset_btn: Button = Button.new()
 	reset_btn.text = "Reset all traits to intact"
-	reset_btn.position = Vector2(10, 290)
+	reset_btn.position = Vector2(10, 312)
 	reset_btn.custom_minimum_size = Vector2(220, 20)
 	reset_btn.add_theme_font_size_override("font_size", 8)
 	reset_btn.pressed.connect(_on_reset_traits)
@@ -401,6 +409,12 @@ func _refresh_dev_toggles() -> void:
 		)
 		var cd_col: Color = Color("2ecc71") if GameState.no_skill_cooldown else Color(0.7, 0.7, 0.8)
 		_no_cooldown_btn.add_theme_color_override("font_color", cd_col)
+	if _freeze_years_btn:
+		_freeze_years_btn.text = "Freeze year counter: %s" % (
+			"ON" if GameState.freeze_years else "OFF"
+		)
+		var fy_col: Color = Color("2ecc71") if GameState.freeze_years else Color(0.7, 0.7, 0.8)
+		_freeze_years_btn.add_theme_color_override("font_color", fy_col)
 	if _choice_mode_btn:
 		var mode: String = "PLAYER CHOICE" if GameState.devolution_player_choice else "FIXED ORDER"
 		_choice_mode_btn.text = "Devolution order: %s" % mode
@@ -457,7 +471,12 @@ func _on_god_mode_pressed() -> void:
 
 
 func _on_no_cooldown_pressed() -> void:
-	GameState.no_skill_cooldown = not GameState.no_skill_cooldown
+	GameState.set_no_skill_cooldown(not GameState.no_skill_cooldown)
+	_refresh_dev_toggles()
+
+
+func _on_freeze_years_pressed() -> void:
+	GameState.set_freeze_years(not GameState.freeze_years)
 	_refresh_dev_toggles()
 
 

@@ -32,9 +32,14 @@ extends Node
 @export var years_per_second: float = 0.5
 @export var years_per_wave: float = 6.0
 
-# --- Devolution pacing ---
-@export var years_per_devolution_base: float = 14.0
-@export var years_per_devolution_growth: float = 2.0
+# --- Run length ---
+# The single knob for how long a run is. Every devolution step is derived from it,
+# so raising this lengthens the run without desynchronising anything.
+@export var starting_years: float = 2000.0
+
+# Shape of the devolution schedule. 0.0 spaces every step evenly; 2.0 makes the
+# last step cost 3x the first, so devolution starts slow and accelerates.
+@export var devolution_curve_growth: float = 2.0
 
 # PLANNING1 milestone 3: the degradation order is fixed. The list is walked twice —
 # once taking everything to partial, then again taking everything to fully lost —
@@ -50,16 +55,21 @@ var total_devolutions: int = 0
 var attacks_made: int = 0
 var years_spent_on_skills: float = 0.0
 
-var _years_until_next: float = 14.0
+# Cost in years of each devolution step, index 0 = first step.
+var _step_costs: Array[float] = []
+# Cumulative years-spent value at which each step fires. Tracking absolute
+# thresholds rather than a decrementing counter keeps the schedule free of
+# floating point drift, so the final step always lands exactly at zero years.
+var _thresholds: Array[float] = []
 var _awaiting_choice: bool = false
 var _finished: bool = false
 
 
 func _ready() -> void:
 	add_to_group("devolution_system")
-	total_years = compute_total_years()
+	_build_step_costs()
+	total_years = starting_years
 	years_remaining = total_years
-	_years_until_next = years_per_devolution_base
 
 	if driver_attacks_made:
 		EventBus.attack_made.connect(_on_attack_made)
@@ -84,14 +94,45 @@ func _process(delta: float) -> void:
 		spend_years(years_per_second * delta)
 
 
-func compute_total_years() -> float:
-	"""Years needed to walk every trait from intact to fully lost, at the
-	widening cost-per-step. Spending exactly this much ends the run."""
+func _build_step_costs() -> void:
+	"""Spread starting_years across the devolution steps along the growth curve.
+
+	The costs are normalised to sum to exactly starting_years, so spending the
+	last year lands on the last devolution: reaching 0 means fully devolved."""
+	_step_costs.clear()
 	var steps: int = get_total_steps()
-	var total: float = 0.0
+	if steps <= 0:
+		return
+
+	var weights: Array[float] = []
+	var weight_sum: float = 0.0
 	for i: int in range(steps):
-		total += years_per_devolution_base + years_per_devolution_growth * float(i)
-	return total
+		var t: float = 0.0 if steps <= 1 else float(i) / float(steps - 1)
+		var w: float = 1.0 + devolution_curve_growth * t
+		weights.append(w)
+		weight_sum += w
+
+	var assigned: float = 0.0
+	for i: int in range(steps):
+		var cost: float = starting_years * weights[i] / weight_sum
+		_step_costs.append(cost)
+		assigned += cost
+
+	# Absorb any floating point remainder into the final step so the totals match.
+	_step_costs[steps - 1] += starting_years - assigned
+
+	_thresholds.clear()
+	var running: float = 0.0
+	for cost: float in _step_costs:
+		running += cost
+		_thresholds.append(running)
+	# Pin the last threshold exactly, so spending the final year always fires the
+	# final devolution rather than missing it by an epsilon.
+	_thresholds[steps - 1] = starting_years
+
+
+func get_step_costs() -> Array[float]:
+	return _step_costs
 
 
 func get_total_steps() -> int:
@@ -104,33 +145,40 @@ func spend_years(amount: float) -> void:
 	if not GameState.is_run_active or _finished or amount <= 0.0:
 		return
 
+	# Testing mode: hold the countdown still so a skill can be exercised for as
+	# long as it takes without burning the run down.
+	if GameState.freeze_years:
+		return
+
 	# Years are charged unconditionally, even while a devolution popup is pending.
 	# Skipping the charge in that window would let anything fired during it happen
 	# for free, and the run would end with devolutions still owed.
 	years_remaining = maxf(years_remaining - amount, 0.0)
-	_years_until_next -= amount
 	EventBus.years_changed.emit(years_remaining, total_years)
 
 	_try_trigger_devolution()
 
 
 func _try_trigger_devolution() -> void:
-	# One pending step at a time. Anything owed stays owed in _years_until_next
+	# One pending step at a time. Anything owed while a popup is open stays owed
 	# and fires as soon as the current step is resolved.
-	if _awaiting_choice or _finished or _years_until_next > 0.0:
+	if _awaiting_choice or _finished:
+		return
+	if total_devolutions >= _thresholds.size():
+		return
+	if get_years_spent() + 0.0001 < _thresholds[total_devolutions]:
 		return
 
 	total_devolutions += 1
-	# Accumulate rather than assign, so an overshoot carries into the next step
-	# and the total cost of the run stays exactly compute_total_years().
-	_years_until_next += (
-		years_per_devolution_base + years_per_devolution_growth * float(total_devolutions)
-	)
 	_trigger_devolution()
 
 
 func get_years_remaining() -> float:
 	return years_remaining
+
+
+func get_years_spent() -> float:
+	return total_years - years_remaining
 
 
 func get_years_fraction() -> float:
@@ -142,12 +190,13 @@ func get_years_fraction() -> float:
 
 func get_progress() -> float:
 	"""0.0 to 1.0 toward the next devolution step."""
-	var step_cost: float = (
-		years_per_devolution_base + years_per_devolution_growth * float(total_devolutions)
-	)
-	if step_cost <= 0.0:
+	if total_devolutions >= _thresholds.size():
 		return 0.0
-	return clampf(1.0 - (_years_until_next / step_cost), 0.0, 1.0)
+	var prev: float = 0.0 if total_devolutions == 0 else _thresholds[total_devolutions - 1]
+	var span: float = _thresholds[total_devolutions] - prev
+	if span <= 0.0:
+		return 0.0
+	return clampf((get_years_spent() - prev) / span, 0.0, 1.0)
 
 
 # ---- Fixed degradation order ----
@@ -182,9 +231,9 @@ func notify_choice_resolved() -> void:
 
 
 func reset() -> void:
-	total_years = compute_total_years()
+	_build_step_costs()
+	total_years = starting_years
 	years_remaining = total_years
-	_years_until_next = years_per_devolution_base
 	total_devolutions = 0
 	attacks_made = 0
 	years_spent_on_skills = 0.0

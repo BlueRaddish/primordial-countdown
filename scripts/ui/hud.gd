@@ -41,7 +41,7 @@ func _ready() -> void:
 	EventBus.trait_changed.connect(_on_trait_changed)
 	EventBus.wave_started.connect(_on_wave_started)
 	EventBus.wave_cleared.connect(_on_wave_cleared)
-	EventBus.god_mode_changed.connect(_on_god_mode_changed)
+	EventBus.test_modes_changed.connect(_refresh_test_banner)
 	EventBus.boss_spawned.connect(_on_boss_spawned)
 	EventBus.boss_health_changed.connect(_on_boss_health_changed)
 	EventBus.boss_defeated.connect(_on_boss_defeated)
@@ -180,14 +180,14 @@ func _build_run_info() -> void:
 	_buff_label.add_theme_color_override("font_color", Color("f1c40f"))
 	control.add_child(_buff_label)
 
-	# Testing flag — deliberately loud so nobody reads a god-mode run as a real one.
+	# Testing flags — deliberately loud so nobody reads a rigged run as a real one.
 	_god_label = Label.new()
-	_god_label.text = "GOD MODE — no damage taken"
+	_god_label.text = ""
 	_god_label.position = Vector2(8, 66)
 	_god_label.add_theme_font_size_override("font_size", 8)
 	_god_label.add_theme_color_override("font_color", Color("2ecc71"))
-	_god_label.visible = GameState.god_mode
 	control.add_child(_god_label)
+	_refresh_test_banner()
 
 	var hint: Label = Label.new()
 	hint.text = "[C] Character  [Q/E/R] Skills"
@@ -266,9 +266,21 @@ func _on_wave_cleared(wave_number: int) -> void:
 		_wave_label.text = "Wave: %d ok" % wave_number
 
 
-func _on_god_mode_changed(enabled: bool) -> void:
-	if _god_label:
-		_god_label.visible = enabled
+func _refresh_test_banner() -> void:
+	if not _god_label:
+		return
+	var modes: PackedStringArray = PackedStringArray()
+	if GameState.god_mode:
+		modes.append("no damage")
+	if GameState.freeze_years:
+		modes.append("years frozen")
+	if GameState.no_skill_cooldown:
+		modes.append("no cooldowns")
+	if modes.is_empty():
+		_god_label.visible = false
+		return
+	_god_label.text = "TESTING — %s" % ", ".join(modes)
+	_god_label.visible = true
 
 
 func _on_boss_spawned(_boss: Node, maximum: float) -> void:

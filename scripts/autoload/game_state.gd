@@ -18,6 +18,9 @@ var current_wave: int = 0
 # ---- Dev / testing ----
 var god_mode: bool = false
 var no_skill_cooldown: bool = false
+# Holds the year countdown still, so a skill can be playtested for as long as
+# needed without the run devolving out from under it.
+var freeze_years: bool = false
 
 # PLANNING1 milestone 3 wants a FIXED degradation order. Player-chosen degradation
 # is section 6's "possible later", so it stays off unless a tester flips it.
@@ -106,11 +109,21 @@ func heal_player(amount: float) -> void:
 
 func set_god_mode(enabled: bool) -> void:
 	god_mode = enabled
-	EventBus.god_mode_changed.emit(enabled)
+	EventBus.test_modes_changed.emit()
 
 
 func toggle_god_mode() -> void:
 	set_god_mode(not god_mode)
+
+
+func set_no_skill_cooldown(enabled: bool) -> void:
+	no_skill_cooldown = enabled
+	EventBus.test_modes_changed.emit()
+
+
+func set_freeze_years(enabled: bool) -> void:
+	freeze_years = enabled
+	EventBus.test_modes_changed.emit()
 
 
 # ---- Kill tracking (display only) ----

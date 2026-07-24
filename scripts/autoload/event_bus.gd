@@ -43,7 +43,8 @@ signal wave_started(wave_number: int, enemy_count: int)
 
 # ---- UI signals ----
 signal character_screen_toggled(is_open: bool)
-signal god_mode_changed(enabled: bool)
+# Any of the dev/testing toggles changed (god mode, frozen years, no cooldowns).
+signal test_modes_changed
 
 # ---- Navigation signals ----
 signal scene_change_requested(scene_path: String)

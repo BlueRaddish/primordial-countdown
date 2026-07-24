@@ -119,10 +119,21 @@ counting down, shown on the HUD.
 | Skill | the skill's own `year_cost` (see the tables above) |
 | Pounce | free |
 
-A run starts at **378 years**, which is not an arbitrary number: it is the exact sum of the
-14 devolution steps, whose costs widen from 14 years for the first to 40 for the last
-(`14 + 16 + … + 40 = 378`). Spending your last year lands exactly on your last devolution,
-so **reaching 0 means fully devolved**, which is `PLANNING1.md` section 4's end condition.
+A run starts at **2000 years**. That figure is the single knob for run length:
+`starting_years` on the DevolutionSystem node. The 14 devolution steps are *derived* from
+it, spread along a growth curve and normalised to sum to exactly `starting_years`, so
+raising or lowering it lengthens or shortens the run without desynchronising anything.
+
+At the shipped settings (`devolution_curve_growth = 2.0`, so the last step costs 3× the
+first) the schedule works out to:
+
+```
+71, 82, 93, 104, 115, 126, 137, 148, 159, 170, 181, 192, 203, 214   = 2000
+```
+
+So the first devolution takes ~71 attacks and the last takes ~214: devolution starts slow
+and accelerates. Spending your last year lands exactly on your last devolution, so
+**reaching 0 means fully devolved**, which is `PLANNING1.md` section 4's end condition.
 
 Because skills are paid for in the same currency, leaning on them burns the run faster.
 That is the intended tension — a 15-year Apex Instinct is fifteen swings you will never
@@ -161,11 +172,17 @@ Press `C` for the character screen:
 - **+ / −** per trait — move any trait to any stage to reach a skill immediately.
 - **Take no damage** — the player stops taking damage entirely, and falling into the death
   zone respawns instead of ending the run. The HUD shows a loud green banner while it is on.
-- **Zero skill cooldown** — every skill is instantly re-castable. Year costs are still
-  charged, so the countdown stays honest while you spam a skill to feel it out.
+- **Zero skill cooldown** — every skill is instantly re-castable.
+- **Freeze year counter** — the countdown stops entirely. Attacks and skills cost nothing
+  and no devolution ever fires, so a single skill can be exercised for as long as you like
+  without the run devolving out from under it. Pair with zero cooldown to hammer one skill
+  indefinitely.
 - **Devolution order: FIXED / PLAYER CHOICE** — flip between milestone 3's fixed order and
   the player-chosen variant.
 - **Reset all traits to intact.**
+
+While any of these are on, the HUD shows a loud green `TESTING — …` banner listing exactly
+which, so a rigged run is never mistaken for a real one.
 
 `scenes/main/game.tscn` can be launched directly (F6) — it starts a run itself rather than
 requiring the menu.

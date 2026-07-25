@@ -4,6 +4,13 @@
 # active buffs, skill slots, and the god-mode testing flag.
 extends CanvasLayer
 
+# The countdown is the one number on screen that changes constantly, so it gets a
+# monospaced face while the rest of the UI uses the project's default pixel font.
+# In a proportional font the digits are different widths, and 2000 -> 0 makes the
+# whole readout twitch sideways as it ticks. Monospace holds it still, and keeps
+# the Head trait's degraded readouts ("~25", "??") the same width as the real one.
+const COUNTER_FONT: FontFile = preload("res://assets/fonts/Kenney Mini Square Mono.ttf")
+
 @onready var _health_bar: ProgressBar = $Control/HealthBar
 @onready var _settings_btn: Button = $Control/SettingsButton
 @onready var _settings_panel: SettingsPanel = $Control/SettingsPanel
@@ -128,7 +135,8 @@ func _build_year_counter() -> void:
 	_year_label = Label.new()
 	_year_label.text = "--"
 	_year_label.position = Vector2(8, 20)
-	_year_label.add_theme_font_size_override("font_size", 14)
+	_year_label.add_theme_font_override("font", COUNTER_FONT)
+	_year_label.add_theme_font_size_override("font_size", 16)
 	_year_label.add_theme_color_override("font_color", Color("e74c3c"))
 	control.add_child(_year_label)
 
@@ -144,7 +152,8 @@ func _build_year_counter() -> void:
 	_countdown_label = Label.new()
 	_countdown_label.text = "--"
 	_countdown_label.position = Vector2(120, 25)
-	_countdown_label.add_theme_font_size_override("font_size", 7)
+	_countdown_label.add_theme_font_override("font", COUNTER_FONT)
+	_countdown_label.add_theme_font_size_override("font_size", 8)
 	_countdown_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.85))
 	control.add_child(_countdown_label)
 

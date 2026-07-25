@@ -1,59 +1,13 @@
 [gd_scene load_steps=12 format=3 uid="uid://player_scene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
-[ext_resource type="Texture2D" uid="uid://player_chars_tex" path="res://assets/sprites/player/tilemap-characters_packed.png" id="2_chars"]
+[ext_resource type="SpriteFrames" path="res://resources/sprite_frames/player_knight.tres" id="2_frames"]
 [ext_resource type="Script" path="res://scripts/player/slash_effect.gd" id="3_slash"]
 [ext_resource type="Script" path="res://scripts/player/trait_manager.gd" id="4_trait_mgr"]
 [ext_resource type="Script" path="res://scripts/player/ability_manager.gd" id="5_ability_mgr"]
 [ext_resource type="Script" path="res://scripts/player/status_effects.gd" id="6_status_fx"]
 [ext_resource type="Script" path="res://scripts/player/evolved_trait_manager.gd" id="7_evolved_mgr"]
 [ext_resource type="Script" path="res://scripts/player/body_marks.gd" id="8_body_marks"]
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_idle"]
-atlas = ExtResource("2_chars")
-region = Rect2(0, 0, 24, 24)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_walk"]
-atlas = ExtResource("2_chars")
-region = Rect2(24, 0, 24, 24)
-
-[sub_resource type="SpriteFrames" id="SpriteFrames_player"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_idle")
-}],
-"loop": true,
-"name": &"idle",
-"speed": 5.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_idle")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_walk")
-}],
-"loop": true,
-"name": &"walk",
-"speed": 8.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_walk")
-}],
-"loop": false,
-"name": &"jump",
-"speed": 5.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_walk")
-}],
-"loop": false,
-"name": &"attack",
-"speed": 10.0
-}]
 
 [sub_resource type="RectangleShape2D" id="shape_player_col"]
 size = Vector2(14, 20)
@@ -71,8 +25,8 @@ script = ExtResource("1_player")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 texture_filter = 0
-position = Vector2(0, -12)
-sprite_frames = SubResource("SpriteFrames_player")
+position = Vector2(0, -14)
+sprite_frames = ExtResource("2_frames")
 animation = &"idle"
 autoplay = "idle"
 

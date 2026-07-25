@@ -356,8 +356,65 @@ A boss health bar appears at the top of the HUD.
 
 ---
 
+## Art
+
+Every character is its own animated sprite from 0x72's DungeonTileset II, at four frames
+per idle and run cycle. The three enemy patterns are deliberately given three different
+bodies, so a pattern is readable before it acts rather than only once it moves:
+
+| On screen | Sprite | Size |
+| --- | --- | --- |
+| Player | `knight_m` | 16×28 |
+| Walker | `orc_warrior` | 16×23 |
+| Lunger | `chort` | 16×23 |
+| Hopper | `imp` | 16×16 |
+| Stage boss | `big_demon` | 32×36 |
+
+The boss sprite is drawn at native size and needs no scaling: at 32×36 against a 16px
+minion it is already the "twice the size" the boss is specified as, which is also why its
+collider is 28×40 against a normal enemy's 14×20.
+
+Frames live in `assets/sprites/`, and each pattern's animation set is a `SpriteFrames`
+resource in `resources/sprite_frames/`. `base_enemy.gd` picks the set in `_ready()` from
+its `behavior`, which the spawner assigns before `add_child()`, so it resolves once per
+enemy. The boss brings its own frames and opts out via `use_behavior_sprite = false`.
+
+Behind the arena is a six-layer parallax backdrop (`scripts/systems/parallax_backdrop.gd`).
+It is a plain `Node2D` under `Arena` rather than a `ParallaxBackground`, because a
+`CanvasModulate` only tints its own canvas layer — a `ParallaxBackground` makes its own, so
+the Eyes trait would have dimmed the world and left the sky bright. Keeping the layers in
+`Arena` means they darken with everything else.
+
+The layers are pieces of one 1280×720 painting, so each has a fixed place on that canvas —
+five bottom-aligned, the cloud band anchored to the top — recorded in `layer_offset_y`. The
+canvas hangs by its bottom edge at y=470, well below the ground line, because the painting
+puts its peaks mid-frame and the game only shows 360px at a time; anchoring at the ground
+left everything worth seeing above the top of the screen.
+
+UI uses Kenney Pixel as the project-wide default font. The year counter overrides it with
+Kenney Mini Square Mono: it is the one number that changes constantly, and in a
+proportional face the digits are different widths, so counting 2000 down to 0 makes the
+readout twitch sideways. Monospace holds it still and keeps the Head trait's degraded
+readouts (`~25`, `??`) the same width as the real thing.
+
+---
+
 ## Credits
 
 | Asset | Author | License | Link |
 | --- | --- | --- | --- |
 | Pixel Platformer (1.2) | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer |
+| 16x16 DungeonTileset II (1.7) — player, enemies, boss | 0x72 | CC0 1.0 | https://0x72.itch.io/dungeontileset-ii |
+| 2D Platformer Volcano Pack 1.1 — parallax backdrop | Tio Aimar | CC0 1.0 | https://opengameart.org/content/2d-platformer-volcano-pack-11 |
+| Pixel Platformer Industrial Expansion — ground tile | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer-industrial-expansion |
+| Kenney Fonts — Kenney Pixel, Kenney Mini Square Mono | Kenney | CC0 1.0 | https://kenney.nl/assets/kenney-fonts |
+
+Every asset above is CC0, so none of this requires attribution — it is here because the
+work deserves the credit, not because a licence demands it.
+
+Further packs are staged but not yet used, with a written comparison, in `art-resources/`
+(see `art-resources/ART_RESOURCES.md`): Gothicvania sprites, VFX sheets, pixel UI, ~4200
+skill icons, SFX and music. Two of those do carry attribution requirements — game-icons.net
+is CC BY 3.0 and the Fantasy Ambience music is CC BY 4.0 — so credit them here if they get
+used. The staged archives are ~112 MB of originals and are not meant for version control;
+add `/art-resources/` to `.gitignore` alongside the existing entries.

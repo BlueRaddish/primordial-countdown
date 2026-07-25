@@ -22,3 +22,7 @@ export_credentials.cfg
 # Downloaded asset packs (originals kept outside version control)
 kenney_pixel-platformer.zip
 kenney_pixel-platformer_extracted/
+
+# Imports
+*.import
+*/import/

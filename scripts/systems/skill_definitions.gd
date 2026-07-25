@@ -10,15 +10,17 @@
 #   Lungs  full loss buff -> free burst attacks     -> Second Wind
 #   Eyes   full loss buff -> vibration sense        -> Echo Sense
 #   Skin   full loss buff -> raw body retaliates    -> Thornskin
-#   Head   full loss buff -> undecided in PLANNING1 -> no skill yet
+#   Head   full loss buff -> perception, not readout -> Hindbrain
 #
 # Plus multi-trait skills, which read a *combination* of capability rather than a
-# single loss, and skills granted by the evolved traits (Wings, Hide) that can
-# grow in over a lost trait. Add new skills by adding entries to get_all_skills().
+# single loss, and skills granted by the evolved traits that can grow in over a
+# lost slot. Add new skills by adding entries to get_all_skills().
 #
 # Evolved traits appear in the unlock dictionary as pseudo-traits with stage
 # 0 = dormant, 1 = grown (AbilityManager merges them in). So {"wings": [1, 1]}
-# means "unlocked once wings have grown".
+# means "unlocked once wings have grown". Gills are deliberately skill-less: their
+# payoff is lifting the lungs' swing penalty outright, and the rest of them waits
+# on water terrain (ideate 3.3).
 class_name SkillDefinitions
 extends RefCounted
 
@@ -141,6 +143,30 @@ static func get_all_skills() -> Array[SkillData]:
 	pounce.buff_contact_retaliation = 30.0
 	pounce.unlock_conditions = {"legs": [LOST, LOST]}
 	skills.append(pounce)
+
+	# --------------------------------------------------------------- Head ----
+	# The last gap in PLANNING1's trait->skill map. Losing the head has always taken
+	# the HUD's numbers away; this is what the body grows in their place. It restores
+	# no information at all — it replaces knowing with noticing. Anything committed to
+	# hurting you lights up, and you flinch better from what still lands.
+	# (ideate 1.4 called this "Instinct"; renamed because "Apex Instinct" already
+	# exists as a multi-trait skill and two near-identical names in the same list is
+	# a UI problem. "Hindbrain" also says the thing more exactly.)
+	var instinct: SkillData = SkillData.new()
+	instinct.skill_name = "Hindbrain"
+	instinct.description = "For 8s, anything about to hit you lights up, and you take 25% less damage."
+	instinct.flavor = "It cannot read the fight any more. It can still feel the moment before."
+	instinct.kind = SkillData.Kind.BUFF
+	instinct.cooldown = 15.0
+	instinct.year_cost = 8.0
+	instinct.aoe_color = Color("f7dc6f") # Pale warning yellow
+	instinct.is_directional = false
+	instinct.aoe_radius = 38.0
+	instinct.buff_duration = 8.0
+	instinct.buff_damage_taken_mult = 0.75
+	instinct.buff_danger_sense = true
+	instinct.unlock_conditions = {"head": [LOST, LOST]}
+	skills.append(instinct)
 
 	# ------------------------------------------------- Multi-trait skills ----
 	# Arms are gone but the legs still work: the kick becomes the whole moveset.
@@ -319,8 +345,65 @@ static func get_all_skills() -> Array[SkillData]:
 	slam.unlock_conditions = {"wings": [1, 1]}
 	skills.append(slam)
 
-	# ---------------------------------------------- Evolved: Hide ----
-	# The hide has grown in thick and plated. It can pull in tight and weather
+	# ------------------------------------------- Evolved trait skills ----
+	# Each of these needs its evolved trait grown, so they are the deepest branch in
+	# the game: a specific combination of losses, accepted, permanently.
+
+	# Claws: no reach at all, so the verb is committing to being inside the enemy's
+	# space. Tearing rather than striking, and a torn thing feeds you for a moment.
+	var rend: SkillData = SkillData.new()
+	rend.skill_name = "Rend"
+	rend.description = "Tear everything at arm's length apart. Heavy, close, and the wound feeds you for 3s."
+	rend.flavor = "Not a blow. A grip that does not let go until something comes away."
+	rend.kind = SkillData.Kind.OFFENSIVE
+	rend.cooldown = 5.0
+	rend.year_cost = 2.0
+	rend.aoe_damage = 58.0
+	rend.aoe_radius = 26.0 # Deliberately tight — claws trade reach for everything else.
+	rend.aoe_color = Color("e8dcc8")
+	rend.is_directional = true
+	rend.buff_duration = 3.0
+	rend.buff_omnivamp = 0.35
+	rend.unlock_conditions = {"claws": [1, 1]}
+	skills.append(rend)
+
+	# Tail: a full 360° sweep. The one skill that does not care where the cursor is,
+	# because a tail does not aim — it clears the space you are standing in.
+	var whip: SkillData = SkillData.new()
+	whip.skill_name = "Tail Whip"
+	whip.description = "Sweep the tail in a full circle, throwing back everything around you."
+	whip.flavor = "It does not aim it. It simply takes back the ground it is standing on."
+	whip.kind = SkillData.Kind.OFFENSIVE
+	whip.cooldown = 4.0
+	whip.year_cost = 1.0
+	whip.aoe_damage = 30.0
+	whip.aoe_radius = 48.0 # Wide, but weak per target — this is spacing, not damage.
+	whip.aoe_color = Color("bb8fce")
+	whip.is_directional = false
+	whip.unlock_conditions = {"tail": [1, 1]}
+	skills.append(whip)
+
+	# Plates: too heavy to dodge with, so the answer to a crowd is to go through it.
+	# No i-frames — you are armored, not absent, which is the whole character of them.
+	var ram: SkillData = SkillData.new()
+	ram.skill_name = "Ram"
+	ram.description = "Drop your shoulder and charge, bowling over anything in the way."
+	ram.flavor = "Nothing about it is fast. Nothing about it has to be."
+	ram.kind = SkillData.Kind.OFFENSIVE
+	ram.cooldown = 5.0
+	ram.year_cost = 2.0
+	ram.aoe_damage = 46.0
+	ram.aoe_radius = 32.0
+	ram.aoe_color = Color("a1887f")
+	ram.is_directional = true
+	ram.impulse_speed = 380.0
+	ram.impulse_upward_bias = 20.0
+	ram.buff_duration = 0.4
+	ram.buff_damage_taken_mult = 0.35 # Heavily armored through it, not untouchable.
+	ram.unlock_conditions = {"plates": [1, 1]}
+	skills.append(ram)
+
+	# Hide: it has grown in thick and plated. It can pull in tight and weather
 	# almost anything for a moment, punishing whatever is pressed against it.
 	var curl: SkillData = SkillData.new()
 	curl.skill_name = "Curl"

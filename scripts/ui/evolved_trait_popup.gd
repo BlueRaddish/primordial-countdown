@@ -90,7 +90,10 @@ func _build_ui() -> void:
 
 	_replaces_label = Label.new()
 	_replaces_label.text = ""
-	_replaces_label.position = Vector2(10, 134)
+	_replaces_label.position = Vector2(10, 132)
+	_replaces_label.size = Vector2(300, 32)
+	_replaces_label.custom_minimum_size = Vector2(300, 32)
+	_replaces_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_replaces_label.add_theme_font_size_override("font_size", 7)
 	_replaces_label.add_theme_color_override("font_color", Color(0.5, 0.55, 0.6))
 	_panel.add_child(_replaces_label)
@@ -128,10 +131,28 @@ func _show(data: EvolvedTraitData) -> void:
 	_name_label.add_theme_color_override("font_color", data.color)
 	_desc_label.text = data.description
 	_flavor_label.text = data.flavor
-	_replaces_label.text = "Grows from your %s, and takes over its slot. Permanent." % data.replaces_trait.capitalize()
+	_replaces_label.text = _build_commitment_text(data)
 	visible = true
 	_is_open = true
 	GameState.push_pause(PAUSE_ID)
+
+
+func _build_commitment_text(data: EvolvedTraitData) -> String:
+	"""Spell out the cost of accepting. A slot only ever holds one evolved trait, so
+	taking this one ends every other path out of that slot for the rest of the run —
+	the player should be told that before they commit, not discover it later."""
+	var text: String = "Grows from your %s and takes over that slot. Permanent." % (
+		data.replaces_trait.capitalize()
+	)
+	var mgr: Node = _find_evolved_manager()
+	if not mgr:
+		return text
+	var names: PackedStringArray = PackedStringArray()
+	for rival: EvolvedTraitData in mgr.call("get_rivals", data.id):
+		names.append(rival.display_name)
+	if names.size() > 0:
+		text += "\nTaking it closes off: %s." % ", ".join(names)
+	return text
 
 
 func _on_grow() -> void:

@@ -29,6 +29,9 @@ class ActiveBuff extends RefCounted:
 	var pulse_interval: float = 0.0
 	var pulse_timer: float = 0.0
 
+	# Lights up enemies that are about to strike (Instinct).
+	var danger_sense: bool = false
+
 
 # How often a thorns aura is allowed to hurt the same crowd.
 const RETALIATION_TICK: float = 0.5
@@ -43,6 +46,10 @@ var _damage_taken_mult: float = 1.0
 var _omnivamp: float = 0.0
 var _contact_retaliation: float = 0.0
 var _attack_cooldown_mult: float = 1.0
+var _danger_sense: bool = false
+# Whether enemies are currently wearing the highlight, so it is cleared exactly
+# once when the sense drops rather than every frame.
+var _danger_marks_shown: bool = false
 
 var _player: CharacterBody2D
 
@@ -55,6 +62,10 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _buffs.is_empty():
 		_retaliation_timer = 0.0
+		# Nothing is active, so drop the sense — the tick below clears any marks
+		# still on enemies from the buff that just ran out.
+		_danger_sense = false
+		_tick_danger_sense()
 		return
 
 	var expired: Array[ActiveBuff] = []
@@ -71,6 +82,7 @@ func _process(delta: float) -> void:
 
 	_recompute()
 	_tick_retaliation(delta)
+	_tick_danger_sense()
 
 
 # ---- Public API ----
@@ -96,6 +108,7 @@ func apply_buff(skill: SkillData) -> void:
 	buff.pulse_radius = skill.buff_pulse_radius
 	buff.pulse_interval = skill.buff_pulse_interval
 	buff.pulse_timer = 0.0
+	buff.danger_sense = skill.buff_danger_sense
 
 	if not existing:
 		_buffs.append(buff)
@@ -107,6 +120,7 @@ func apply_buff(skill: SkillData) -> void:
 func clear_all() -> void:
 	_buffs.clear()
 	_recompute()
+	_tick_danger_sense()
 
 
 func has_buff(id: String) -> bool:
@@ -133,6 +147,10 @@ func get_attack_cooldown_mult() -> float:
 	return _attack_cooldown_mult
 
 
+func has_danger_sense() -> bool:
+	return _danger_sense
+
+
 func is_invulnerable() -> bool:
 	return _damage_taken_mult <= 0.001
 
@@ -152,8 +170,11 @@ func _recompute() -> void:
 	_omnivamp = 0.0
 	_contact_retaliation = 0.0
 	_attack_cooldown_mult = 1.0
+	_danger_sense = false
 
 	for buff: ActiveBuff in _buffs:
+		if buff.danger_sense:
+			_danger_sense = true
 		_damage_mult *= buff.damage_mult
 		_damage_taken_mult *= buff.damage_taken_mult
 		# Strongest source wins rather than stacking — keeps buffs from compounding
@@ -184,6 +205,32 @@ func _tick_pulse(buff: ActiveBuff, delta: float) -> void:
 
 	if hits > 0 and _player.has_method("report_damage_dealt"):
 		_player.call("report_damage_dealt", buff.pulse_damage * float(hits))
+
+
+func _tick_danger_sense() -> void:
+	"""Mark every enemy that is about to hurt you, and unmark the rest.
+
+	The head is gone, so the readouts are gone with it. This is what replaces them:
+	not information, just the moment before. Re-evaluated every frame because an
+	enemy's threat state changes constantly."""
+	if not _danger_sense:
+		if _danger_marks_shown:
+			_set_all_highlights(false)
+			_danger_marks_shown = false
+		return
+
+	_danger_marks_shown = true
+	for node: Node in get_tree().get_nodes_in_group("enemies"):
+		var enemy: BaseEnemy = node as BaseEnemy
+		if enemy:
+			enemy.set_danger_highlight(enemy.is_telegraphing())
+
+
+func _set_all_highlights(on: bool) -> void:
+	for node: Node in get_tree().get_nodes_in_group("enemies"):
+		var enemy: BaseEnemy = node as BaseEnemy
+		if enemy:
+			enemy.set_danger_highlight(on)
 
 
 func _tick_retaliation(delta: float) -> void:

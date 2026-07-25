@@ -12,6 +12,9 @@ const BASE_JUMP_FORCE: float = -330.0
 const BASE_ATTACK_DAMAGE: float = 25.0
 const BASE_MELEE_RANGE: float = 24.0 # Offset of hitbox center from player
 const BASE_MELEE_LENGTH: float = 40.0 # Hitbox length along the aim direction
+# Coyote time is rebuilt from this every recalculate, because an evolved Tail adds
+# to it and the rebuild has to start from a clean base rather than compounding.
+const BASE_COYOTE_TIME: float = 0.08
 
 # --- Live values (rebuilt from traits) ---
 @export var move_speed: float = 120.0
@@ -55,6 +58,9 @@ var vision_mod: float = 1.0 # Eyes: world brightness
 # --- Evolved trait state (set by recalculate_from_traits from EvolvedTraitManager) ---
 var has_wings: bool = false # Wings: glide + an extra mid-air flap
 var glide_gravity_mult: float = 0.35 # How much gravity wings cancel while gliding
+var has_tail: bool = false # Tail: mid-air steering that survives losing the legs
+var air_control_mult: float = 1.0 # Tail: mid-air steering authority
+var knockback_resist: float = 0.0 # Plates: fraction of incoming knockback shrugged off
 
 # --- Internal state ---
 var _coyote_timer: float = 0.0
@@ -82,6 +88,7 @@ var _aim_dir: Vector2 = Vector2.RIGHT
 @onready var _ability_manager: AbilityManager = $AbilityManager
 @onready var _status_effects: StatusEffects = $StatusEffects
 @onready var _evolved_manager: Node = get_node_or_null("EvolvedTraitManager")
+@onready var _body_marks: BodyMarks = get_node_or_null("BodyMarks") as BodyMarks
 
 
 func _ready() -> void:
@@ -158,6 +165,9 @@ func recalculate_from_traits(trait_mgr: TraitManager) -> void:
 	jump_force = BASE_JUMP_FORCE * trait_mgr.get_leg_jump_mod()
 	max_air_jumps = trait_mgr.get_air_jumps()
 	_air_jumps_left = mini(_air_jumps_left, max_air_jumps)
+	coyote_time = BASE_COYOTE_TIME
+	air_control_mult = 1.0
+	knockback_resist = 0.0
 
 	# Arms: damage and reach.
 	attack_damage = BASE_ATTACK_DAMAGE * trait_mgr.get_arm_damage_mod()
@@ -184,17 +194,23 @@ func recalculate_from_traits(trait_mgr: TraitManager) -> void:
 	# Evolved traits layer on top of the base trait stats.
 	_apply_evolved_traits()
 
+	# Last, because it reports on the finished state of both.
+	_update_body_appearance(trait_mgr)
+
 
 func _apply_evolved_traits() -> void:
-	"""Fold any grown evolved traits (Wings, Hide) into the live stats.
+	"""Fold any grown evolved traits into the live stats.
 
-	Evolved traits replace the role of the trait they grow from, so they are
-	applied last and simply overwrite the relevant stat rather than stacking with
-	the (already lost) trait they succeed."""
+	An evolved trait takes over the role of the slot it grew from, so these are
+	applied last and overwrite the relevant stat rather than stacking with the trait
+	they succeed. Only one evolved trait can hold a slot (EvolvedTraitManager
+	enforces it), so nothing here has to reconcile two claims on the same stat."""
 	has_wings = false
+	has_tail = false
 	if not _evolved_manager:
 		return
 
+	# --- arms slot: Wings or Claws ---
 	if _evolved_manager.call("has_trait", "wings"):
 		has_wings = true
 		# Wings restore an extra mid-air flap even with the arms gone.
@@ -204,11 +220,76 @@ func _apply_evolved_traits() -> void:
 		# flap so the player can still gain height. minf keeps stronger leg jumps.
 		jump_force = minf(jump_force, BASE_JUMP_FORCE * 0.75)
 
-	if _evolved_manager.call("has_trait", "hide"):
-		# A thick hide is far tougher than skin ever was: heavy flat protection.
-		passive_damage_taken_mult = minf(
-			passive_damage_taken_mult, _evolved_manager.call("get_hide_damage_mult")
-		)
+	# Claws hand the melee back after the arms are gone — the arm mods have already
+	# zeroed damage and reach, so this replaces both outright instead of scaling them.
+	var restorer: EvolvedTraitData = _evolved_manager.call("get_attack_restorer")
+	if restorer:
+		arms_blocked = false
+		attack_damage = BASE_ATTACK_DAMAGE * restorer.attack_damage_mult
+		_apply_melee_reach(restorer.attack_range_mult)
+
+	# --- legs slot: Tail ---
+	if _evolved_manager.call("has_trait", "tail"):
+		has_tail = true
+	air_control_mult = _evolved_manager.call("get_air_control_mult") as float
+	coyote_time = BASE_COYOTE_TIME + (_evolved_manager.call("get_coyote_bonus") as float)
+
+	# --- skin slot: Hide or Plates ---
+	# Both are far tougher than skin ever was. Plates additionally anchor you.
+	passive_damage_taken_mult = minf(
+		passive_damage_taken_mult, _evolved_manager.call("get_damage_taken_mult") as float
+	)
+	knockback_resist = _evolved_manager.call("get_knockback_resist") as float
+
+	# --- lungs slot: Gills ---
+	# Breathing moves off the ruined lungs, so their swing penalty stops applying.
+	var cd_override: float = _evolved_manager.call("get_attack_cooldown_override") as float
+	if cd_override > 0.0:
+		attack_cooldown_mult = cd_override
+
+
+func _update_body_appearance(trait_mgr: TraitManager) -> void:
+	"""Make the devolution visible on the body itself.
+
+	Two channels: the sprite drains toward a bloodless grey as the traits go, and
+	BodyMarks draws whatever has grown back. Until this existed the entire fantasy —
+	a body coming apart and improvising — was happening only in the HUD."""
+	var decay: float = _get_devolution_fraction(trait_mgr)
+	if _sprite:
+		var tint: Color = Color.WHITE.lerp(Color(0.58, 0.55, 0.62), decay)
+		# Alpha belongs to the invincibility flicker; only the colour is ours.
+		tint.a = _sprite.modulate.a
+		_sprite.modulate = tint
+
+	if not _body_marks:
+		return
+
+	var armor: Color = Color.TRANSPARENT
+	var has_claws: bool = false
+	var has_gills: bool = false
+	if _evolved_manager:
+		has_claws = _evolved_manager.call("has_trait", "claws")
+		has_gills = _evolved_manager.call("has_trait", "gills")
+		for id: String in ["hide", "plates"]:
+			if _evolved_manager.call("has_trait", id):
+				var data: EvolvedTraitData = _evolved_manager.call("get_definition", id)
+				if data:
+					armor = data.color
+
+	_body_marks.set_marks(has_wings, has_tail, has_claws, has_gills, armor)
+
+
+func _get_devolution_fraction(trait_mgr: TraitManager) -> float:
+	"""How far gone the body is, 0.0 (all intact) to 1.0 (everything fully lost).
+	Counts partial stages too, so the drain is gradual rather than stepping only on
+	full losses."""
+	var total: int = 0
+	for trait_name: String in TraitManager.ALL_TRAITS:
+		total += trait_mgr.get_trait_stage(trait_name)
+	var max_total: int = TraitManager.ALL_TRAITS.size() * TraitManager.MAX_STAGE
+	if max_total <= 0:
+		return 0.0
+	return float(total) / float(max_total)
 
 
 func _apply_melee_reach(range_mod: float) -> void:
@@ -360,6 +441,18 @@ func _handle_horizontal_movement(delta: float) -> void:
 		return
 
 	if not movement_enabled:
+		# A tail is not a leg. Once it has grown, mid-air steering survives losing
+		# the legs entirely — which is the whole reason to grow one.
+		if has_tail and not is_on_floor():
+			var tail_input: float = Input.get_axis("move_left", "move_right")
+			if tail_input != 0.0:
+				velocity.x = move_toward(
+					velocity.x,
+					tail_input * BASE_MOVE_SPEED * 0.6,
+					BASE_ACCELERATION * air_control_mult * delta
+				)
+				_facing_right = tail_input > 0.0
+				return
 		velocity.x = move_toward(velocity.x, 0.0, friction * delta)
 		return
 
@@ -370,7 +463,12 @@ func _handle_horizontal_movement(delta: float) -> void:
 	var input_dir: float = Input.get_axis("move_left", "move_right")
 
 	if input_dir != 0.0:
-		velocity.x = move_toward(velocity.x, input_dir * move_speed, acceleration * delta)
+		# Air control is a separate authority from ground acceleration, so a Tail can
+		# make you far more precise airborne without changing how you run.
+		var accel: float = acceleration
+		if not is_on_floor():
+			accel *= air_control_mult
+		velocity.x = move_toward(velocity.x, input_dir * move_speed, accel * delta)
 		_facing_right = input_dir > 0.0
 	else:
 		var fric: float = friction if is_on_floor() else air_friction
@@ -498,7 +596,9 @@ func respawn_at_start() -> void:
 func _on_player_hit(_damage: float, knockback_dir: Vector2) -> void:
 	if _is_dead:
 		return
-	velocity = knockback_dir * hit_knockback_force
+	# Plates make you very hard to shift: the hit still lands, it just stops throwing
+	# you across the arena. The small upward pop is kept so a hit always reads.
+	velocity = knockback_dir * hit_knockback_force * (1.0 - knockback_resist)
 	velocity.y = minf(velocity.y, -60.0)
 	_invincibility_timer = invincibility_duration
 
@@ -537,6 +637,11 @@ func _handle_invincibility(delta: float) -> void:
 # ---- Animation ----
 
 func _update_animation() -> void:
+	# Grown parts follow the body: wings beat harder airborne, the tail sways against
+	# whichever way you are moving.
+	if _body_marks:
+		_body_marks.set_motion(_facing_right, not is_on_floor(), velocity.x)
+
 	if not _sprite:
 		return
 

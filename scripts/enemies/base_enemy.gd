@@ -55,6 +55,14 @@ var _lunge_dir: float = 1.0
 # by overriding this instead of fighting _update_flash every frame.
 var _base_modulate: Color = Color.WHITE
 
+# --- Danger sense (driven by the player's Instinct skill) ---
+# How close an enemy with no windup animation has to be before it counts as an
+# imminent threat. Roughly the range at which a bump becomes unavoidable.
+const CONTACT_TELL_RANGE: float = 30.0
+const DANGER_HIGHLIGHT: Color = Color(2.4, 1.7, 0.35)
+
+var _danger_highlight: bool = false
+
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 
 
@@ -266,6 +274,33 @@ func take_damage(amount: float, knockback: Vector2 = Vector2.ZERO) -> void:
 	EventBus.enemy_hit.emit(self, amount, knockback)
 
 
+# ---- Danger sense ----
+
+func is_telegraphing() -> bool:
+	"""True when this enemy is committed to hurting the player in the next moment.
+
+	Two shapes of threat: a lunger that has wound up or is mid-lunge, and anything
+	else close enough to land contact damage with its cooldown already spent. The
+	second case is what makes the sense worth having — walkers and hoppers have no
+	windup animation, so their threat is otherwise invisible."""
+	if _state == State.DEAD:
+		return false
+	if _state == State.WINDUP or _state == State.LUNGE:
+		return true
+	if _contact_timer > 0.0:
+		return false
+	var player: Node2D = _find_player()
+	if not player:
+		return false
+	return global_position.distance_to(player.global_position) < CONTACT_TELL_RANGE
+
+
+func set_danger_highlight(on: bool) -> void:
+	"""Mark this enemy as an imminent threat. _update_flash paints it; a hit flash
+	still wins, since taking damage should always read first."""
+	_danger_highlight = on
+
+
 func get_health_fraction() -> float:
 	if max_health <= 0.0:
 		return 0.0
@@ -340,6 +375,8 @@ func _update_flash(delta: float) -> void:
 	if _flash_timer > 0.0:
 		_flash_timer -= delta
 		_sprite.modulate = Color(2.0, 0.5, 0.5) if fmod(_flash_timer, 0.1) > 0.05 else _base_modulate
+	elif _danger_highlight:
+		_sprite.modulate = DANGER_HIGHLIGHT
 	else:
 		_sprite.modulate = _base_modulate
 

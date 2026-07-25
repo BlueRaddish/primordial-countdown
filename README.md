@@ -76,10 +76,11 @@ Two of these interact with the arena and the skills in ways worth knowing:
   Same shape for eyes: the world goes dark, and Echo Sense is how you find things in it.
 - **Skin is a flat damage sponge.** Intact skin turns aside a fifth of every hit; once it
   is gone the raw body takes hits in full — but grows Thornskin, and, in the right
-  combination, a whole new Hide (see Evolved traits).
+  combination, either a Hide or a set of Plates (see Evolved traits).
 
 Head never hides the bars, only the numbers — hiding the whole HUD would make the run
-unreadable rather than harder.
+unreadable rather than harder. Losing it entirely grants **Hindbrain**, which replaces
+the readouts with a reflex: anything about to hit you lights up.
 
 ---
 
@@ -92,19 +93,47 @@ accept/decline popup (game time frozen). Accepting grows the trait, which **perm
 takes over the slot of the trait it grows from**. Declining resumes normal degradation and
 leaves the option claimable later from the character screen.
 
-| Evolved trait | Grows when | Replaces | Effect |
+| Evolved trait | Grows when | Slot | Effect |
 | --- | --- | --- | --- |
 | **Wings** | Arms **lost** + Lungs **intact** + Legs **partial/lost** | Arms | An extra mid-air flap, a glide (hold jump while falling), and the wing skills (Wing Dash, Updraft, Wing Slam). Wings keep the jump alive even after the legs are also gone. |
+| **Claws** | Arms **lost** + Skin **lost** | Arms | Your melee attack works again at **×1.15 damage but half the reach** — nothing left to protect, so the limb becomes the weapon. Grants Rend. |
 | **Hide** | Skin **intact** + Lungs **lost** + Gut **lost** | Skin | The still-whole skin thickens into a plated hide: heavy **40% flat damage reduction**, far past what intact skin ever gave, plus the Curl skill. |
+| **Plates** | Skin **lost** + Gut **lost** | Skin | Bone pushes out through bare flesh: **30% damage reduction** and **65% knockback resistance**. Weaker than a Hide — this is salvage, not growth. Grants Ram. |
+| **Tail** | Legs **partial** + Head **lost** | Legs | Real mid-air steering (**×1.9 air control**) that *survives losing the legs entirely*, plus **+0.12s coyote time**. Grants Tail Whip. |
+| **Gills** | Lungs **lost** + Eyes **lost** | Lungs | Breathing moves off the ruined lungs, cancelling their **×2.2 swing penalty** outright. No skill — the rest of it waits on water terrain (`ideate.md` 3.3). |
+
+**One evolved trait per slot, permanently.** Wings and Claws both grow from the arms;
+Hide and Plates both grow from the skin. Taking one closes the other off for the rest of
+the run, and the offer popup names what you are giving up before you accept. The theme is
+a body forced down *one* path — a run where you grow everything would be a power fantasy,
+not a devolution. A closed-off form stays listed on the character screen, greyed out, so
+the choice remains visible.
 
 Because these read *combinations* — some traits lost, others deliberately kept —
 they are things you **steer toward** through the devolution choices (below), not
-accidents. Growing one is permanent and takes over the slot of the trait it grows
-from.
+accidents.
 
 They still count as part of the fall — you reach them by losing things — but they change
 what the fall *feels* like. Defined in `scripts/systems/evolved_trait_definitions.gd`;
 tracked per-player by `scripts/player/evolved_trait_manager.gd`.
+
+---
+
+## The body is visible
+
+The run is about watching a body come apart, so it has to be legible on the body itself,
+not only in the HUD. Two channels, both driven from the same trait recalculation:
+
+- **The sprite drains.** It lerps toward a bloodless grey as total degradation rises,
+  counting partial stages too — so the colour slides gradually rather than stepping only
+  on full losses.
+- **Grown parts are drawn.** `scripts/player/body_marks.gd` renders wings (beating faster
+  in the air), a tail (swaying against your direction of travel), claws (stubby hooks, to
+  say *no reach*), gills, and a plated rim in the Hide's or Plates' colour.
+
+These are procedural shapes, not art, for the same reason the AoE indicators are: they
+follow trait state exactly and never go stale when a trait is retuned. Real art replaces
+that one node and nothing else. The node stops processing entirely when nothing has grown.
 
 ---
 
@@ -127,6 +156,11 @@ normal attack costs 1 year for comparison.
 | **Echo Sense** | Eyes lost | Buff | 13s | 8 yr | For 6s, pulse every 0.7s for damage in a 72px radius. Vibration sense: blind, but the ground reports back. |
 | **Second Wind** | Lungs lost | Buff | 14s | 8 yr | For 5s, attack cooldown drops to a quarter. Free burst attacks — no breath left to pace. |
 | **Pounce** | Legs lost | Movement | 3s | **free** | Leap toward the cursor. Untouchable for the leap, and it hurts on contact. Free because with the legs gone it *is* the player's movement — charging for it would charge for walking. |
+| **Hindbrain** | Head lost | Buff | 15s | 8 yr | For 8s, every enemy about to hit you lights up, and you take 25% less damage. The readouts are gone for good; this replaces knowing with noticing. |
+
+Every trait now has a full-loss skill — Head was the last gap PLANNING1 left undecided.
+Hindbrain restores no information: it marks lungers winding up *and* anything close enough
+to land a contact hit, which is the part walkers and hoppers never telegraphed at all.
 
 ### Mobility skills
 
@@ -138,7 +172,6 @@ More movement expression, per the redesign. Every one of these — like all skil
 | **Scramble** | Legs **partial** | Movement | 4s | 1 yr | A short i-frame evasive dash toward the cursor. Appears once the legs start failing; gives way to Pounce at full loss. |
 | **Wing Dash** | Wings grown | Movement | 2.5s | **free** | A long horizontal air-dash toward the cursor, untouchable during it. Free — with the arms gone it is core wing mobility, like Pounce. |
 | **Updraft** | Wings grown | Movement | 5s | 1 yr | Launch straight up on a burst of air. Hold jump after to glide, reaching the high route from below. |
-| **Curl** | Hide grown | Buff | 18s | 6 yr | For 4s, pull into the hide: take almost no damage (×0.15) and grind anything touching you. |
 
 ### Attack + movement skills
 
@@ -151,6 +184,18 @@ grant i-frames for their motion, and (like every skill) refresh the jump in mid-
 | **Lunge Strike** | Arms intact/partial + Legs **partial/lost** | Attack | 5s | 2 yr | Dash to the cursor and strike on arrival (42 dmg), untouchable through the lunge. Legs failing → explosive committed lunges. |
 | **Backstep Slash** | Arms **partial** | Attack | 5s | 2 yr | Strike toward the cursor (34 dmg), then leap the opposite way. Hit-and-run as the arms weaken. |
 | **Wing Slam** | Wings grown | Attack | 4s | 1 yr | Dive toward the cursor and slam down (52 dmg). Best entered from a jump or glide — turns height into damage. |
+
+### Evolved trait skills
+
+The deepest branch in the game: each needs its evolved trait grown, which means a specific
+combination of losses, accepted permanently.
+
+| Skill | Source | Kind | CD | Cost | Effect |
+| --- | --- | --- | --- | --- | --- |
+| **Rend** | Claws grown | Attack | 5s | 2 yr | Tear apart everything at arm's length (58 dmg in a tight 26px radius) and gain 35% omnivamp for 3s. Deliberately short-ranged — claws trade reach for everything else. |
+| **Tail Whip** | Tail grown | Attack | 4s | 1 yr | A full 360° sweep, 30 damage in a 48px radius. The one skill that ignores the cursor: a tail does not aim, it clears the ground you are standing on. Spacing, not damage. |
+| **Ram** | Plates grown | Attack | 5s | 2 yr | Charge the cursor, bowling over anything in the way (46 dmg). **No i-frames** — ×0.35 damage taken instead. You are armored, not absent. |
+| **Curl** | Hide grown | Buff | 18s | 6 yr | For 4s, pull into the hide: take almost no damage (×0.15) and grind anything touching you. |
 
 ### Multi-trait skills
 
@@ -302,6 +347,11 @@ Three movement patterns, mixed per wave and weighted toward walkers early:
 
 **Stage boss** every 3rd wave: twice the size, twice the contact damage, 420 health, and a
 telegraphed ground slam. Boss waves spawn half the usual minions so the boss is the fight.
+
+Only the lunger telegraphs on its own. **Hindbrain** (Head lost) makes the rest legible for
+its duration: `BaseEnemy.is_telegraphing()` marks a lunger winding up or mid-lunge, plus
+any enemy close enough to land contact damage with its cooldown already spent. A hit flash
+still overrides the highlight, because taking damage should always read first.
 A boss health bar appears at the top of the HUD.
 
 ---

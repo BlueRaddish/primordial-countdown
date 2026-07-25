@@ -10,6 +10,9 @@ The north star: **the run should read as a body coming apart and improvising aro
 the wreckage, against a clock that never stops.** Devolution is loss; the only power
 you gain is power that grows out of loss.
 
+**Next up: Tier 2.** Tiers 0 and 1 are shipped. The devolution *systems* are now
+complete — what is still missing is making the countdown itself a decision.
+
 ---
 
 ## Tier 0 — just shipped (context for what follows)
@@ -19,49 +22,58 @@ you gain is power that grows out of loss.
 - Trait roster reworked: **Lungs** (swing recovery), **Skin** (passive armor);
   Throat and Speech retired.
 - **Evolved traits** — hidden combo unlocks, offered as accept/decline, that grow
-  over a lost trait: **Wings** (arms lost), **Hide** (skin + lungs lost).
+  over a trait slot: **Wings** (arms lost + lungs intact + legs partial/lost) and
+  **Hide** (skin intact + lungs lost + gut lost).
+- **Devolution is a choice of 3** — each step offers 3 random still-degradable traits
+  with their consequences, so you steer toward the evolved combos yourself. Total is
+  still 14 degradations, so the countdown lands exactly on full devolution.
 - New mobility skills: Scramble, Wing Dash, Updraft; plus Curl (Hide).
+- Attack+movement hybrids (`impulse_reverse` added to SkillData): Lunge Strike,
+  Backstep Slash, Wing Slam.
 
 Everything below builds on this.
 
 ---
 
-## Tier 1 — finish the systems we just started
+## Tier 1 — finish the systems we just started ✅ shipped
 
-These make the new mechanics feel complete rather than bolted on. Do them first.
+These made the new mechanics feel complete rather than bolted on. Kept here as the
+record of what was built and where it deviated from the sketch.
 
-### 1.1 Fill out the evolved-trait roster
-PLANNING1 section 6 already lists "traits regained": **Tail, Claws, Plates, Gills**.
-Turn each into an `EvolvedTraitData` with a hidden loss-combo:
+### 1.1 Fill out the evolved-trait roster ✅
+All six of PLANNING1 section 6's "traits regained" now exist as `EvolvedTraitData`,
+each with a hidden loss-combo and a real effect:
 
-| Evolved | Suggested combo | Role it takes over | Effect sketch |
+| Evolved | Combo | Slot | Effect as built |
 | --- | --- | --- | --- |
-| **Tail** | Legs partial + Head lost | balance/air | Mid-air horizontal correction, a tail-whip attack, better coyote time. |
-| **Claws** | Arms lost + Skin lost | the melee arms couldn't give | A natural weapon that *scales with the countdown* — see 3.1. |
-| **Plates** | Skin lost + Gut lost | Skin | Flat damage reduction that stacks with knockback resistance. |
-| **Gills** | Lungs lost + Eyes lost | Lungs | Pays off only once there's water/hazard terrain (Tier 3). |
+| **Tail** | Legs partial + Head lost | Legs | ×1.9 air control that survives losing the legs entirely, +0.12s coyote, Tail Whip. |
+| **Claws** | Arms lost + Skin lost | Arms | Restores the attack at ×1.15 damage and half reach. Grants Rend. |
+| **Plates** | Skin lost + Gut lost | Skin | 30% damage reduction + 65% knockback resistance. Grants Ram. |
+| **Gills** | Lungs lost + Eyes lost | Lungs | Cancels the lungs' ×2.2 swing penalty outright. No skill — see 3.3. |
 
-**Why:** the design doc already promised these; they turn evolved traits from a
-two-item novelty into a real branch of the run. **Depends on:** nothing — the system
-exists, this is data + a few stat hooks.
+**Deviation:** Claws do *not* scale with the countdown yet. That was the sketch above,
+but it belongs to 3.1 and was deliberately left there.
 
-### 1.2 Mutually-exclusive evolved paths
-Growing Wings should lock out Claws (both grow from the arm slot). Make
-`EvolvedTraitData.replaces_trait` enforce one evolved trait per slot, so choosing one
-closes another. **Why:** the theme is a body forced down *one* path; a run where you
-grow everything is a power fantasy, not a devolution. **Depends on:** 1.1.
+### 1.2 Mutually-exclusive evolved paths ✅
+`replaces_trait` is now the exclusivity key: one evolved trait per slot, permanently.
+Wings closes off Claws, Hide closes off Plates. The offer popup names what you give up
+before you accept, and a closed-off form stays greyed out on the character screen so the
+choice remains visible for the rest of the run.
 
-### 1.3 Visible bodies
-The player sprite never changes as traits are lost or evolved. At minimum, tint/overlay
-per major state (no arms, wings out, hide plated). **Why:** the whole fantasy is
-watching your body change; right now it is invisible. **Depends on:** an art pass (can
-start with palette swaps and simple attached sprites).
+### 1.3 Visible bodies ✅
+`scripts/player/body_marks.gd` draws wings, tail, claws, gills and a plated rim, and the
+sprite drains toward grey as total degradation rises (partial stages included, so it
+slides rather than steps). Procedural rather than authored, so it cannot go stale when a
+trait is retuned — real art replaces that one node.
 
-### 1.4 Head's missing skill
-Head is the only trait with no full-loss buff (PLANNING1 leaves it undecided). Idea:
-**"Instinct"** — with the head's readouts gone, the HUD is dark, but enemies about to
-attack flash a tell. You trade *information* for *reflex*. **Why:** closes the last gap
-in the trait→skill mapping and leans into the head being about perception.
+**Still open:** nothing shows a trait that is *missing*. The marks only draw what grew
+back, so "no arms" and "no legs" still read the same as intact. Worth a pass with art.
+
+### 1.4 Head's missing skill ✅
+Shipped as **Hindbrain** — renamed from "Instinct" because "Apex Instinct" already
+existed and two near-identical names in one list is a UI problem. For 8s every enemy
+about to hit you lights up and you take 25% less damage. Every trait now has a full-loss
+skill, closing the last gap PLANNING1 left undecided.
 
 ---
 
@@ -75,11 +87,12 @@ Occasional "spend years to change the fight" beats: a shrine that heals for 40 y
 a door that skips a wave for 60. **Why:** the clock is the game's central currency;
 let players *choose* to burn it, not just watch it drain. **Depends on:** nothing.
 
-### 2.2 Devolution as a fork (expand player-choice mode)
-Player-chosen degradation already exists behind a dev toggle. Promote it: at each step,
-choose which of two offered traits degrades. **Why:** turns the fall into a series of
-real decisions — "keep my arms one more wave, or my eyes?" **Depends on:** the popup
-already supports choice buttons; needs balancing so no order is strictly best.
+### 2.2 Balance the devolution fork *(the fork itself shipped — see Tier 0)*
+Choice-of-3 is live, so the remaining work is tuning, not building: make sure no
+degradation order is strictly best, and that the 3 offered options are rarely all
+equally painless. Candidate levers — weight the roll toward traits you've been
+protecting, or make a *refused* trait cheaper to degrade next time. **Why:** a fork
+where one branch always wins is a menu, not a decision. **Depends on:** playtesting.
 
 ### 2.3 Milestone bosses tied to era readout
 The HUD already shows a geological era (3.50B → 1000). Have bosses/enemies reskin as the

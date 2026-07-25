@@ -78,8 +78,11 @@ func _build_ui() -> void:
 	# Main panel.
 	_panel = Panel.new()
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.size = Vector2(540, 344)
-	_panel.position = Vector2(-270, -172)
+	# Tall enough for the full evolved roster (six forms, four slots) listed below the
+	# skills. Every child is positioned from the panel's top-left, so growing it only
+	# ever adds room at the bottom.
+	_panel.size = Vector2(540, 400)
+	_panel.position = Vector2(-270, -200)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.06, 0.06, 0.1, 0.95)
 	style.border_color = Color("4ecdc4")
@@ -256,7 +259,7 @@ func _build_evolved_panel() -> void:
 
 	_evolved_container = VBoxContainer.new()
 	_evolved_container.position = Vector2(250, 286)
-	_evolved_container.size = Vector2(280, 52)
+	_evolved_container.size = Vector2(280, 106)
 	_evolved_container.add_theme_constant_override("separation", 1)
 	_panel.add_child(_evolved_container)
 
@@ -328,7 +331,10 @@ func _refresh_evolved() -> void:
 	for data: EvolvedTraitData in defs:
 		var grown: bool = mgr.call("has_trait", data.id)
 		var eligible: bool = mgr.call("is_eligible", data.id)
-		if not grown and not eligible:
+		# A form whose slot was taken by a rival is listed too, greyed out — the
+		# choice that closed it off should stay visible for the rest of the run.
+		var blocker: EvolvedTraitData = mgr.call("get_blocker", data.id)
+		if not grown and not eligible and blocker == null:
 			continue
 		any = true
 
@@ -338,7 +344,9 @@ func _refresh_evolved() -> void:
 		var name_lbl: Label = Label.new()
 		name_lbl.text = data.display_name
 		name_lbl.add_theme_font_size_override("font_size", 8)
-		name_lbl.add_theme_color_override("font_color", data.color)
+		name_lbl.add_theme_color_override(
+			"font_color", data.color if blocker == null else Color(0.4, 0.4, 0.45)
+		)
 		name_lbl.custom_minimum_size = Vector2(90, 14)
 		hbox.add_child(name_lbl)
 
@@ -348,6 +356,12 @@ func _refresh_evolved() -> void:
 			grown_lbl.add_theme_font_size_override("font_size", 7)
 			grown_lbl.add_theme_color_override("font_color", Color("2ecc71"))
 			hbox.add_child(grown_lbl)
+		elif blocker != null:
+			var closed_lbl: Label = Label.new()
+			closed_lbl.text = "closed off by %s" % blocker.display_name
+			closed_lbl.add_theme_font_size_override("font_size", 7)
+			closed_lbl.add_theme_color_override("font_color", Color(0.45, 0.4, 0.4))
+			hbox.add_child(closed_lbl)
 		else:
 			var grow_btn: Button = Button.new()
 			grow_btn.text = "Grow (over %s)" % data.replaces_trait.capitalize()

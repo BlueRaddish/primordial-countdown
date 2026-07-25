@@ -44,6 +44,9 @@ enum Kind { OFFENSIVE, BUFF, MOVEMENT }
 @export var buff_pulse_damage: float = 0.0
 @export var buff_pulse_radius: float = 0.0
 @export var buff_pulse_interval: float = 0.0
+# Lights up every enemy that is about to hurt you (Instinct). Information the head
+# used to supply, arriving as a reflex instead of a readout.
+@export var buff_danger_sense: bool = false
 
 # --- Impulse component ---
 @export var impulse_speed: float = 0.0
@@ -107,6 +110,12 @@ func get_requirement_text() -> String:
 	for trait_name: String in unlock_conditions:
 		var bounds: Array = unlock_conditions[trait_name] as Array
 		if bounds.size() < 2:
+			continue
+		# Evolved traits ride in this dictionary as pseudo-traits whose stage 1 means
+		# "grown". Running them through the base-trait stage names would print
+		# "Wings partial", which is nonsense — they have no stages.
+		if not TraitManager.ALL_TRAITS.has(trait_name):
+			parts.append("%s grown" % trait_name.capitalize())
 			continue
 		var lo: int = bounds[0] as int
 		var hi: int = bounds[1] as int

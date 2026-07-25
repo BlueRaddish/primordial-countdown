@@ -21,6 +21,7 @@ var _no_cooldown_btn: Button
 var _freeze_years_btn: Button
 var _choice_mode_btn: Button
 var _skill_detail_label: Label
+var _evolved_container: VBoxContainer
 
 
 func _ready() -> void:
@@ -31,6 +32,7 @@ func _ready() -> void:
 	EventBus.character_screen_toggled.connect(_on_toggle_requested)
 	EventBus.trait_changed.connect(_on_trait_changed)
 	EventBus.skill_assigned.connect(_on_skill_assigned)
+	EventBus.evolved_trait_grown.connect(_on_evolved_changed)
 
 	_build_ui()
 
@@ -117,6 +119,7 @@ func _build_ui() -> void:
 
 	_build_trait_panel()
 	_build_skill_panel()
+	_build_evolved_panel()
 	_build_dev_panel()
 
 
@@ -236,6 +239,28 @@ func _build_skill_panel() -> void:
 	_panel.add_child(_skill_detail_label)
 
 
+func _build_evolved_panel() -> void:
+	var header: Label = Label.new()
+	header.text = "EVOLVED"
+	header.position = Vector2(250, 272)
+	header.add_theme_font_size_override("font_size", 9)
+	header.add_theme_color_override("font_color", Color("aed6f1"))
+	_panel.add_child(header)
+
+	var hint: Label = Label.new()
+	hint.text = "(grow back over a lost trait)"
+	hint.position = Vector2(310, 273)
+	hint.add_theme_font_size_override("font_size", 7)
+	hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+	_panel.add_child(hint)
+
+	_evolved_container = VBoxContainer.new()
+	_evolved_container.position = Vector2(250, 286)
+	_evolved_container.size = Vector2(280, 52)
+	_evolved_container.add_theme_constant_override("separation", 1)
+	_panel.add_child(_evolved_container)
+
+
 func _build_dev_panel() -> void:
 	var dev_header: Label = Label.new()
 	dev_header.text = "TESTING"
@@ -284,7 +309,61 @@ func _build_dev_panel() -> void:
 func _refresh_all() -> void:
 	_refresh_traits()
 	_refresh_skills()
+	_refresh_evolved()
 	_refresh_dev_toggles()
+
+
+func _refresh_evolved() -> void:
+	if not _evolved_container:
+		return
+	for child: Node in _evolved_container.get_children():
+		child.queue_free()
+
+	var mgr: Node = _find_evolved_manager()
+	if not mgr:
+		return
+
+	var defs: Array = mgr.get("definitions")
+	var any: bool = false
+	for data: EvolvedTraitData in defs:
+		var grown: bool = mgr.call("has_trait", data.id)
+		var eligible: bool = mgr.call("is_eligible", data.id)
+		if not grown and not eligible:
+			continue
+		any = true
+
+		var hbox: HBoxContainer = HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 4)
+
+		var name_lbl: Label = Label.new()
+		name_lbl.text = data.display_name
+		name_lbl.add_theme_font_size_override("font_size", 8)
+		name_lbl.add_theme_color_override("font_color", data.color)
+		name_lbl.custom_minimum_size = Vector2(90, 14)
+		hbox.add_child(name_lbl)
+
+		if grown:
+			var grown_lbl: Label = Label.new()
+			grown_lbl.text = "grown"
+			grown_lbl.add_theme_font_size_override("font_size", 7)
+			grown_lbl.add_theme_color_override("font_color", Color("2ecc71"))
+			hbox.add_child(grown_lbl)
+		else:
+			var grow_btn: Button = Button.new()
+			grow_btn.text = "Grow (over %s)" % data.replaces_trait.capitalize()
+			grow_btn.custom_minimum_size = Vector2(160, 14)
+			grow_btn.add_theme_font_size_override("font_size", 7)
+			grow_btn.pressed.connect(_on_grow_evolved.bind(data.id))
+			hbox.add_child(grow_btn)
+
+		_evolved_container.add_child(hbox)
+
+	if not any:
+		var empty_lbl: Label = Label.new()
+		empty_lbl.text = "None yet. Certain losses open older forms."
+		empty_lbl.add_theme_font_size_override("font_size", 7)
+		empty_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		_evolved_container.add_child(empty_lbl)
 
 
 func _refresh_traits() -> void:
@@ -432,6 +511,18 @@ func _on_skill_assigned(_slot_index: int, _skill_data: Resource) -> void:
 		_refresh_skills()
 
 
+func _on_evolved_changed(_evolved_id: String) -> void:
+	if _is_open:
+		_refresh_all()
+
+
+func _on_grow_evolved(evolved_id: String) -> void:
+	var mgr: Node = _find_evolved_manager()
+	if mgr:
+		mgr.call("grow", evolved_id)
+	_refresh_all()
+
+
 func _on_skill_hovered(skill: SkillData) -> void:
 	if not _skill_detail_label:
 		return
@@ -462,7 +553,10 @@ func _on_reset_traits() -> void:
 		trait_mgr.reset_all()
 		for tname: String in TraitManager.ALL_TRAITS:
 			EventBus.trait_changed.emit(tname, 0)
-		_refresh_all()
+	var evolved_mgr: Node = _find_evolved_manager()
+	if evolved_mgr:
+		evolved_mgr.call("reset_all")
+	_refresh_all()
 
 
 func _on_god_mode_pressed() -> void:
@@ -503,4 +597,11 @@ func _find_ability_manager() -> AbilityManager:
 	var players: Array[Node] = get_tree().get_nodes_in_group("player")
 	if players.size() > 0 and players[0].has_node("AbilityManager"):
 		return players[0].get_node("AbilityManager") as AbilityManager
+	return null
+
+
+func _find_evolved_manager() -> Node:
+	var players: Array[Node] = get_tree().get_nodes_in_group("player")
+	if players.size() > 0 and players[0].has_node("EvolvedTraitManager"):
+		return players[0].get_node("EvolvedTraitManager")
 	return null

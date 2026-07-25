@@ -25,6 +25,8 @@ func _ready() -> void:
 	all_skills = SkillDefinitions.get_all_skills()
 	_player = get_parent() as CharacterBody2D
 	EventBus.trait_changed.connect(_on_trait_changed)
+	# An evolved trait growing unlocks its skills (Wing Dash, Curl, ...).
+	EventBus.evolved_trait_grown.connect(_on_evolved_trait_grown)
 	call_deferred("refresh_available_skills")
 
 
@@ -39,17 +41,30 @@ func _on_trait_changed(_trait_name: String, _new_stage: int) -> void:
 	refresh_available_skills()
 
 
+func _on_evolved_trait_grown(_evolved_id: String) -> void:
+	refresh_available_skills()
+
+
 func refresh_available_skills() -> void:
 	"""Re-evaluate which skills are unlocked based on current trait states."""
 	var trait_mgr: TraitManager = _get_trait_manager()
 	if not trait_mgr:
 		return
 
+	# Base trait stages, plus evolved traits folded in as pseudo-traits (wings/hide
+	# as stage 0 dormant / 1 grown) so skills can key off them.
+	var states: Dictionary = trait_mgr.traits.duplicate()
+	var evolved_mgr: Node = _get_evolved_manager()
+	if evolved_mgr:
+		var evolved_states: Dictionary = evolved_mgr.call("get_evolved_states")
+		for id: String in evolved_states:
+			states[id] = evolved_states[id]
+
 	var old_available: Array[SkillData] = available_skills.duplicate()
 	available_skills.clear()
 
 	for skill: SkillData in all_skills:
-		if skill.is_unlocked(trait_mgr.traits):
+		if skill.is_unlocked(states):
 			available_skills.append(skill)
 
 	# Detect newly unlocked skills and emit signal for popup.
@@ -228,6 +243,12 @@ func get_cooldown_fraction(slot_index: int) -> float:
 func _get_trait_manager() -> TraitManager:
 	if _player and _player.has_node("TraitManager"):
 		return _player.get_node("TraitManager") as TraitManager
+	return null
+
+
+func _get_evolved_manager() -> Node:
+	if _player and _player.has_node("EvolvedTraitManager"):
+		return _player.get_node("EvolvedTraitManager")
 	return null
 
 

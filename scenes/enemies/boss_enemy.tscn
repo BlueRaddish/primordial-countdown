@@ -5,11 +5,11 @@
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_boss_idle"]
 atlas = ExtResource("2_chars")
-region = Rect2(200, 0, 24, 24)
+region = Rect2(144, 0, 24, 24)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_boss_walk"]
 atlas = ExtResource("2_chars")
-region = Rect2(225, 0, 24, 24)
+region = Rect2(168, 0, 24, 24)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_boss"]
 animations = [{

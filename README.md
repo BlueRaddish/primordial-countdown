@@ -13,11 +13,23 @@ Current state: milestone 3 — *the loop exists*.
 | Input | Action |
 | --- | --- |
 | `A` / `D` or arrows | Move |
-| `Space` / `W` | Jump — press again in mid-air to double jump |
+| `Space` / `W` | Jump — press again in mid-air to double jump. With wings, hold while falling to glide. |
 | Left mouse / `J` | Melee attack, aimed at the cursor |
 | `Q` / `E` / `R` | Skill slots |
 | `C` | Character screen (freezes game time) |
+| `F11` / `Alt`+`Enter` | Toggle fullscreen |
 | `Esc` | Pause |
+
+Firing **any skill while in mid-air refreshes your jump** (not a double jump — the
+ground jump itself is handed back), so weaving a skill into a jump keeps you
+airborne. Aerial skill chains are a real mobility option.
+
+## Display
+
+The game renders at a fixed 640×360 and scales up to fill any window or screen
+(`canvas_items` stretch, `expand` aspect), so it is fully resizable and
+fullscreen-able. `F11` or `Alt`+`Enter` toggles borderless fullscreen; the window
+manager lives in `scripts/autoload/window_manager.gd`.
 
 ---
 
@@ -43,10 +55,15 @@ a number is in `trait_manager.gd`, some system reads it.
 | **Arms** | 25 dmg, 40px reach | 17.5 dmg, 26px reach | No attack at all |
 | **Legs** | 120 speed, 68px jump, **double jump** | 78 speed, 44px jump, **no double jump** | No walking, no jump |
 | **Gut** | 1.5 hp/s regen | 0.5 hp/s regen | No regen |
-| **Throat** | Normal swing recovery | Swing recovery ×1.5 | Swing recovery ×2.2 |
+| **Lungs** | Normal swing recovery | Swing recovery ×1.5 | Swing recovery ×2.2 |
 | **Eyes** | Full brightness | World dims to 55% | World dims to 22% |
-| **Speech** | Enemies within 92px chase 35% slower | 46px, 18% slower | No aura |
+| **Skin** | Take 20% less damage | Take 10% less | No protection (take full) |
 | **Head** | Exact HUD numbers | Numbers rounded, shown as `~25` | Numbers shown as `??` |
+
+> **Note:** Throat and Speech were retired — they never made much physical sense.
+> **Lungs** took over the throat's job (breath paces how fast you can swing again),
+> and **Skin** is a passive layer of protection that thins as it degrades. Both feed
+> the new evolved traits below.
 
 Two of these interact with the arena and the skills in ways worth knowing:
 
@@ -54,12 +71,35 @@ Two of these interact with the arena and the skills in ways worth knowing:
   123px climb; partial legs peak at 44px with no double jump, which does not clear the 45px
   steps above the summit. Losing legs closes off part of the arena before it stops you
   walking.
-- **Throat degrades your baseline swing speed, and its own full-loss skill fixes it.**
-  Lost throat leaves you swinging at ×2.2, but Second Wind cuts it to ×0.25 in bursts.
+- **Lungs degrade your baseline swing speed, and their own full-loss skill fixes it.**
+  Lost lungs leave you swinging at ×2.2, but Second Wind cuts it to ×0.25 in bursts.
   Same shape for eyes: the world goes dark, and Echo Sense is how you find things in it.
+- **Skin is a flat damage sponge.** Intact skin turns aside a fifth of every hit; once it
+  is gone the raw body takes hits in full — but grows Thornskin, and, in the right
+  combination, a whole new Hide (see Evolved traits).
 
 Head never hides the bars, only the numbers — hiding the whole HUD would make the run
 unreadable rather than harder.
+
+---
+
+## Evolved traits
+
+Some devolutions do not only strip you down — a few *combinations* of losses reopen an
+older shape the lineage once had. These are the **evolved traits**: hidden options that
+surface only when a specific combination of devolutions is reached, offered once as an
+accept/decline popup (game time frozen). Accepting grows the trait, which **permanently
+takes over the slot of the trait it grows from**. Declining resumes normal degradation and
+leaves the option claimable later from the character screen.
+
+| Evolved trait | Grows when | Replaces | Effect |
+| --- | --- | --- | --- |
+| **Wings** | Arms **lost** | Arms | An extra mid-air flap, a glide (hold jump while falling), and the wing mobility skills (Wing Dash, Updraft). Wings keep the jump alive even after the legs are also gone. |
+| **Hide** | Skin **lost** + Lungs **lost** | Skin | A thick plated hide: heavy **40% flat damage reduction**, far past what intact skin ever gave, plus the Curl skill. |
+
+They still count as part of the fall — you reach them by losing things — but they change
+what the fall *feels* like. Defined in `scripts/systems/evolved_trait_definitions.gd`;
+tracked per-player by `scripts/player/evolved_trait_manager.gd`.
 
 ---
 
@@ -77,11 +117,23 @@ normal attack costs 1 year for comparison.
 | Skill | Trait | Kind | CD | Cost | Effect |
 | --- | --- | --- | --- | --- | --- |
 | **Gorge** | Gut lost | Buff | 14s | 8 yr | For 6s, 45% of all damage dealt returns as health (omnivamp). The gut can no longer draw nourishment from food, so it draws it from the strike. |
-| **Threat Aura** | Speech lost | Buff | 16s | 8 yr | For 8s, take 45% less damage and burn anything that touches you. No voice left to warn with, so the body radiates threat instead. |
+| **Thornskin** | Skin lost | Buff | 16s | 8 yr | For 8s, take 45% less damage and burn anything that touches you. Nothing left to protect the raw flesh, so it answers every touch. |
 | **Adrenal Surge** | Arms lost | Buff | 15s | 10 yr | For 5s, everything deals double damage. PLANNING1 gives arms a damage multiplier at full loss. |
 | **Echo Sense** | Eyes lost | Buff | 13s | 8 yr | For 6s, pulse every 0.7s for damage in a 72px radius. Vibration sense: blind, but the ground reports back. |
-| **Second Wind** | Throat lost | Buff | 14s | 8 yr | For 5s, attack cooldown drops to a quarter. Free burst attacks — nothing left to pace. |
+| **Second Wind** | Lungs lost | Buff | 14s | 8 yr | For 5s, attack cooldown drops to a quarter. Free burst attacks — no breath left to pace. |
 | **Pounce** | Legs lost | Movement | 3s | **free** | Leap toward the cursor. Untouchable for the leap, and it hurts on contact. Free because with the legs gone it *is* the player's movement — charging for it would charge for walking. |
+
+### Mobility skills
+
+More movement expression, per the redesign. Every one of these — like all skills — also
+**refreshes your jump when fired in mid-air**, so they chain into and out of jumps.
+
+| Skill | Source | Kind | CD | Cost | Effect |
+| --- | --- | --- | --- | --- | --- |
+| **Scramble** | Legs **partial** | Movement | 4s | 1 yr | A short i-frame evasive dash toward the cursor. Appears once the legs start failing; gives way to Pounce at full loss. |
+| **Wing Dash** | Wings grown | Movement | 2.5s | **free** | A long horizontal air-dash toward the cursor, untouchable during it. Free — with the arms gone it is core wing mobility, like Pounce. |
+| **Updraft** | Wings grown | Movement | 5s | 1 yr | Launch straight up on a burst of air. Hold jump after to glide, reaching the high route from below. |
+| **Curl** | Hide grown | Buff | 18s | 6 yr | For 4s, pull into the hide: take almost no damage (×0.15) and grind anything touching you. |
 
 ### Multi-trait skills
 
@@ -91,7 +143,7 @@ trait to still be working.
 | Skill | Requires | Kind | CD | Cost | Effect |
 | --- | --- | --- | --- | --- | --- |
 | **Devastating Kick** | Arms **lost** + Legs intact/partial | Attack | 2.5s | 1 yr | Heavy directional kick, 60 damage in a 32px arc. With the arms gone, the kick becomes the whole moveset — so it is priced as a normal attack. |
-| **Apex Instinct** | Gut **lost** + Speech **lost** | Buff | 24s | 15 yr | For 7s: +50% damage, 35% less damage taken, 30% omnivamp. Two silences at once; what remains is entirely appetite. |
+| **Apex Instinct** | Gut **lost** + Skin **lost** | Buff | 24s | 15 yr | For 7s: +50% damage, 35% less damage taken, 30% omnivamp. Bare and starving at once; what remains is entirely appetite. |
 | **Blind Fury** | Eyes partial/lost + Arms intact/partial | Attack | 4s | 2 yr | Wide 44px arc sweep, 38 damage. It cannot see what it is hitting. It hits anyway. |
 
 All directional skills aim at the **cursor**, recomputed at the moment of firing rather

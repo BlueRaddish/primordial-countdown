@@ -48,10 +48,13 @@ var arms_blocked: bool = false
 
 # --- Live trait-derived stats (rebuilt by recalculate_from_traits) ---
 var health_regen: float = 1.5 # Gut: health per second
-var attack_cooldown_mult: float = 1.0 # Throat: swing recovery
-var intimidation_radius: float = 92.0 # Speech: aura that slows nearby enemies
-var intimidation_slow: float = 0.35
+var attack_cooldown_mult: float = 1.0 # Lungs: swing recovery
+var passive_damage_taken_mult: float = 1.0 # Skin (and evolved Hide): flat protection
 var vision_mod: float = 1.0 # Eyes: world brightness
+
+# --- Evolved trait state (set by recalculate_from_traits from EvolvedTraitManager) ---
+var has_wings: bool = false # Wings: glide + an extra mid-air flap
+var glide_gravity_mult: float = 0.35 # How much gravity wings cancel while gliding
 
 # --- Internal state ---
 var _coyote_timer: float = 0.0
@@ -78,6 +81,7 @@ var _aim_dir: Vector2 = Vector2.RIGHT
 @onready var _trait_manager: TraitManager = $TraitManager
 @onready var _ability_manager: AbilityManager = $AbilityManager
 @onready var _status_effects: StatusEffects = $StatusEffects
+@onready var _evolved_manager: Node = get_node_or_null("EvolvedTraitManager")
 
 
 func _ready() -> void:
@@ -95,6 +99,9 @@ func _ready() -> void:
 
 	EventBus.player_died.connect(_on_player_died)
 	EventBus.player_hit.connect(_on_player_hit)
+	# Firing a skill in mid-air refreshes the jump (see _on_skill_used), which is
+	# what makes aerial skill chains a real mobility option.
+	EventBus.skill_used.connect(_on_skill_used)
 	# Sync health display.
 	EventBus.player_health_changed.emit(GameState.player_health, GameState.player_max_health)
 
@@ -159,12 +166,11 @@ func recalculate_from_traits(trait_mgr: TraitManager) -> void:
 	# Gut: passive health regen.
 	health_regen = trait_mgr.get_gut_regen_rate()
 
-	# Throat: how fast the player recovers between swings.
-	attack_cooldown_mult = trait_mgr.get_throat_cooldown_mult()
+	# Lungs: how fast the player recovers between swings.
+	attack_cooldown_mult = trait_mgr.get_lungs_cooldown_mult()
 
-	# Speech: passive intimidation aura read by enemies while chasing.
-	intimidation_radius = trait_mgr.get_intimidation_radius()
-	intimidation_slow = trait_mgr.get_intimidation_slow()
+	# Skin: passive protection. The evolved Hide overrides this with heavier armor.
+	passive_damage_taken_mult = trait_mgr.get_skin_damage_taken_mult()
 
 	# Eyes: world brightness.
 	vision_mod = trait_mgr.get_eyes_vision_mod()
@@ -174,6 +180,35 @@ func recalculate_from_traits(trait_mgr: TraitManager) -> void:
 	movement_enabled = not trait_mgr.is_movement_blocked()
 	_can_jump = trait_mgr.can_jump()
 	arms_blocked = trait_mgr.is_arms_blocked()
+
+	# Evolved traits layer on top of the base trait stats.
+	_apply_evolved_traits()
+
+
+func _apply_evolved_traits() -> void:
+	"""Fold any grown evolved traits (Wings, Hide) into the live stats.
+
+	Evolved traits replace the role of the trait they grow from, so they are
+	applied last and simply overwrite the relevant stat rather than stacking with
+	the (already lost) trait they succeed."""
+	has_wings = false
+	if not _evolved_manager:
+		return
+
+	if _evolved_manager.call("has_trait", "wings"):
+		has_wings = true
+		# Wings restore an extra mid-air flap even with the arms gone.
+		max_air_jumps = maxi(max_air_jumps, 1)
+		_air_jumps_left = mini(_air_jumps_left, max_air_jumps)
+		# If the legs are also gone their jump force is zero; wings give their own
+		# flap so the player can still gain height. minf keeps stronger leg jumps.
+		jump_force = minf(jump_force, BASE_JUMP_FORCE * 0.75)
+
+	if _evolved_manager.call("has_trait", "hide"):
+		# A thick hide is far tougher than skin ever was: heavy flat protection.
+		passive_damage_taken_mult = minf(
+			passive_damage_taken_mult, _evolved_manager.call("get_hide_damage_mult")
+		)
 
 
 func _apply_melee_reach(range_mod: float) -> void:
@@ -200,16 +235,6 @@ func _apply_vision() -> void:
 		if cm:
 			var v: float = clampf(vision_mod, 0.0, 1.0)
 			cm.color = Color(v, v, minf(v + 0.06, 1.0))
-
-
-func get_intimidation_factor(from_position: Vector2) -> float:
-	"""Chase-speed multiplier applied to an enemy at the given position.
-	1.0 = unaffected. Degrades to 1.0 everywhere once speech is fully lost."""
-	if intimidation_radius <= 0.0 or intimidation_slow <= 0.0:
-		return 1.0
-	if global_position.distance_to(from_position) > intimidation_radius:
-		return 1.0
-	return 1.0 - intimidation_slow
 
 
 func get_aim_direction() -> Vector2:
@@ -265,6 +290,12 @@ func _apply_gravity(delta: float) -> void:
 	var grav: float = gravity
 	if velocity.y > 0.0:
 		grav *= fall_gravity_mult
+		# Wings: hold jump while falling to glide — gravity is mostly cancelled and
+		# the descent is capped to a slow drift. Turns a fall into a traversal tool.
+		if has_wings and _impulse_timer <= 0.0 and Input.is_action_pressed("jump"):
+			grav *= glide_gravity_mult
+			velocity.y = minf(velocity.y + grav * delta, max_fall_speed * 0.35)
+			return
 	velocity.y = minf(velocity.y + grav * delta, max_fall_speed)
 
 
@@ -289,7 +320,8 @@ func _handle_timers(delta: float) -> void:
 
 
 func _handle_jump() -> void:
-	if not _can_jump:
+	# Wings keep the jump/flap available even after the legs are fully gone.
+	if not _can_jump and not has_wings:
 		return
 
 	if _jump_buffer_timer > 0.0:
@@ -427,6 +459,19 @@ func _handle_skill_input() -> void:
 		_ability_manager.activate_skill(2)
 
 
+func _on_skill_used(_skill: Resource) -> void:
+	"""A skill that actually fires while airborne refreshes the jump.
+
+	Not a double jump — the ground jump itself is handed back, so weaving a skill
+	into a jump lets the player keep height and stay mobile. Refilling air jumps
+	and reopening the coyote window covers both the floor-jump and air-jump paths.
+	Skipped when the legs are fully gone, since there is no jump to give back."""
+	if _is_dead or is_on_floor() or (not _can_jump and not has_wings):
+		return
+	_air_jumps_left = max_air_jumps
+	_coyote_timer = coyote_time
+
+
 # ---- Damage / Health ----
 
 func take_damage(amount: float, knockback_dir: Vector2 = Vector2.ZERO) -> void:
@@ -434,6 +479,8 @@ func take_damage(amount: float, knockback_dir: Vector2 = Vector2.ZERO) -> void:
 		return
 
 	var incoming: float = amount
+	# Skin (and the evolved Hide) is a passive layer applied before any timed buff.
+	incoming *= passive_damage_taken_mult
 	if _status_effects:
 		incoming *= _status_effects.get_damage_taken_mult()
 		if _status_effects.is_invulnerable():

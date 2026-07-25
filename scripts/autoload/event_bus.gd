@@ -23,6 +23,12 @@ signal attack_landed(hit_count: int)
 signal trait_changed(trait_name: String, new_stage: int)
 signal trait_extinct(trait_name: String)
 
+# ---- Evolved trait signals ----
+# A hidden combo of losses has surfaced an evolved-trait offer (accept/decline).
+signal evolved_trait_available(evolved_data: Resource)
+# The player accepted an evolved trait and it has grown in.
+signal evolved_trait_grown(evolved_id: String)
+
 # ---- Skill signals ----
 signal skill_unlocked(skill_data: Resource)
 signal skill_assigned(slot_index: int, skill_data: Resource)

@@ -7,13 +7,18 @@
 #   Arms   full loss buff -> damage multiplier      -> Adrenal Surge
 #   Legs   full loss buff -> alternative movement   -> Pounce
 #   Gut    full loss buff -> feeds on the strike    -> Gorge (omnivamp)
-#   Throat full loss buff -> free burst attacks     -> Second Wind
+#   Lungs  full loss buff -> free burst attacks     -> Second Wind
 #   Eyes   full loss buff -> vibration sense        -> Echo Sense
-#   Speech full loss buff -> permanent aura         -> Threat Aura
+#   Skin   full loss buff -> raw body retaliates    -> Thornskin
 #   Head   full loss buff -> undecided in PLANNING1 -> no skill yet
 #
 # Plus multi-trait skills, which read a *combination* of capability rather than a
-# single loss. Add new skills by adding entries to get_all_skills().
+# single loss, and skills granted by the evolved traits (Wings, Hide) that can
+# grow in over a lost trait. Add new skills by adding entries to get_all_skills().
+#
+# Evolved traits appear in the unlock dictionary as pseudo-traits with stage
+# 0 = dormant, 1 = grown (AbilityManager merges them in). So {"wings": [1, 1]}
+# means "unlocked once wings have grown".
 class_name SkillDefinitions
 extends RefCounted
 
@@ -44,24 +49,24 @@ static func get_all_skills() -> Array[SkillData]:
 	gorge.unlock_conditions = {"gut": [LOST, LOST]}
 	skills.append(gorge)
 
-	# ------------------------------------------------------------- Speech ----
-	# No voice left to warn or threaten with, so the body radiates threat instead.
-	# Damage reduction plus retaliation against anything that touches you.
-	var aura: SkillData = SkillData.new()
-	aura.skill_name = "Threat Aura"
-	aura.description = "For 8s, take 45% less damage and burn anything that touches you."
-	aura.flavor = "It cannot cry out. It simply becomes something you do not approach."
-	aura.kind = SkillData.Kind.BUFF
-	aura.cooldown = 16.0
-	aura.year_cost = 8.0
-	aura.aoe_color = Color("f39c12") # Orange
-	aura.is_directional = false
-	aura.aoe_radius = 40.0
-	aura.buff_duration = 8.0
-	aura.buff_damage_taken_mult = 0.55
-	aura.buff_contact_retaliation = 16.0
-	aura.unlock_conditions = {"speech": [LOST, LOST]}
-	skills.append(aura)
+	# --------------------------------------------------------------- Skin ----
+	# The skin is gone; the raw body underneath answers contact with pain of its
+	# own. Brief toughening plus retaliation against anything that touches you.
+	var thornskin: SkillData = SkillData.new()
+	thornskin.skill_name = "Thornskin"
+	thornskin.description = "For 8s, take 45% less damage and burn anything that touches you."
+	thornskin.flavor = "Nothing left to protect it, so the raw flesh answers every touch."
+	thornskin.kind = SkillData.Kind.BUFF
+	thornskin.cooldown = 16.0
+	thornskin.year_cost = 8.0
+	thornskin.aoe_color = Color("f39c12") # Orange
+	thornskin.is_directional = false
+	thornskin.aoe_radius = 40.0
+	thornskin.buff_duration = 8.0
+	thornskin.buff_damage_taken_mult = 0.55
+	thornskin.buff_contact_retaliation = 16.0
+	thornskin.unlock_conditions = {"skin": [LOST, LOST]}
+	skills.append(thornskin)
 
 	# --------------------------------------------------------------- Arms ----
 	# PLANNING1 gives arms a damage multiplier at full loss. The shoulders drive
@@ -100,8 +105,8 @@ static func get_all_skills() -> Array[SkillData]:
 	echo.unlock_conditions = {"eyes": [LOST, LOST]}
 	skills.append(echo)
 
-	# ------------------------------------------------------------- Throat ----
-	# No stamina regulation left, so there is nothing left to pace. Free burst attacks.
+	# -------------------------------------------------------------- Lungs ----
+	# No breath left to budget, so there is nothing left to pace. Free burst attacks.
 	var wind: SkillData = SkillData.new()
 	wind.skill_name = "Second Wind"
 	wind.description = "For 5s, attack cooldown drops to a quarter."
@@ -114,7 +119,7 @@ static func get_all_skills() -> Array[SkillData]:
 	wind.aoe_radius = 28.0
 	wind.buff_duration = 5.0
 	wind.buff_attack_cooldown_mult = 0.25
-	wind.unlock_conditions = {"throat": [LOST, LOST]}
+	wind.unlock_conditions = {"lungs": [LOST, LOST]}
 	skills.append(wind)
 
 	# --------------------------------------------------------------- Legs ----
@@ -153,11 +158,11 @@ static func get_all_skills() -> Array[SkillData]:
 	kick.unlock_conditions = {"arms": [LOST, LOST], "legs": [INTACT, PARTIAL]}
 	skills.append(kick)
 
-	# Nothing left to say and nothing left to digest. The body simply takes.
+	# No skin to protect it and no gut to feed it. The body simply takes.
 	var apex: SkillData = SkillData.new()
 	apex.skill_name = "Apex Instinct"
 	apex.description = "For 7s: +50% damage, 35% less damage taken, and 30% omnivamp."
-	apex.flavor = "Two silences at once. What remains is entirely appetite."
+	apex.flavor = "Bare and starving at once. What remains is entirely appetite."
 	apex.kind = SkillData.Kind.BUFF
 	apex.cooldown = 24.0
 	apex.year_cost = 15.0
@@ -168,7 +173,7 @@ static func get_all_skills() -> Array[SkillData]:
 	apex.buff_damage_mult = 1.5
 	apex.buff_damage_taken_mult = 0.65
 	apex.buff_omnivamp = 0.3
-	apex.unlock_conditions = {"gut": [LOST, LOST], "speech": [LOST, LOST]}
+	apex.unlock_conditions = {"gut": [LOST, LOST], "skin": [LOST, LOST]}
 	skills.append(apex)
 
 	# Blind and half-crippled, but the arms still swing: a wide, frantic sweep.
@@ -185,5 +190,85 @@ static func get_all_skills() -> Array[SkillData]:
 	fury.is_directional = true
 	fury.unlock_conditions = {"eyes": [PARTIAL, LOST], "arms": [INTACT, PARTIAL]}
 	skills.append(fury)
+
+	# ------------------------------------------------ Mobility skills ----
+	# More movement expression per the design goal. Every skill fired mid-air also
+	# refreshes the jump (player.gd), so these chain into and out of jumps.
+
+	# The legs have started to fail, so clean running gives way to a scrambling
+	# evasive lunge. A short i-frame dash — appears once the legs go partial, so it
+	# is a mid-run mobility tool rather than something handed out at full health.
+	var scramble: SkillData = SkillData.new()
+	scramble.skill_name = "Scramble"
+	scramble.description = "A quick evasive dash toward the cursor. Briefly untouchable."
+	scramble.flavor = "Not grace. Just the oldest reflex there is: move."
+	scramble.kind = SkillData.Kind.MOVEMENT
+	scramble.cooldown = 4.0
+	scramble.year_cost = 1.0
+	scramble.aoe_color = Color("5dade2") # Light blue
+	scramble.is_directional = true
+	scramble.aoe_radius = 20.0
+	scramble.impulse_speed = 300.0
+	scramble.impulse_upward_bias = 20.0
+	scramble.buff_duration = 0.25
+	scramble.buff_damage_taken_mult = 0.0 # i-frames for the dash
+	scramble.unlock_conditions = {"legs": [PARTIAL, PARTIAL]}
+	skills.append(scramble)
+
+	# Wings grown: a long horizontal air-dash. The signature wing traversal tool.
+	var wing_dash: SkillData = SkillData.new()
+	wing_dash.skill_name = "Wing Dash"
+	wing_dash.description = "Beat your wings for a long dash toward the cursor. Untouchable during it."
+	wing_dash.flavor = "The arms are gone. What is left of them carries you further than they ever did."
+	wing_dash.kind = SkillData.Kind.MOVEMENT
+	wing_dash.cooldown = 2.5
+	wing_dash.year_cost = 0.0 # Free — with the arms gone this is core mobility, like Pounce.
+	wing_dash.aoe_color = Color("aed6f1") # Pale sky
+	wing_dash.is_directional = true
+	wing_dash.aoe_radius = 24.0
+	wing_dash.impulse_speed = 420.0
+	wing_dash.impulse_upward_bias = 40.0
+	wing_dash.buff_duration = 0.35
+	wing_dash.buff_damage_taken_mult = 0.0
+	wing_dash.unlock_conditions = {"wings": [1, 1]}
+	skills.append(wing_dash)
+
+	# Wings grown: a hard vertical launch, for reaching the high route or resetting
+	# a fight from above. Pairs with the glide (hold jump after) to stay up there.
+	var updraft: SkillData = SkillData.new()
+	updraft.skill_name = "Updraft"
+	updraft.description = "Launch straight up on a burst of air. Hold jump after to glide."
+	updraft.flavor = "It catches a column of rising air the way it once caught a handhold."
+	updraft.kind = SkillData.Kind.MOVEMENT
+	updraft.cooldown = 5.0
+	updraft.year_cost = 1.0
+	updraft.aoe_color = Color("d2f0f5")
+	updraft.is_directional = false
+	updraft.aoe_radius = 26.0
+	updraft.impulse_speed = 60.0
+	updraft.impulse_upward_bias = 340.0 # Almost all of the push is upward.
+	updraft.buff_duration = 0.3
+	updraft.buff_damage_taken_mult = 0.0
+	updraft.unlock_conditions = {"wings": [1, 1]}
+	skills.append(updraft)
+
+	# ---------------------------------------------- Evolved: Hide ----
+	# The hide has grown in thick and plated. It can pull in tight and weather
+	# almost anything for a moment, punishing whatever is pressed against it.
+	var curl: SkillData = SkillData.new()
+	curl.skill_name = "Curl"
+	curl.description = "For 4s, pull into the hide: take almost no damage and grind anything touching you."
+	curl.flavor = "Older armor than any weapon. It simply closes, and waits."
+	curl.kind = SkillData.Kind.BUFF
+	curl.cooldown = 18.0
+	curl.year_cost = 6.0
+	curl.aoe_color = Color("7f8c8d") # Slate grey
+	curl.is_directional = false
+	curl.aoe_radius = 34.0
+	curl.buff_duration = 4.0
+	curl.buff_damage_taken_mult = 0.15
+	curl.buff_contact_retaliation = 22.0
+	curl.unlock_conditions = {"hide": [1, 1]}
+	skills.append(curl)
 
 	return skills

@@ -171,12 +171,9 @@ func _chase_as_lunger(dist: float, dir: float) -> void:
 
 
 func _effective_chase_speed() -> float:
-	"""Chase speed after the player's speech-driven intimidation aura.
-	A player with an intact voice keeps enemies at bay; as speech degrades the
-	aura shrinks and weakens, and at full loss it is gone entirely."""
-	var player: Node2D = _find_player()
-	if player and player.has_method("get_intimidation_factor"):
-		return chase_speed * (player.call("get_intimidation_factor", global_position) as float)
+	"""Current chase speed. Kept as a hook (enemies used to be slowed by the
+	player's speech aura, which has since been retired); world-evolution modifiers
+	would attach here."""
 	return chase_speed
 
 

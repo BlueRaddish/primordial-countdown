@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://player_scene"]
+[gd_scene load_steps=12 format=3 uid="uid://player_scene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 [ext_resource type="Texture2D" uid="uid://player_chars_tex" path="res://assets/sprites/player/tilemap-characters_packed.png" id="2_chars"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/player/trait_manager.gd" id="4_trait_mgr"]
 [ext_resource type="Script" path="res://scripts/player/ability_manager.gd" id="5_ability_mgr"]
 [ext_resource type="Script" path="res://scripts/player/status_effects.gd" id="6_status_fx"]
+[ext_resource type="Script" path="res://scripts/player/evolved_trait_manager.gd" id="7_evolved_mgr"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_idle"]
 atlas = ExtResource("2_chars")
@@ -13,7 +14,7 @@ region = Rect2(0, 0, 24, 24)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_walk"]
 atlas = ExtResource("2_chars")
-region = Rect2(25, 0, 24, 24)
+region = Rect2(24, 0, 24, 24)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_player"]
 animations = [{
@@ -110,3 +111,6 @@ script = ExtResource("5_ability_mgr")
 
 [node name="StatusEffects" type="Node" parent="."]
 script = ExtResource("6_status_fx")
+
+[node name="EvolvedTraitManager" type="Node" parent="."]
+script = ExtResource("7_evolved_mgr")

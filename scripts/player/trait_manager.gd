@@ -13,10 +13,10 @@ extends Node
 const TRAIT_ARMS: String = "arms"
 const TRAIT_LEGS: String = "legs"
 const TRAIT_GUT: String = "gut"
-const TRAIT_THROAT: String = "throat"
+const TRAIT_LUNGS: String = "lungs"
 const TRAIT_EYES: String = "eyes"
 const TRAIT_HEAD: String = "head"
-const TRAIT_SPEECH: String = "speech"
+const TRAIT_SKIN: String = "skin"
 
 # --- Stages ---
 const STAGE_INTACT: int = 0
@@ -26,17 +26,17 @@ const MAX_STAGE: int = STAGE_LOST
 
 const STAGE_NAMES: Array[String] = ["Intact", "Partial", "Lost"]
 
-const ALL_TRAITS: Array[String] = ["arms", "legs", "gut", "throat", "eyes", "head", "speech"]
+const ALL_TRAITS: Array[String] = ["arms", "legs", "gut", "lungs", "eyes", "head", "skin"]
 
 # --- Current trait stages: 0 = intact, 1 = partial, 2 = fully lost ---
 var traits: Dictionary = {
 	"arms": 0,
 	"legs": 0,
 	"gut": 0,
-	"throat": 0,
+	"lungs": 0,
 	"eyes": 0,
 	"head": 0,
-	"speech": 0,
+	"skin": 0,
 }
 
 # --- Modifier lookup arrays (indexed by stage: 0 intact, 1 partial, 2 lost) ---
@@ -61,18 +61,20 @@ var leg_air_jumps: Array[int] = [1, 0, 0]
 # Absolute health per second rather than a multiplier, so the value is readable.
 var gut_regen_rates: Array[float] = [1.5, 0.5, 0.0]
 
-# Throat — PLANNING1: slower stamina regen at partial, none at full loss.
-# Expressed as how fast the player can swing again, rather than a separate bar.
-var throat_cooldown_mults: Array[float] = [1.0, 1.5, 2.2]
+# Lungs — breath capacity, which paces how fast the player can swing again.
+# (Took over the old Throat slot: throat/speech never made much sense; lungs and
+# skin do.) Expressed as an attack-cooldown multiplier, above 1.0 = slower.
+var lungs_cooldown_mults: Array[float] = [1.0, 1.5, 2.2]
 
 # Eyes — PLANNING1: vision dims at partial, see only moving things at full loss.
 # Drives world brightness. 1.0 = untouched.
 var eyes_vision_mods: Array[float] = [1.0, 0.55, 0.22]
 
-# Speech — PLANNING1: weaker battle cry at partial, none at full loss.
-# A passive intimidation aura that slows nearby enemies.
-var speech_intimidation_radius: Array[float] = [92.0, 46.0, 0.0]
-var speech_intimidation_slow: Array[float] = [0.35, 0.18, 0.0]
+# Skin — a passive layer of protection. Intact skin turns aside a fifth of every
+# hit; as it thins the protection fades, and once it is gone the raw body takes
+# hits in full (and grows a retaliatory buff). Expressed as a damage-taken
+# multiplier: below 1.0 means less damage taken.
+var skin_damage_taken_mods: Array[float] = [0.8, 0.9, 1.0]
 
 # Head — PLANNING1: readouts get vaguer at partial, numbers hidden at full loss.
 # The HUD reads the stage directly. Bars are never hidden, only the numbers:
@@ -123,14 +125,14 @@ func get_modifier(trait_name: String) -> float:
 			return leg_speed_mods[stage]
 		"gut":
 			return gut_regen_rates[stage]
-		"throat":
-			return throat_cooldown_mults[stage]
+		"lungs":
+			return lungs_cooldown_mults[stage]
 		"eyes":
 			return eyes_vision_mods[stage]
 		"head":
 			return head_info_mods[stage]
-		"speech":
-			return speech_intimidation_slow[stage]
+		"skin":
+			return skin_damage_taken_mods[stage]
 	return 1.0
 
 
@@ -155,9 +157,9 @@ func get_gut_regen_rate() -> float:
 	return gut_regen_rates[get_trait_stage("gut")]
 
 
-func get_throat_cooldown_mult() -> float:
+func get_lungs_cooldown_mult() -> float:
 	"""Multiplier on attack cooldown. Above 1.0 means slower recovery between swings."""
-	return throat_cooldown_mults[get_trait_stage("throat")]
+	return lungs_cooldown_mults[get_trait_stage("lungs")]
 
 
 func get_eyes_vision_mod() -> float:
@@ -165,13 +167,9 @@ func get_eyes_vision_mod() -> float:
 	return eyes_vision_mods[get_trait_stage("eyes")]
 
 
-func get_intimidation_radius() -> float:
-	return speech_intimidation_radius[get_trait_stage("speech")]
-
-
-func get_intimidation_slow() -> float:
-	"""Fraction of chase speed removed from enemies inside the intimidation radius."""
-	return speech_intimidation_slow[get_trait_stage("speech")]
+func get_skin_damage_taken_mult() -> float:
+	"""Passive damage-taken multiplier from skin. Below 1.0 = less damage taken."""
+	return skin_damage_taken_mods[get_trait_stage("skin")]
 
 
 func is_arms_blocked() -> bool:

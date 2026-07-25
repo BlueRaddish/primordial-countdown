@@ -5,11 +5,11 @@
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_enemy_idle"]
 atlas = ExtResource("2_chars")
-region = Rect2(100, 0, 24, 24)
+region = Rect2(96, 0, 24, 24)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_enemy_walk"]
 atlas = ExtResource("2_chars")
-region = Rect2(125, 0, 24, 24)
+region = Rect2(120, 0, 24, 24)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_enemy"]
 animations = [{

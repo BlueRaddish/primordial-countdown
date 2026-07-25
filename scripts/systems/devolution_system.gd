@@ -45,7 +45,7 @@ extends Node
 # once taking everything to partial, then again taking everything to fully lost —
 # so the crippling losses (arms, legs) land late in the run.
 @export var degradation_order: Array[String] = [
-	"speech", "head", "eyes", "throat", "gut", "arms", "legs",
+	"skin", "head", "eyes", "lungs", "gut", "arms", "legs",
 ]
 
 # --- State ---

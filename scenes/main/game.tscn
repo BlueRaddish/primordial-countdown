@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://evbvmfl63m1n"]
+[gd_scene load_steps=20 format=3 uid="uid://evbvmfl63m1n"]
 
 [ext_resource type="PackedScene" uid="uid://player_scene" path="res://scenes/player/player.tscn" id="1_player_scene"]
 [ext_resource type="PackedScene" uid="uid://base_enemy_scene" path="res://scenes/enemies/base_enemy.tscn" id="2_enemy_scene"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://scripts/ui/character_screen.gd" id="11_char_screen"]
 [ext_resource type="Script" path="res://scripts/ui/skill_unlock_popup.gd" id="12_skill_popup"]
 [ext_resource type="Script" path="res://scripts/ui/devolution_popup.gd" id="13_devo_popup"]
+[ext_resource type="Script" path="res://scripts/ui/evolved_trait_popup.gd" id="18_evolved_popup"]
 [ext_resource type="PackedScene" uid="uid://boss_enemy_scene" path="res://scenes/enemies/boss_enemy.tscn" id="14_boss_scene"]
 [ext_resource type="Script" path="res://scripts/systems/devolution_system.gd" id="15_devo_system"]
 [ext_resource type="Script" path="res://scripts/systems/timeline_clock.gd" id="16_timeline_clock"]
@@ -106,3 +107,14 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("13_devo_popup")
+
+[node name="EvolvedTraitPopup" type="CanvasLayer" parent="."]
+layer = 13
+process_mode = 3
+
+[node name="EvolvedControl" type="Control" parent="EvolvedTraitPopup"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("18_evolved_popup")

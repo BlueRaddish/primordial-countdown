@@ -5,9 +5,16 @@
 [ext_resource type="PackedScene" uid="uid://hud_scene" path="res://scenes/ui/hud.tscn" id="3_hud"]
 [ext_resource type="PackedScene" uid="uid://death_screen_scene" path="res://scenes/ui/death_screen.tscn" id="4_death_screen"]
 [ext_resource type="Script" path="res://scripts/systems/arena_renderer.gd" id="5_arena_renderer"]
+[ext_resource type="Script" path="res://scripts/systems/parallax_backdrop.gd" id="19_backdrop"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/volcano/bg_volcano_6.png" id="20_bg6"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/volcano/bg_volcano_5.png" id="21_bg5"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/volcano/bg_volcano_4.png" id="22_bg4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/volcano/bg_volcano_3.png" id="23_bg3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/volcano/bg_volcano_2.png" id="24_bg2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/volcano/bg_volcano_1.png" id="25_bg1"]
 [ext_resource type="Script" path="res://scripts/systems/camera_follow.gd" id="6_camera_follow"]
 [ext_resource type="Script" path="res://scripts/systems/death_zone.gd" id="7_death_zone"]
-[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top.png" id="8_ground_top"]
+[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top_stone.png" id="8_ground_top"]
 [ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_fill.png" id="9_ground_fill"]
 [ext_resource type="Script" path="res://scripts/systems/wave_spawner.gd" id="10_wave_spawner"]
 [ext_resource type="Script" path="res://scripts/ui/character_screen.gd" id="11_char_screen"]
@@ -43,7 +50,15 @@ script = ExtResource("16_timeline_clock")
 
 [node name="VisionModulate" type="CanvasModulate" parent="Arena" groups=["vision_modulate"]]
 
+[node name="ParallaxBackdrop" type="Node2D" parent="Arena"]
+z_index = -10
+script = ExtResource("19_backdrop")
+layer_textures = Array[Texture2D]([ExtResource("20_bg6"), ExtResource("21_bg5"), ExtResource("22_bg4"), ExtResource("23_bg3"), ExtResource("24_bg2"), ExtResource("25_bg1")])
+layer_offset_y = Array[float]([0.0, 0.0, 292.0, 391.0, 427.0, 528.0])
+layer_scroll = Array[float]([0.0, 0.08, 0.16, 0.26, 0.36, 0.5])
+
 [node name="ArenaRenderer" type="Node2D" parent="Arena"]
+modulate = Color(0.68, 0.62, 0.78, 1)
 texture_filter = 0
 script = ExtResource("5_arena_renderer")
 ground_top_texture = ExtResource("8_ground_top")

@@ -1,37 +1,7 @@
-[gd_scene load_steps=7 format=3 uid="uid://boss_enemy_scene"]
+[gd_scene load_steps=4 format=3 uid="uid://boss_enemy_scene"]
 
 [ext_resource type="Script" path="res://scripts/enemies/boss_enemy.gd" id="1_boss"]
-[ext_resource type="Texture2D" uid="uid://player_chars_tex" path="res://assets/sprites/player/tilemap-characters_packed.png" id="2_chars"]
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_boss_idle"]
-atlas = ExtResource("2_chars")
-region = Rect2(144, 0, 24, 24)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_boss_walk"]
-atlas = ExtResource("2_chars")
-region = Rect2(168, 0, 24, 24)
-
-[sub_resource type="SpriteFrames" id="SpriteFrames_boss"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_boss_idle")
-}],
-"loop": true,
-"name": &"idle",
-"speed": 5.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_boss_idle")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_boss_walk")
-}],
-"loop": true,
-"name": &"walk",
-"speed": 5.0
-}]
+[ext_resource type="SpriteFrames" path="res://resources/sprite_frames/boss_big_demon.tres" id="2_frames"]
 
 [sub_resource type="RectangleShape2D" id="shape_boss_col"]
 size = Vector2(28, 40)
@@ -41,6 +11,7 @@ collision_layer = 2
 collision_mask = 5
 script = ExtResource("1_boss")
 behavior = 1
+use_behavior_sprite = false
 max_health = 420.0
 move_speed = 34.0
 chase_speed = 58.0
@@ -55,12 +26,10 @@ recover_time = 0.7
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 texture_filter = 0
-position = Vector2(0, -24)
-scale = Vector2(2, 2)
-sprite_frames = SubResource("SpriteFrames_boss")
+position = Vector2(0, -18)
+sprite_frames = ExtResource("2_frames")
 animation = &"idle"
 autoplay = "idle"
-modulate = Color(1, 0.75, 0.75, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -20)

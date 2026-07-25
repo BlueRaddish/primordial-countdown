@@ -26,6 +26,28 @@ enum Behavior { WALKER, LUNGER, HOPPER }
 @export var knockback_decay: float = 400.0
 @export var patrol_distance: float = 80.0
 
+# --- Appearance ---
+# Each movement pattern wears its own sprite, so the three read apart at a glance
+# instead of relying on the player noticing how they move: a heavy orc that walks,
+# a horned chort that lunges, a small imp that hops.
+# The boss supplies its own frames, so it turns this off in boss_enemy.tscn.
+@export var use_behavior_sprite: bool = true
+
+const BEHAVIOR_SPRITE_FRAMES: Dictionary = {
+	Behavior.WALKER: preload("res://resources/sprite_frames/enemy_walker.tres"),
+	Behavior.LUNGER: preload("res://resources/sprite_frames/enemy_lunger.tres"),
+	Behavior.HOPPER: preload("res://resources/sprite_frames/enemy_hopper.tres"),
+}
+
+# The sprites are not all the same height (orc and chort are 16x23, the imp is
+# 16x16), so each needs its own offset to stand on the collider's base instead of
+# floating above it or sinking into the floor.
+const BEHAVIOR_SPRITE_Y: Dictionary = {
+	Behavior.WALKER: -12.0,
+	Behavior.LUNGER: -12.0,
+	Behavior.HOPPER: -8.0,
+}
+
 # --- Lunger tuning ---
 @export var lunge_range: float = 62.0
 @export var windup_time: float = 0.45
@@ -68,12 +90,26 @@ var _danger_highlight: bool = false
 
 func _ready() -> void:
 	add_to_group("enemies")
+	_apply_behavior_sprite()
 	if _sprite:
 		_base_modulate = _sprite.modulate
 	_current_health = max_health
 	_patrol_origin_x = global_position.x
 	_patrol_direction = 1.0 if randf() < 0.5 else -1.0
 	_hop_timer = randf_range(0.0, hop_interval)
+
+
+# Swap in the sprite for whichever pattern this enemy was spawned as. The spawner
+# assigns `behavior` before add_child(), so by the time _ready runs the value is
+# final and this only ever happens once per enemy.
+func _apply_behavior_sprite() -> void:
+	if not use_behavior_sprite or not _sprite:
+		return
+	if BEHAVIOR_SPRITE_FRAMES.has(behavior):
+		_sprite.sprite_frames = BEHAVIOR_SPRITE_FRAMES[behavior]
+		_sprite.play(&"idle")
+	if BEHAVIOR_SPRITE_Y.has(behavior):
+		_sprite.position.y = BEHAVIOR_SPRITE_Y[behavior]
 
 
 func _physics_process(delta: float) -> void:

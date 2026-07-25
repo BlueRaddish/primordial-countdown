@@ -32,6 +32,10 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[gui]
+
+theme/custom_font="res://assets/fonts/Kenney Pixel.ttf"
+
 [input]
 
 move_left={
@@ -103,4 +107,5 @@ toggle_fullscreen={
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
+environment/defaults/default_clear_color=Color(0.153, 0.094, 0.239, 1)
 rendering_device/driver.windows="d3d12"

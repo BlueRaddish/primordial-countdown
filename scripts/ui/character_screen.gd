@@ -495,8 +495,8 @@ func _refresh_dev_toggles() -> void:
 		var fy_col: Color = Color("2ecc71") if GameState.freeze_years else Color(0.7, 0.7, 0.8)
 		_freeze_years_btn.add_theme_color_override("font_color", fy_col)
 	if _choice_mode_btn:
-		var mode: String = "PLAYER CHOICE" if GameState.devolution_player_choice else "FIXED ORDER"
-		_choice_mode_btn.text = "Devolution order: %s" % mode
+		var mode: String = "SHOW ALL" if GameState.devolution_player_choice else "RANDOM 3"
+		_choice_mode_btn.text = "Devolution options: %s" % mode
 
 
 # ---- Callbacks ----

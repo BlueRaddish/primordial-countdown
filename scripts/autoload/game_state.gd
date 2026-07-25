@@ -22,8 +22,9 @@ var no_skill_cooldown: bool = false
 # needed without the run devolving out from under it.
 var freeze_years: bool = false
 
-# PLANNING1 milestone 3 wants a FIXED degradation order. Player-chosen degradation
-# is section 6's "possible later", so it stays off unless a tester flips it.
+# Devolution normally offers a randomized choice of 3 traits to degrade. This dev
+# toggle instead reveals EVERY still-degradable trait as an option, so a tester can
+# steer straight to a specific trait or evolved-trait combo.
 var devolution_player_choice: bool = false
 
 # ---- Pause ownership ----

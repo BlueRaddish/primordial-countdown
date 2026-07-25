@@ -37,9 +37,11 @@ signal buff_applied(buff_id: String, duration: float, color: Color)
 signal buff_expired(buff_id: String)
 
 # ---- Progression signals ----
-# devolution_pending fires first so UI can present the step; the trait only
-# actually degrades once something calls TraitManager.devolve_trait().
-signal devolution_pending(trait_name: String, step_index: int)
+# devolution_pending fires first so UI can present the step; a trait only actually
+# degrades once the player picks one of the offered options and something calls
+# TraitManager.devolve_trait(). `options` is an Array[String] of trait names to
+# choose between (normally 3, randomized).
+signal devolution_pending(options: Array, step_index: int)
 signal devolution_applied(trait_name: String, new_stage: int)
 # The year counter is the devolution counter. Attacks and skills burn years.
 signal years_changed(remaining: float, total: float)

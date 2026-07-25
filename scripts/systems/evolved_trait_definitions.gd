@@ -16,9 +16,10 @@ const LOST: int = 2
 static func get_all() -> Array[EvolvedTraitData]:
 	var out: Array[EvolvedTraitData] = []
 
-	# Wings — the arms are gone, and what remains of the forelimb reopens as a wing.
-	# Trades the melee the arms used to give for flight: an extra flap, a glide
-	# (hold jump while falling), and the wing mobility skills.
+	# Wings — the arms are gone and what remains of the forelimb reopens as a wing,
+	# but only while the breath (lungs) is still whole enough to power flight and the
+	# legs have already begun to fail into something better left behind. Trades the
+	# melee the arms gave for flight: an extra flap, a glide, the wing skills.
 	var wings: EvolvedTraitData = EvolvedTraitData.new()
 	wings.id = "wings"
 	wings.display_name = "Wings"
@@ -26,20 +27,23 @@ static func get_all() -> Array[EvolvedTraitData]:
 	wings.flavor = "The forelimb remembers an older use than holding. It opens, and catches the air."
 	wings.color = Color("aed6f1")
 	wings.replaces_trait = "arms"
-	wings.unlock_conditions = {"arms": [LOST, LOST]}
+	# Arms gone, lungs still intact to drive flight, legs already giving out.
+	wings.unlock_conditions = {"arms": [LOST, LOST], "lungs": [INTACT, INTACT], "legs": [PARTIAL, LOST]}
 	out.append(wings)
 
-	# Hide — soft tissue has failed on two fronts (skin and lungs both gone), so the
-	# body plates over. Heavy passive armor, plus the Curl skill to weather a burst.
+	# Hide — the breath and the gut have both failed, and while the skin still holds
+	# it thickens and plates into a hide rather than thinning away. Heavy passive
+	# armor, plus the Curl skill to weather a burst.
 	var hide: EvolvedTraitData = EvolvedTraitData.new()
 	hide.id = "hide"
 	hide.display_name = "Hide"
-	hide.description = "Plate over the raw body with a thick hide: heavy, permanent damage reduction."
-	hide.flavor = "When the soft parts give out, something older and harder grows in their place."
+	hide.description = "Thicken the still-whole skin into a plated hide: heavy, permanent damage reduction."
+	hide.flavor = "When the inside gives out, the outside answers by hardening."
 	hide.color = Color("7f8c8d")
 	hide.replaces_trait = "skin"
 	hide.hide_damage_mult = 0.6 # 40% flat reduction, far past what intact skin gave.
-	hide.unlock_conditions = {"skin": [LOST, LOST], "lungs": [LOST, LOST]}
+	# Skin still intact to plate over, lungs and gut both gone.
+	hide.unlock_conditions = {"skin": [INTACT, INTACT], "lungs": [LOST, LOST], "gut": [LOST, LOST]}
 	out.append(hide)
 
 	return out

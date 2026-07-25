@@ -48,6 +48,9 @@ enum Kind { OFFENSIVE, BUFF, MOVEMENT }
 # --- Impulse component ---
 @export var impulse_speed: float = 0.0
 @export var impulse_upward_bias: float = 0.0 # Extra upward velocity added to the impulse
+# When true the impulse fires *away* from the cursor while the attack still lands
+# toward it — a back-step strike. When false the impulse follows the aim.
+@export var impulse_reverse: bool = false
 
 # Unlock conditions: trait_name -> Array[int] of size 2: [min_stage, max_stage].
 # All conditions must be met simultaneously.

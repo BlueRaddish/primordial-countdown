@@ -167,9 +167,12 @@ func _execute_skill(skill: SkillData) -> void:
 		if status:
 			status.apply_buff(skill)
 
-	# 3. Impulse component (alternative movement).
+	# 3. Impulse component (alternative movement). A reversed impulse carries the
+	# player away from the cursor while the attack above still lands toward it — the
+	# shape of a back-step strike.
 	if skill.impulse_speed > 0.0 and _player.has_method("apply_impulse"):
-		_player.call("apply_impulse", aim_dir, skill.impulse_speed, skill.impulse_upward_bias)
+		var move_dir: Vector2 = -aim_dir if skill.impulse_reverse else aim_dir
+		_player.call("apply_impulse", move_dir, skill.impulse_speed, skill.impulse_upward_bias)
 
 	EventBus.skill_used.emit(skill)
 

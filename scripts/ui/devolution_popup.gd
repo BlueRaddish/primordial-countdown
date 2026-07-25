@@ -1,11 +1,9 @@
 # devolution_popup.gd
-# Presents a devolution step. Pauses the game via GameState's pause refcount, so a
-# devolution firing while the character screen is open does not unpause on close.
-#
-# PLANNING1 milestone 3: the degradation order is FIXED. This popup announces which
-# trait is degrading and why; it does not ask. Player-chosen degradation is listed
-# in PLANNING1 section 6 as a possible later addition, so it lives behind
-# allow_player_choice, which the character screen's dev panel can flip.
+# Presents a devolution step as a CHOICE. The player is offered a randomized set of
+# traits (normally 3) and picks which one degrades a stage — PLANNING1 section 6's
+# player-chosen degradation, now the standard flow. Pauses the game via GameState's
+# pause refcount, so a devolution firing while the character screen is open does not
+# unpause on close. A dev toggle can widen the options to every degradable trait.
 extends Control
 
 const PAUSE_ID: String = "devolution"
@@ -14,11 +12,15 @@ var _panel: Panel
 var _title_label: Label
 var _info_label: Label
 var _detail_label: Label
-var _continue_btn: Button
 var _choice_buttons: Array[Button] = []
 
-var _pending_trait: String = ""
+# The traits offered this step, index-aligned with _choice_buttons.
+var _pending_options: Array = []
 var _is_open: bool = false
+
+# Enough buttons for the widest case (the dev "reveal all" toggle shows every
+# still-degradable trait); normal play offers devolution_choice_count of them.
+const MAX_OPTION_BUTTONS: int = 7
 
 
 func _ready() -> void:
@@ -40,8 +42,8 @@ func _build_ui() -> void:
 	# Center panel.
 	_panel = Panel.new()
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.size = Vector2(300, 230)
-	_panel.position = Vector2(-150, -115)
+	_panel.size = Vector2(300, 252)
+	_panel.position = Vector2(-150, -126)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.06, 0.06, 0.1, 0.95)
 	style.border_color = Color("e74c3c")
@@ -80,105 +82,104 @@ func _build_ui() -> void:
 	_detail_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.82))
 	_panel.add_child(_detail_label)
 
-	# Fixed-order path: a single acknowledge button.
-	_continue_btn = Button.new()
-	_continue_btn.text = "Continue"
-	_continue_btn.position = Vector2(10, 196)
-	_continue_btn.custom_minimum_size = Vector2(280, 22)
-	_continue_btn.add_theme_font_size_override("font_size", 9)
-	_continue_btn.pressed.connect(_on_continue)
-	_panel.add_child(_continue_btn)
-
-	# Player-choice path: one button per trait, hidden unless allow_player_choice.
-	var trait_names: Array[String] = TraitManager.ALL_TRAITS
-	for i: int in range(trait_names.size()):
+	# One button per offered option. Bound to the slot INDEX, not a fixed trait, so
+	# each step's randomized options can be dropped straight in.
+	for i: int in range(MAX_OPTION_BUTTONS):
 		var btn: Button = Button.new()
-		btn.position = Vector2(10, 108.0 + float(i) * 13.0)
-		btn.custom_minimum_size = Vector2(280, 12)
+		btn.position = Vector2(10, 112.0 + float(i) * 18.0)
+		btn.custom_minimum_size = Vector2(280, 16)
 		btn.add_theme_font_size_override("font_size", 8)
-		btn.pressed.connect(_on_trait_chosen.bind(trait_names[i]))
+		btn.pressed.connect(_on_option_chosen.bind(i))
 		btn.visible = false
 		_panel.add_child(btn)
 		_choice_buttons.append(btn)
 
 
-func _on_devolution_pending(trait_name: String, step_index: int) -> void:
-	_pending_trait = trait_name
+func _on_devolution_pending(options: Array, step_index: int) -> void:
+	_pending_options = options
 	_is_open = true
 
-	var trait_mgr: TraitManager = _find_trait_manager()
-	var current_stage: int = 0
-	if trait_mgr:
-		current_stage = trait_mgr.get_trait_stage(trait_name)
-	var next_stage: int = mini(current_stage + 1, TraitManager.MAX_STAGE)
-
 	_title_label.text = "DEVOLUTION #%d" % (step_index + 1)
+	_info_label.text = "Choose what you lose:"
+	_detail_label.text = "Each choice degrades that trait one stage. You cannot keep all of it — only pick the order of the fall."
 
-	if GameState.devolution_player_choice:
-		_info_label.text = "Choose a trait to degrade:"
-		_detail_label.text = "Degradation order is normally fixed. Player choice is on (dev)."
-		_continue_btn.visible = false
-		_refresh_choice_buttons()
-		for btn: Button in _choice_buttons:
-			btn.visible = true
-	else:
-		_info_label.text = "%s -> %s" % [
-			trait_name.capitalize(),
-			TraitManager.STAGE_NAMES[next_stage].to_upper(),
-		]
-		_detail_label.text = _describe(trait_name, next_stage)
-		_continue_btn.visible = true
-		for btn: Button in _choice_buttons:
-			btn.visible = false
+	_refresh_option_buttons()
 
 	visible = true
 	GameState.push_pause(PAUSE_ID)
 
 
-func _describe(trait_name: String, stage: int) -> String:
-	if stage < TraitManager.MAX_STAGE:
-		return "%s is degrading. A scaling penalty, and nothing in return." % trait_name.capitalize()
-	return "%s is gone for good. What replaces it softens the fall — it does not reverse it." % trait_name.capitalize()
-
-
-func _refresh_choice_buttons() -> void:
-	var trait_names: Array[String] = TraitManager.ALL_TRAITS
+func _refresh_option_buttons() -> void:
 	var trait_mgr: TraitManager = _find_trait_manager()
+	for i: int in range(_choice_buttons.size()):
+		var btn: Button = _choice_buttons[i]
+		if i >= _pending_options.size():
+			btn.visible = false
+			continue
 
-	for i: int in range(trait_names.size()):
-		var tname: String = trait_names[i]
+		var tname: String = _pending_options[i] as String
 		var stage: int = 0
 		if trait_mgr:
 			stage = trait_mgr.get_trait_stage(tname)
+		var next_stage: int = mini(stage + 1, TraitManager.MAX_STAGE)
 
-		var status: String = TraitManager.STAGE_NAMES[stage]
-		_choice_buttons[i].text = "%s — %s" % [tname.capitalize(), status]
-		_choice_buttons[i].disabled = (stage >= TraitManager.MAX_STAGE)
+		btn.text = "%s → %s   —   %s" % [
+			tname.capitalize(),
+			TraitManager.STAGE_NAMES[next_stage].to_upper(),
+			_consequence(tname, next_stage),
+		]
+		# Redder for a full loss than for a partial, so the harsher option reads.
+		var col: Color = Color("f39c12") if next_stage < TraitManager.MAX_STAGE else Color("e74c3c")
+		btn.add_theme_color_override("font_color", col)
+		btn.disabled = false
+		btn.visible = true
 
 
-func _on_continue() -> void:
-	_apply(_pending_trait)
+func _consequence(trait_name: String, next_stage: int) -> String:
+	"""Short, concrete note on what this choice actually does."""
+	var lost: bool = next_stage >= TraitManager.MAX_STAGE
+	match trait_name:
+		"arms":
+			return "no attack at all" if lost else "shorter reach, less damage"
+		"legs":
+			return "no walking or jumping" if lost else "slower, no double jump"
+		"gut":
+			return "no health regen" if lost else "weaker regen"
+		"lungs":
+			return "swings recover ×2.2" if lost else "swings recover ×1.5"
+		"eyes":
+			return "near-blind (22%)" if lost else "world dims (55%)"
+		"skin":
+			return "no protection" if lost else "less protection"
+		"head":
+			return "HUD numbers hidden" if lost else "HUD numbers vague"
+	return "a scaling penalty"
 
 
-func _on_trait_chosen(trait_name: String) -> void:
-	_apply(trait_name)
+func _on_option_chosen(index: int) -> void:
+	if index < 0 or index >= _pending_options.size():
+		return
+	_apply(_pending_options[index] as String)
 
 
 func _apply(trait_name: String) -> void:
+	# Close THIS step first. Applying can immediately owe another devolution (a big
+	# year cost crossing two thresholds at once), which re-opens this popup
+	# synchronously — closing after would clobber that fresh step.
+	_close()
 	var devo: Node = get_tree().get_first_node_in_group("devolution_system")
 	var trait_mgr: TraitManager = _find_trait_manager()
 	if devo:
 		devo.call("apply_devolution", trait_name, trait_mgr)
 	elif trait_mgr:
 		trait_mgr.devolve_trait(trait_name)
-	_close()
 
 
 func _close() -> void:
 	if not _is_open:
 		return
 	_is_open = false
-	_pending_trait = ""
+	_pending_options = []
 	visible = false
 	GameState.pop_pause(PAUSE_ID)
 

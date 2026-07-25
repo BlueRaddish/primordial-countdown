@@ -94,8 +94,13 @@ leaves the option claimable later from the character screen.
 
 | Evolved trait | Grows when | Replaces | Effect |
 | --- | --- | --- | --- |
-| **Wings** | Arms **lost** | Arms | An extra mid-air flap, a glide (hold jump while falling), and the wing mobility skills (Wing Dash, Updraft). Wings keep the jump alive even after the legs are also gone. |
-| **Hide** | Skin **lost** + Lungs **lost** | Skin | A thick plated hide: heavy **40% flat damage reduction**, far past what intact skin ever gave, plus the Curl skill. |
+| **Wings** | Arms **lost** + Lungs **intact** + Legs **partial/lost** | Arms | An extra mid-air flap, a glide (hold jump while falling), and the wing skills (Wing Dash, Updraft, Wing Slam). Wings keep the jump alive even after the legs are also gone. |
+| **Hide** | Skin **intact** + Lungs **lost** + Gut **lost** | Skin | The still-whole skin thickens into a plated hide: heavy **40% flat damage reduction**, far past what intact skin ever gave, plus the Curl skill. |
+
+Because these read *combinations* — some traits lost, others deliberately kept —
+they are things you **steer toward** through the devolution choices (below), not
+accidents. Growing one is permanent and takes over the slot of the trait it grows
+from.
 
 They still count as part of the fall — you reach them by losing things — but they change
 what the fall *feels* like. Defined in `scripts/systems/evolved_trait_definitions.gd`;
@@ -134,6 +139,18 @@ More movement expression, per the redesign. Every one of these — like all skil
 | **Wing Dash** | Wings grown | Movement | 2.5s | **free** | A long horizontal air-dash toward the cursor, untouchable during it. Free — with the arms gone it is core wing mobility, like Pounce. |
 | **Updraft** | Wings grown | Movement | 5s | 1 yr | Launch straight up on a burst of air. Hold jump after to glide, reaching the high route from below. |
 | **Curl** | Hide grown | Buff | 18s | 6 yr | For 4s, pull into the hide: take almost no damage (×0.15) and grind anything touching you. |
+
+### Attack + movement skills
+
+Skills that move you *and* hit — the "commit to a strike" verbs. Each carries both an
+offensive AoE and an impulse, so it reads as a dash-through, a hit-and-retreat, a dive. All
+grant i-frames for their motion, and (like every skill) refresh the jump in mid-air.
+
+| Skill | Source | Kind | CD | Cost | Effect |
+| --- | --- | --- | --- | --- | --- |
+| **Lunge Strike** | Arms intact/partial + Legs **partial/lost** | Attack | 5s | 2 yr | Dash to the cursor and strike on arrival (42 dmg), untouchable through the lunge. Legs failing → explosive committed lunges. |
+| **Backstep Slash** | Arms **partial** | Attack | 5s | 2 yr | Strike toward the cursor (34 dmg), then leap the opposite way. Hit-and-run as the arms weaken. |
+| **Wing Slam** | Wings grown | Attack | 4s | 1 yr | Dive toward the cursor and slam down (52 dmg). Best entered from a jump or glide — turns height into damage. |
 
 ### Multi-trait skills
 
@@ -197,10 +214,14 @@ Everything routes through one entry point, `spend_years()`, with driver toggles 
 damage dealt, time survived, wave clears. Kills are deliberately off — kill count per stage
 is close to fixed, which would make the clock a schedule with no skill expression.
 
-Degradation order is **fixed** (milestone 3): the trait list is walked once taking
-everything to partial, then again taking everything to lost, so the crippling losses (arms,
-legs) land late. Player-chosen degradation is `PLANNING1.md` section 6's "possible later" —
-it exists behind a toggle in the character screen's testing panel.
+Degradation is a **choice**. Each devolution offers a randomized set of **3** traits
+that still have room to degrade, and you pick which one loses a stage (`PLANNING1.md`
+section 6's player-chosen degradation, promoted from a dev toggle to the standard
+flow). The order is now yours: you decide which capabilities to protect and which to
+spend, which is also how you steer toward the evolved-trait combos above. The total is
+still 14 degradations however you order them, so the countdown schedule lines up
+exactly. A dev toggle widens the offer to *every* degradable trait for testing
+(`devolution_choice_count` sets the normal count).
 
 Alongside the raw counter the HUD shows a logarithmic geological readout (3.50B → 1000),
 which `PLANNING1.md` section 5 settles on. It is a display layer over the same counter,
@@ -229,9 +250,10 @@ Press `C` for the character screen:
   and no devolution ever fires, so a single skill can be exercised for as long as you like
   without the run devolving out from under it. Pair with zero cooldown to hammer one skill
   indefinitely.
-- **Devolution order: FIXED / PLAYER CHOICE** — flip between milestone 3's fixed order and
-  the player-chosen variant.
-- **Reset all traits to intact.**
+- **Devolution options: RANDOM 3 / SHOW ALL** — normal play offers a random 3 traits to
+  choose from each step; SHOW ALL reveals every degradable trait so you can steer straight
+  to a specific trait or evolved-trait combo.
+- **Reset all traits to intact** — also clears any grown evolved traits.
 
 While any of these are on, the HUD shows a loud green `TESTING — …` banner listing exactly
 which, so a rigged run is never mistaken for a real one.

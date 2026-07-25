@@ -128,7 +128,7 @@ func _show(data: EvolvedTraitData) -> void:
 	_name_label.add_theme_color_override("font_color", data.color)
 	_desc_label.text = data.description
 	_flavor_label.text = data.flavor
-	_replaces_label.text = "Grows over your lost %s. Permanent." % data.replaces_trait.capitalize()
+	_replaces_label.text = "Grows from your %s, and takes over its slot. Permanent." % data.replaces_trait.capitalize()
 	visible = true
 	_is_open = true
 	GameState.push_pause(PAUSE_ID)

@@ -252,6 +252,73 @@ static func get_all_skills() -> Array[SkillData]:
 	updraft.unlock_conditions = {"wings": [1, 1]}
 	skills.append(updraft)
 
+	# --------------------------------------- Attack + movement skills ----
+	# Skills that move you AND hit — the engaging "commit to a strike" verbs. They
+	# carry both an offensive AoE and an impulse, so they read as a dash-through, a
+	# hit-and-retreat, a dive. Fired in mid-air they also refresh the jump.
+
+	# Legs are failing, so clean spacing gives way to explosive committed lunges: a
+	# forward dash that strikes on arrival, untouchable through it. Needs the arms
+	# to still land the blow.
+	var lunge: SkillData = SkillData.new()
+	lunge.skill_name = "Lunge Strike"
+	lunge.description = "Dash to the cursor and strike on arrival. Untouchable during the lunge."
+	lunge.flavor = "No footwork left. Just the whole body, thrown, with teeth on the end of it."
+	lunge.kind = SkillData.Kind.OFFENSIVE
+	lunge.cooldown = 5.0
+	lunge.year_cost = 2.0
+	lunge.aoe_damage = 42.0
+	lunge.aoe_radius = 30.0
+	lunge.aoe_color = Color("f5b041") # Amber
+	lunge.is_directional = true
+	lunge.impulse_speed = 360.0
+	lunge.impulse_upward_bias = 40.0
+	lunge.buff_duration = 0.3
+	lunge.buff_damage_taken_mult = 0.0 # i-frames for the lunge
+	lunge.unlock_conditions = {"arms": [INTACT, PARTIAL], "legs": [PARTIAL, LOST]}
+	skills.append(lunge)
+
+	# The arms have weakened, so trade reach for safety: strike toward the cursor,
+	# then leap the opposite way. The classic hit-and-run.
+	var backstep: SkillData = SkillData.new()
+	backstep.skill_name = "Backstep Slash"
+	backstep.description = "Strike toward the cursor, then leap back out of reach. Untouchable on the retreat."
+	backstep.flavor = "It can still bite. It just can no longer afford to stay."
+	backstep.kind = SkillData.Kind.OFFENSIVE
+	backstep.cooldown = 5.0
+	backstep.year_cost = 2.0
+	backstep.aoe_damage = 34.0
+	backstep.aoe_radius = 30.0
+	backstep.aoe_color = Color("c39bd3") # Soft violet
+	backstep.is_directional = true
+	backstep.impulse_speed = 300.0
+	backstep.impulse_upward_bias = 30.0
+	backstep.impulse_reverse = true # attack forward, leap backward
+	backstep.buff_duration = 0.3
+	backstep.buff_damage_taken_mult = 0.0
+	backstep.unlock_conditions = {"arms": [PARTIAL, PARTIAL]}
+	skills.append(backstep)
+
+	# Wings grown: a diving body-slam toward the cursor. Heavy, and best entered from
+	# a jump or glide, turning height into damage.
+	var slam: SkillData = SkillData.new()
+	slam.skill_name = "Wing Slam"
+	slam.description = "Dive toward the cursor and slam down, hitting everything you land on."
+	slam.flavor = "It folds the wings and falls on purpose, the way it once let go of a branch."
+	slam.kind = SkillData.Kind.OFFENSIVE
+	slam.cooldown = 4.0
+	slam.year_cost = 1.0
+	slam.aoe_damage = 52.0
+	slam.aoe_radius = 36.0
+	slam.aoe_color = Color("85c1e9") # Sky
+	slam.is_directional = true
+	slam.impulse_speed = 400.0
+	slam.impulse_upward_bias = -50.0 # negative = extra downward drive for the dive
+	slam.buff_duration = 0.3
+	slam.buff_damage_taken_mult = 0.0
+	slam.unlock_conditions = {"wings": [1, 1]}
+	skills.append(slam)
+
 	# ---------------------------------------------- Evolved: Hide ----
 	# The hide has grown in thick and plated. It can pull in tight and weather
 	# almost anything for a moment, punishing whatever is pressed against it.

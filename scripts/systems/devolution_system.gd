@@ -41,9 +41,15 @@ extends Node
 # last step cost 3x the first, so devolution starts slow and accelerates.
 @export var devolution_curve_growth: float = 2.0
 
-# PLANNING1 milestone 3: the degradation order is fixed. The list is walked twice —
-# once taking everything to partial, then again taking everything to fully lost —
-# so the crippling losses (arms, legs) land late in the run.
+# Each devolution offers a randomized choice of this many traits to degrade; the
+# player picks one. (PLANNING1 section 6's "player chosen degradation" — promoted
+# from a dev toggle to the standard flow, so runs are shaped by choice, not a fixed
+# script, and evolved-trait combos can be steered toward on purpose.)
+@export var devolution_choice_count: int = 3
+
+# Retained only to size the countdown schedule: total_steps = size * MAX_STAGE = 14
+# degradations, whatever order they are chosen in. The order of the entries no
+# longer drives anything — every trait is a candidate every step.
 @export var degradation_order: Array[String] = [
 	"skin", "head", "eyes", "lungs", "gut", "arms", "legs",
 ]
@@ -202,15 +208,37 @@ func get_progress() -> float:
 # ---- Fixed degradation order ----
 
 func get_next_trait(trait_mgr: TraitManager) -> String:
-	"""Next trait in the fixed order that still has room to degrade, or "" if none."""
+	"""First trait (in list order) that still has room to degrade, or "" if none.
+	Kept as a fallback; the main flow offers a choice via get_devolution_options()."""
 	if not trait_mgr:
 		return ""
-	# Pass 1: everything to partial. Pass 2: everything to fully lost.
 	for target_stage: int in range(1, TraitManager.MAX_STAGE + 1):
 		for trait_name: String in degradation_order:
 			if trait_mgr.get_trait_stage(trait_name) < target_stage:
 				return trait_name
 	return ""
+
+
+func get_devolution_options(trait_mgr: TraitManager, count: int) -> Array[String]:
+	"""A randomized set of traits the player may choose to degrade this step.
+
+	Every trait that still has room (stage < lost) is a candidate. Normally a
+	shuffled subset of `count`; the dev "reveal all" toggle returns every candidate
+	so a tester can steer straight to any trait or evolved-trait combo."""
+	var candidates: Array[String] = []
+	if not trait_mgr:
+		return candidates
+	for trait_name: String in TraitManager.ALL_TRAITS:
+		if trait_mgr.get_trait_stage(trait_name) < TraitManager.MAX_STAGE:
+			candidates.append(trait_name)
+
+	if GameState.devolution_player_choice:
+		return candidates
+
+	candidates.shuffle()
+	if candidates.size() > count:
+		candidates = candidates.slice(0, count)
+	return candidates
 
 
 func apply_devolution(trait_name: String, trait_mgr: TraitManager) -> void:
@@ -268,14 +296,14 @@ func _on_wave_cleared(_wave_number: int) -> void:
 
 func _trigger_devolution() -> void:
 	var trait_mgr: TraitManager = _find_trait_manager()
-	var next_trait: String = get_next_trait(trait_mgr)
-	if next_trait.is_empty():
-		# Fully devolved. PLANNING1 section 4: the run ends here.
+	var options: Array[String] = get_devolution_options(trait_mgr, devolution_choice_count)
+	if options.is_empty():
+		# Nothing left to lose — fully devolved. PLANNING1 section 4: the run ends.
 		_finished = true
 		EventBus.player_died.emit()
 		return
 	_awaiting_choice = true
-	EventBus.devolution_pending.emit(next_trait, total_devolutions)
+	EventBus.devolution_pending.emit(options, total_devolutions)
 
 
 func _find_trait_manager() -> TraitManager:

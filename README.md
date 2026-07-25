@@ -273,7 +273,7 @@ Spacing is sized against the actual jump arc rather than guessed:
 ```
 intact legs:   jump_force = -330  ->  peak rise 330² / (2 × 800) = 68 px
 partial legs:  jump_force = -264  ->  peak rise 264² / (2 × 800) = 44 px
-                                      and move speed drops to 78 px/s
+									  and move speed drops to 78 px/s
 ```
 
 - **Main route** (P0–P7): 27px steps with 18px gaps, climbing left to right to the summit

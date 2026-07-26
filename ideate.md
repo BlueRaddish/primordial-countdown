@@ -10,10 +10,11 @@ The north star: **the run should read as a body coming apart and improvising aro
 the wreckage, against a clock that never stops.** Devolution is loss; the only power
 you gain is power that grows out of loss.
 
-**Next up: clear the known issues below, then Tier 2.** Tiers 0 and 1 are shipped. The
-devolution *systems* are now complete — what is still missing is making the countdown
-itself a decision. But three bugs and one open fiction question turned up in a pass over
-the shipped systems, and they should be settled first rather than built on top of.
+**Next up: clear the known issues, then the art/audio pass, then Tier 2.** Tiers 0 and 1
+are shipped. The devolution *systems* are now complete — what is still missing is making
+the countdown itself a decision. But three bugs, one open fiction question, and an entire
+unbuilt art/audio layer turned up in a review pass over the shipped systems, and they
+should be settled first rather than built on top of.
 
 ---
 
@@ -162,6 +163,95 @@ Leaning toward A: it keeps the years-vs-eras contrast intact, and "the fight its
 aging you" is a stronger version of the loss theme than a mysterious pre-existing
 stockpile. Needs a decision before Tier 2.1 is built, since that tier's shrines/doors are
 priced in whatever unit this becomes.
+
+---
+
+## Tier 1.5 — Give the body, the fights, and the world a voice (art + audio pass)
+
+An animation/audio review turned up real, ready-to-use candidates already sitting in
+`art-resources/15_selected_devolution_assets/` (avatars, trait/skill references, curated
+audio) — copied out of packs already on disk, nothing new downloaded, see
+`art-resources/ART_RESOURCES.md` for the full inventory and licenses. Ordered by
+payoff-per-effort: the body swap is the single biggest visible win Tier 1.3 already asked
+for; audio starts from literal zero, so even rough wiring beats silence; the VFX trail is
+one small code change; the wings crop is polish on something that already works.
+
+### 1.5.1 Body-stage avatars — make devolution visible at the whole-body level
+Four frame sets are ready in `avatars/`: `stage1_unarmored_elf_m`, `stage2_rotting_
+big_zombie`, `stage3_skeleton_skelet` (each with full idle + run, and a hit frame where
+the source pack shipped one), plus `stage4_dead/skull.png`. Stage 0 (Knight) is already
+`assets/sprites/player/knight`. **Why:** Tier 1.3 shipped procedural marks for what a
+trait *grew back*, but flagged its own gap — "nothing shows a trait that is missing." A
+whole-body stage swap solves that at the level the north star actually asks for: watching
+your own silhouette fail, not reading a HUD row. **Depends on:** nothing new —
+`devolution_system.gd`'s `total_devolutions` (0-14) is already the exact signal to drive
+it, matching how this pass agreed the trigger should work (whole-body total, not any one
+trait maxing out).
+
+Implementation: build 3 new `SpriteFrames` resources mirroring
+`resources/sprite_frames/player_knight.tres`'s shape — idle, run, `jump` (reuse a run
+frame, the same trick the knight's own jump animation already is), `attack` (elf_m has a
+real hit frame to reuse; big_zombie and skelet don't ship one, so reuse one of their own
+idle frames the same way `jump` already reuses a run frame — zero new art either way).
+`skull.png` is not a live gameplay stage; it's what `death_screen.gd` shows, since hitting
+devolution step 14 already fires `player_died` on its own — there's no "stage 4 while
+still playing" to build. Add a small stage-index function alongside
+`recalculate_from_traits` that swaps `_sprite.sprite_frames` when `total_devolutions`
+crosses a threshold. Starting thresholds to tune from (not final — check them against
+`devolution_curve_growth`'s existing pacing so stages don't all cluster at the end): 0 =
+Knight, 1–4 = unarmored, 5–9 = rotting, 10–13 = skeleton, 14 = run already over.
+
+### 1.5.2 Audio — currently: total silence
+16 curated files are ready in `audio/` — impact hits per armor state, 4 event stingers,
+6 background/tension music tracks. **Why:** `audio_manager.gd` is a bare autoload stub
+today and `assets/audio/` is empty — every attack, hit, devolution step, and death in the
+current build is silent. This is the single biggest gap in the whole review, bigger than
+any visual one, because a silent build reads as unfinished even when everything else
+works. **Depends on:** `audio_manager.gd` needs real `play_sfx()`/`play_music()` methods
+first — there's no partial version to extend, this starts from zero.
+
+The triggers already exist and fire today; only the sound is missing. Straight mapping to
+`event_bus.gd` signals: `sfx_metal_hit` / `sfx_punch_flesh_hit` / `sfx_blade_slice` /
+`sfx_plate_hit` / `sfx_soft_hit_skin_lost` → `player_hit`/`enemy_hit`, picked by current
+Arms/Skin trait stage rather than one fixed sound; `sfx_boss_slam_impact` →
+`BossEnemy._do_slam()`; `jingle_devolution_step` → `devolution_applied`;
+`jingle_skill_unlock` → `skill_unlocked`; `jingle_evolved_trait_grown` →
+`evolved_trait_grown`; `jingle_full_devolution_death` → `player_died`. The 4
+background/tension tracks (`music_swamp_era`, `_town_era`, `_town_era_alt_darker`,
+`_boss_tension`) and 2 drum loops (`_late_run_tension_layer`, `_active_combat_layer`)
+route through `stage_manager.gd` — already an empty stub per `ART_RESOURCES.md`'s own
+notes on the parallax-tiling rework it's waiting on. The drum loops are built to fade in
+under whichever era track is already playing (low `years_fraction`, or a boss engaged)
+rather than replace it outright. **Still open:** no cyberpunk-flavored track exists for
+pack 14's era — flagged during the review, needs a separate CC0/CC-BY synthwave source
+before that era ships with music that actually fits.
+
+### 1.5.3 Skill VFX trail — the one real code gap the review found
+Everything about how skill effects render turned out to already work (`AoEIndicator` is
+pure procedural geometry, no texture, so it never cared what body was under it) — except
+one thing: it draws a single static arc at a fixed point, not a shape that follows the
+player through an impulse-based skill (Lunge Strike, Backstep Slash, Wing Dash, Wing
+Slam). **Why:** this is the actual, concrete version of what the Gothic-hero/demon
+reference clips were standing in for — not new art, a trail that follows the lunge.
+**Implementation:** sample `player.global_position` each frame during the
+`impulse_speed`/`impulse_upward_bias` window (`ability_manager.gd::_execute_skill`
+already knows exactly when this starts), draw a tapering, fading polygon strip between
+the sampled points, colored by `skill.aoe_color`, self-clearing the same way
+`AoEIndicator` already does. **Depends on:** nothing new — extends an existing, shipped,
+already style-agnostic system.
+
+### 1.5.4 Evolved-trait wings — optional real-art polish
+The angel's full idle+run frame set in `powerup_reference/` is the one asset out of the
+whole review that's actually croppable — same rig scale/style as the body-stage sprites,
+and the wings sit on the back as a separable shape. Everything else in that folder
+(chort, ogre, demon, gothic-hero, wolf, ghost) stays reference-only — a different rig or
+style, useful for an artist's eye, not for extraction. **Why this is optional:** Tier 1.3
+already shipped a working wing mark (`body_marks.gd::_draw_wings()`, a drawn polygon) —
+this is a polish pass on something that already works, not a gap. **Implementation:**
+crop just the wing shape (transparent elsewhere) from each frame, swap the polygon for a
+textured `Sprite2D` positioned/rotated by the same `_phase`-driven beat math already
+there. **Depends on:** someone actually doing the crop; lowest priority in this tier since
+the procedural version is already shipped and working.
 
 ---
 

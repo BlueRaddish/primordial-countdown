@@ -230,6 +230,54 @@ devolution steps, skill unlocks, boss spawn, death.
 (30 MB, 5 loops), 44.1kHz 16-bit stereo WAV. **Convert to OGG before import**
 — Godot will otherwise embed the raw WAV size, and this is 99 MB uncompressed.
 
+### 15. `15_selected_devolution_assets/` — this pass's curated picks
+
+Not a new download — every file here is copied out of packs 1, 2, 9, 10, and 11
+above (same licenses: CC0 except the North Fantasy Music files, which stay
+CC BY 4.0 and need attribution same as pack 11). This folder exists so the
+handful of files actually picked during the animation/audio review don't stay
+buried inside the full packs. Still staging, not `assets/` — nothing here is
+wired into a scene yet.
+
+```
+avatars/                         — body-stage sprite candidates (idle+run+hit
+                                    frame sets, full animation, not stills)
+  stage1_unarmored_elf_m/         from pack 1's elf_m
+  stage2_rotting_big_zombie/      from pack 1's big_zombie
+  stage3_skeleton_skelet/         from pack 1's skelet
+  stage4_dead/skull.png           from pack 1's skull.png (static, no anim)
+
+powerup_reference/               — trait/skill visual references
+  angel_idle/run_anim_f0-f3.png   from pack 1 — the one EXTRACTABLE asset
+                                    (wings are a separable shape); everything
+                                    else in this folder is REFERENCE ONLY, a
+                                    different rig/style, not croppable —
+                                    see filename suffixes for which trait/skill
+                                    each maps to
+  *_REFERENCE.png / .gif           chort (tail/claws), ogre (plates), demon
+                                    (feral wings + wing dash), gothic-hero
+                                    (aerial chain, lunge/backstep, hurt pose),
+                                    wolf (feral tail/claws), ghost (gills)
+  fire_skull_HINDBRAIN_SKILL_FX.gif  not body art — a HUD/enemy flash effect
+
+audio/                            — curated SFX/music picks, renamed by role
+                                     rather than source filename
+  sfx_*.ogg                        impact sounds (pack 9) — metal/punch/plate/
+                                     soft/bell hits per armor state
+  jingle_*.ogg                     event stingers (pack 10) — devolution
+                                     step, skill unlock, evolved trait grown,
+                                     death
+  music_*.wav                      background music + drum-loop tension
+                                     layers (pack 11, CC BY 4.0 — North
+                                     Fantasy Music)
+```
+
+Deliberately excluded: 3 of the 4 punch/flesh-hit sound candidates that were
+being A/B compared (kept only `impactGeneric_light`, renamed
+`sfx_punch_flesh_hit.ogg`), the knight (already the real player asset, not a
+candidate), and the two non-chosen stage options (`doc` for stage 1,
+`tiny_zombie` for stage 2) — narrowed down after review, not an oversight.
+
 ---
 
 ## Godot 4 import notes
@@ -251,21 +299,29 @@ devolution steps, skill unlocks, boss spawn, death.
 ## Attribution
 
 Credit isn't legally required for any CC0 pack (that's everything from
-ansimuz and Kenney, packs 1, 2, 9, 10, 12, 13, 14), but here's what's ready
-to paste into the README's Credits table regardless:
+ansimuz and Kenney, packs 1, 2, 9, 10, 12, 13, 14), but pack 2 (Gothicvania)
+asks for it loosely ("credit appreciated") and pack 11 (Fantasy Ambience)
+*does* require it under CC BY 4.0 — and pack 15 pulled real files from both
+of those, plus packs 1, 9, and 10, into material that's now earmarked for
+actual use (see `ideate.md`'s Tier 1.5), not just staged. This table has
+been pasted into the README's Credits table for that reason — it's the
+project's actual homepage, not this file:
 
 ```markdown
 | 16x16 DungeonTileset II | 0x72 | CC0 1.0 | https://0x72.itch.io/dungeontileset-ii |
-| Gothicvania Collection | Luis Zuno (ansimuz) | Public domain | https://opengameart.org/content/gothicvania-patreons-collection |
+| Gothicvania Patreon Collection | Luis Zuno (ansimuz) | Public domain, credit appreciated | https://opengameart.org/content/gothicvania-patreons-collection |
 | Gothicvania Swamp | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/gothicvania-swamp |
 | GothicVania Town | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/gothicvania-town |
 | Synth Cities Environment | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/cyberpunk-street-environment |
-| Impact / RPG / UI Audio | Kenney | CC0 1.0 | https://kenney.nl/assets/impact-sounds |
+| Impact Sounds | Kenney | CC0 1.0 | https://kenney.nl/assets/impact-sounds |
+| RPG Audio | Kenney | CC0 1.0 | https://kenney.nl/assets/rpg-audio |
+| Music Jingles | Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles |
 | Fantasy Ambience & Drum Loops | North Fantasy Music | CC BY 4.0 | https://opengameart.org/content/fantasy-music-and-drum-loops-pack |
 ```
 
-Only pack 11 (and pack 2, loosely — "credit appreciated" not required)
-actually asks for it.
+Only pack 11 (and pack 2, loosely) actually asks for it — but everything
+sourcing pack 15 is listed regardless, same "credit is deserved, not just
+owed" reasoning the README's own Credits section already states.
 
 ## Version control
 

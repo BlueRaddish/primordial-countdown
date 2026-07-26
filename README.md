@@ -404,17 +404,25 @@ readouts (`~25`, `??`) the same width as the real thing.
 | Asset | Author | License | Link |
 | --- | --- | --- | --- |
 | Pixel Platformer (1.2) | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer |
-| 16x16 DungeonTileset II (1.7) — player, enemies, boss | 0x72 | CC0 1.0 | https://0x72.itch.io/dungeontileset-ii |
+| 16x16 DungeonTileset II (1.7) — player, enemies, boss, devolution-stage avatars, wings reference | 0x72 | CC0 1.0 | https://0x72.itch.io/dungeontileset-ii |
 | 2D Platformer Volcano Pack 1.1 — parallax backdrop | Tio Aimar | CC0 1.0 | https://opengameart.org/content/2d-platformer-volcano-pack-11 |
 | Pixel Platformer Industrial Expansion — ground tile | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer-industrial-expansion |
 | Kenney Fonts — Kenney Pixel, Kenney Mini Square Mono | Kenney | CC0 1.0 | https://kenney.nl/assets/kenney-fonts |
+| Gothicvania Patreon Collection — skill/attack animation reference | Luis Zuno (ansimuz) | Public domain, credit appreciated | https://opengameart.org/content/gothicvania-patreons-collection |
+| Impact Sounds — hit/impact SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/impact-sounds |
+| RPG Audio — blade slice SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/rpg-audio |
+| Music Jingles — devolution/skill/death stingers | Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles |
+| Fantasy Ambience & Drum Loops — background music | North Fantasy Music | CC BY 4.0 | https://opengameart.org/content/fantasy-music-and-drum-loops-pack |
 
-Every asset above is CC0, so none of this requires attribution — it is here because the
-work deserves the credit, not because a licence demands it.
+Every CC0 asset above needs no attribution — it is here because the work deserves the
+credit, not because a licence demands it. The Gothicvania Patreon Collection is public
+domain but its author asks for credit where it's convenient, so it is credited here too.
+Fantasy Ambience & Drum Loops is the one entry that *is* legally required to carry
+attribution (CC BY 4.0) — do not drop that row.
 
 Further packs are staged but not yet used, with a written comparison, in `art-resources/`
-(see `art-resources/ART_RESOURCES.md`): Gothicvania sprites, VFX sheets, pixel UI, ~4200
-skill icons, SFX and music. Two of those do carry attribution requirements — game-icons.net
-is CC BY 3.0 and the Fantasy Ambience music is CC BY 4.0 — so credit them here if they get
-used. The staged archives are ~112 MB of originals and are not meant for version control;
-add `/art-resources/` to `.gitignore` alongside the existing entries.
+(see `art-resources/ART_RESOURCES.md`): the rest of the Gothicvania/ansimuz environment
+packs, pixel UI, ~4200 skill icons. One of those carries an attribution requirement —
+game-icons.net is CC BY 3.0 — so credit it here if it gets used. The staged archives are
+not meant for version control; add `/art-resources/` to `.gitignore` alongside the
+existing entries.

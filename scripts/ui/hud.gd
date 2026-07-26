@@ -62,6 +62,7 @@ func _ready() -> void:
 	_build_run_info()
 	_build_boss_bar()
 	_build_skill_slots()
+	_build_offscreen_markers()
 
 	call_deferred("_find_systems")
 
@@ -157,6 +158,16 @@ func _build_year_counter() -> void:
 	_countdown_label.add_theme_font_size_override("font_size", 8)
 	_countdown_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.85))
 	control.add_child(_countdown_label)
+
+
+func _build_offscreen_markers() -> void:
+	"""Edge markers pointing at enemies that are off screen. Added first in the child
+	order and given a negative z_index so it can never draw over the readouts."""
+	var markers: Control = Control.new()
+	markers.set_script(load("res://scripts/ui/offscreen_markers.gd"))
+	markers.name = "OffscreenMarkers"
+	$Control.add_child(markers)
+	$Control.move_child(markers, 0)
 
 
 func _build_run_info() -> void:

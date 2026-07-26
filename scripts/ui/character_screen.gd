@@ -207,6 +207,7 @@ func _build_trait_panel() -> void:
 
 		_trait_rows.append({
 			"name": tname,
+			"name_label": name_lbl,
 			"stage_label": stage_lbl,
 			"num_label": num_lbl,
 			"inc_btn": inc_btn,
@@ -427,30 +428,54 @@ func _refresh_traits() -> void:
 	if not trait_mgr:
 		return
 
+	var evolved_mgr: Node = _find_evolved_manager()
+
 	for row: Dictionary in _trait_rows:
 		var tname: String = row["name"] as String
 		var stage: int = trait_mgr.get_trait_stage(tname)
 		var max_s: int = TraitManager.MAX_STAGE
-
-		var blocks: String = ""
-		for s: int in range(max_s):
-			blocks += "■ " if s < stage else "□ "
+		var name_lbl: Label = row["name_label"] as Label
 		var stage_lbl: Label = row["stage_label"] as Label
-		stage_lbl.text = blocks.strip_edges()
-
-		# Green -> yellow -> red as the trait degrades.
-		var t: float = float(stage) / float(max_s)
-		var col: Color = Color(0.3, 0.8, 0.3).lerp(Color(0.9, 0.2, 0.2), t)
-		stage_lbl.add_theme_color_override("font_color", col)
-
 		var num_lbl: Label = row["num_label"] as Label
-		num_lbl.text = TraitManager.STAGE_NAMES[stage]
-		if stage >= max_s:
-			num_lbl.add_theme_color_override("font_color", Color("e74c3c"))
-		elif stage > 0:
-			num_lbl.add_theme_color_override("font_color", Color("f39c12"))
+
+		# An evolved trait that grew over this slot TAKES THE ROW. Listing the dead
+		# base trait alongside a separate "evolved" section made you cross-reference
+		# two lists to answer one question — what does this slot do now?
+		var grown: EvolvedTraitData = null
+		if evolved_mgr:
+			grown = evolved_mgr.call("get_slot_owner", tname)
+
+		if grown:
+			name_lbl.text = grown.display_name
+			name_lbl.add_theme_color_override("font_color", grown.color)
+			# Evolved traits do not degrade — they are a permanent grown/not-grown
+			# state, and devolution only ever targets the seven base traits. So the
+			# stage blocks are meaningless here and are replaced by what it is.
+			stage_lbl.text = "GROWN"
+			stage_lbl.add_theme_color_override("font_color", grown.color)
+			num_lbl.text = "was %s" % tname.capitalize()
+			num_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.58))
 		else:
-			num_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+			name_lbl.text = tname.capitalize()
+			name_lbl.add_theme_color_override("font_color", Color.WHITE)
+
+			var blocks: String = ""
+			for s: int in range(max_s):
+				blocks += "■ " if s < stage else "□ "
+			stage_lbl.text = blocks.strip_edges()
+
+			# Green -> yellow -> red as the trait degrades.
+			var t: float = float(stage) / float(max_s)
+			var col: Color = Color(0.3, 0.8, 0.3).lerp(Color(0.9, 0.2, 0.2), t)
+			stage_lbl.add_theme_color_override("font_color", col)
+
+			num_lbl.text = TraitManager.STAGE_NAMES[stage]
+			if stage >= max_s:
+				num_lbl.add_theme_color_override("font_color", Color("e74c3c"))
+			elif stage > 0:
+				num_lbl.add_theme_color_override("font_color", Color("f39c12"))
+			else:
+				num_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 
 		(row["inc_btn"] as Button).disabled = (stage >= max_s)
 		(row["dec_btn"] as Button).disabled = (stage <= 0)
@@ -475,7 +500,10 @@ func _refresh_skills() -> void:
 		child.queue_free()
 	_assign_buttons.clear()
 
-	var can_assign: bool = ability_mgr.can_reassign()
+	# Dev tools ignore the loadout lock entirely: testing a skill means being able to
+	# put it in a slot on demand, not devolving until the game happens to grant it.
+	var dev_override: bool = GameState.show_dev_tools
+	var can_assign: bool = ability_mgr.can_reassign() or dev_override
 
 	if ability_mgr.available_skills.is_empty():
 		var empty_lbl: Label = Label.new()
@@ -538,7 +566,10 @@ func _refresh_skills() -> void:
 
 		_available_skills_container.add_child(hbox)
 
-	if can_assign:
+	if dev_override and not ability_mgr.can_reassign():
+		_skill_detail_label.text = "DEV: loadout unlocked — assign freely. Turn off Developer tools in Settings for the real rules."
+		_skill_detail_label.add_theme_color_override("font_color", Color("f1c40f"))
+	elif can_assign:
 		_skill_detail_label.text = "NEW SKILL — assign it to Q, E or R now. Loadout locks again after this."
 		_skill_detail_label.add_theme_color_override("font_color", Color("f1c40f"))
 	else:
@@ -655,7 +686,10 @@ func _on_assign_skill(slot_index: int, skill: SkillData) -> void:
 	var ability_mgr: AbilityManager = _find_ability_manager()
 	if ability_mgr:
 		ability_mgr.assign_skill(slot_index, skill)
-		ability_mgr.close_reassign_window()
+		# Dev mode keeps the loadout open so a tester can keep swapping; normal play
+		# spends the post-unlock window on this single change.
+		if not GameState.show_dev_tools:
+			ability_mgr.close_reassign_window()
 		_refresh_skills()
 
 

@@ -15,6 +15,9 @@ const BASE_MELEE_LENGTH: float = 40.0 # Hitbox length along the aim direction
 # Coyote time is rebuilt from this every recalculate, because an evolved Tail adds
 # to it and the rebuild has to start from a clean base rather than compounding.
 const BASE_COYOTE_TIME: float = 0.08
+# How long a skill impulse owns locomotion. AbilityManager reads this so a
+# dash-attack's travelling hitbox lasts exactly as long as the movement does.
+const IMPULSE_TIME: float = 0.25
 
 # --- Live values (rebuilt from traits) ---
 @export var move_speed: float = 120.0
@@ -29,6 +32,34 @@ const BASE_COYOTE_TIME: float = 0.08
 @export var max_fall_speed: float = 400.0
 @export var coyote_time: float = 0.08
 @export var jump_buffer_time: float = 0.1
+
+# Air acceleration as a fraction of ground acceleration. At 1.0 the air steered exactly
+# like the ground, which makes a jump feel like a hover — you could rewrite the whole
+# arc after committing to it. Below 1.0 the jump becomes a decision you live with.
+# Multiplied by air_control_mult, so a Tail still buys back real authority on top.
+@export var air_accel_ratio: float = 0.75
+
+# Apex hang. Gravity eases off while vertical speed is near zero, so the top of a jump
+# lingers instead of snapping over. This is most of what makes a jump feel "floaty at
+# the top and heavy on the way down" rather than parabolic and lifeless.
+@export var apex_speed_threshold: float = 55.0
+@export var apex_gravity_mult: float = 0.5
+
+# How long the player ignores the shelf it just dropped through. Long enough to clear
+# the collider and its margin, short enough that you cannot fall through the next one.
+@export var drop_through_time: float = 0.25
+
+# Inputs are remembered this long while something else owns the character — an attack
+# animation, a knockback, a dash cooldown — and fire the moment it is legal. Without
+# this, any press during those windows is silently eaten and reads as the game
+# ignoring you.
+@export var dash_buffer_time: float = 0.15
+@export var skill_buffer_time: float = 0.2
+
+# Squash and stretch. Purely cosmetic, and deliberately quick: it should register as
+# weight, not as a cartoon.
+@export var squash_recovery: float = 9.0
+@export var land_squash_speed: float = 140.0
 # Mid-air jumps available after leaving the ground. Rebuilt from the legs trait.
 @export var max_air_jumps: int = 1
 @export var air_jump_force_mult: float = 0.9
@@ -58,6 +89,15 @@ const BASE_COYOTE_TIME: float = 0.08
 # Degraded legs make it a scramble rather than a roll: shorter, but never removed.
 @export var dash_legs_partial_mult: float = 0.8
 @export var dash_legs_lost_mult: float = 0.55
+
+# --- Aerial skill hang ---
+# A brief float after firing a skill in mid-air. Skills already refresh the jump up
+# there, but the moment you land one you were immediately back at full falling speed
+# with no time to read where the chain had put you — so aerial play was committing
+# blind. This hands back a beat to look, aim and choose the next move, which is what
+# makes chaining feel deliberate rather than frantic.
+@export var air_skill_hang_time: float = 0.18
+@export var air_skill_hang_gravity_mult: float = 0.22
 @export var melee_aoe_color: Color = Color("4ecdc4")
 
 # --- Capability gates (set by TraitManager) ---
@@ -83,6 +123,15 @@ var attack_bleed_time: float = 0.0
 # --- Internal state ---
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
+var _dash_buffer_timer: float = 0.0
+var _skill_buffer_timer: float = 0.0
+var _skill_buffer_slot: int = -1
+var _drop_through_timer: float = 0.0
+var _dropped_platform: Node = null
+# Fall speed carried into the moment of landing, sampled before move_and_slide zeroes
+# it. Drives how hard the landing squashes and how much dust it kicks up.
+var _impact_speed: float = 0.0
+var _was_airborne: bool = false
 var _air_jumps_left: int = 0
 var _was_on_floor: bool = false
 var _is_dead: bool = false
@@ -101,6 +150,8 @@ var _impulse_timer: float = 0.0
 var _dash_timer: float = 0.0
 var _dash_cooldown_timer: float = 0.0
 var _dash_dir: float = 1.0
+# Counts down the float granted by an aerial skill.
+var _air_hang_timer: float = 0.0
 var _facing_right: bool = true
 var _aim_angle: float = 0.0
 var _aim_dir: Vector2 = Vector2.RIGHT
@@ -154,11 +205,13 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_handle_timers(delta)
+	_handle_drop_through()
 	# The dash owns velocity outright while it runs, so it is resolved before
 	# gravity and movement rather than fighting them.
 	if _handle_dash(delta):
 		move_and_slide()
 		_update_animation()
+		_apply_squash_stretch(delta)
 		_was_on_floor = is_on_floor()
 		return
 	_apply_gravity(delta)
@@ -170,8 +223,17 @@ func _physics_process(delta: float) -> void:
 	_handle_regen(delta)
 	_update_animation()
 
+	# Sampled before move_and_slide, which zeroes downward velocity on contact — by
+	# the time we could ask "how hard did that land?" the answer is always zero.
+	_impact_speed = velocity.y
+	_was_airborne = not is_on_floor()
+	var speed_before: float = absf(velocity.x)
+
 	move_and_slide()
 
+	_check_landing()
+	_check_skid(speed_before)
+	_apply_squash_stretch(delta)
 	_was_on_floor = is_on_floor()
 
 
@@ -375,6 +437,12 @@ func _refresh_aim_from_mouse() -> Vector2:
 
 # ---- Alternative movement (skill impulse) ----
 
+func get_impulse_time() -> float:
+	"""How long a skill impulse owns locomotion. AbilityManager matches its travelling
+	hitbox to this, so a dash-attack damages for exactly as long as it is moving."""
+	return IMPULSE_TIME
+
+
 func apply_impulse(direction: Vector2, speed: float, upward_bias: float) -> void:
 	"""Alternative movement hook, used when a skill takes over locomotion."""
 	if _is_dead:
@@ -384,7 +452,7 @@ func apply_impulse(direction: Vector2, speed: float, upward_bias: float) -> void
 		dir = Vector2.RIGHT if _facing_right else Vector2.LEFT
 	velocity = dir.normalized() * speed
 	velocity.y -= upward_bias
-	_impulse_timer = 0.25
+	_impulse_timer = IMPULSE_TIME
 	_facing_right = dir.x >= 0.0
 
 
@@ -404,8 +472,26 @@ func report_damage_dealt(amount: float) -> void:
 
 func _apply_gravity(delta: float) -> void:
 	if is_on_floor():
+		_air_hang_timer = 0.0
 		return
+
+	# A skill fired in mid-air buys a moment of near-weightlessness to read the
+	# situation. Applied before the fall multiplier so it works on the way down,
+	# which is when you actually need it.
+	if _air_hang_timer > 0.0:
+		_air_hang_timer -= delta
+		velocity.y = minf(
+			velocity.y + gravity * air_skill_hang_gravity_mult * delta,
+			max_fall_speed * 0.3
+		)
+		return
+
 	var grav: float = gravity
+	# Apex hang, applied on both sides of the arc so the top of a jump rounds off
+	# instead of turning a corner. Checked before the fall multiplier so the very
+	# start of the descent still counts as apex rather than immediately going heavy.
+	if absf(velocity.y) < apex_speed_threshold:
+		grav *= apex_gravity_mult
 	if velocity.y > 0.0:
 		grav *= fall_gravity_mult
 		# Wings: hold jump while falling to glide — gravity is mostly cancelled and
@@ -433,8 +519,37 @@ func _handle_timers(delta: float) -> void:
 	else:
 		_jump_buffer_timer -= delta
 
+	# Dash and skills buffer the same way the jump does: the press is remembered and
+	# spent as soon as it becomes legal, rather than being dropped because an attack
+	# animation or a knockback happened to own the character that frame.
+	if Input.is_action_just_pressed("dash"):
+		_dash_buffer_timer = dash_buffer_time
+	else:
+		_dash_buffer_timer -= delta
+
+	if Input.is_action_just_pressed("skill_q"):
+		_buffer_skill(0)
+	elif Input.is_action_just_pressed("skill_e"):
+		_buffer_skill(1)
+	elif Input.is_action_just_pressed("skill_r"):
+		_buffer_skill(2)
+	else:
+		_skill_buffer_timer -= delta
+		if _skill_buffer_timer <= 0.0:
+			_skill_buffer_slot = -1
+
+	if _drop_through_timer > 0.0:
+		_drop_through_timer -= delta
+		if _drop_through_timer <= 0.0:
+			_end_drop_through()
+
 	if _impulse_timer > 0.0:
 		_impulse_timer -= delta
+
+
+func _buffer_skill(slot: int) -> void:
+	_skill_buffer_slot = slot
+	_skill_buffer_timer = skill_buffer_time
 
 
 func _handle_jump() -> void:
@@ -448,6 +563,11 @@ func _handle_jump() -> void:
 			velocity.y = jump_force
 			_coyote_timer = 0.0
 			_jump_buffer_timer = 0.0
+			# Stretch on the way up, squash on the way down. The pair reads as effort
+			# and then weight; either one alone just looks like a rendering glitch.
+			if _sprite:
+				_sprite.scale = Vector2(0.84, 1.2)
+			_spawn_dust(global_position, 7.0, Color(0.82, 0.8, 0.72))
 		elif _air_jumps_left > 0:
 			# Mid-air jump: reset vertical velocity rather than adding to it, so a
 			# double jump behaves the same whether it is used rising or falling.
@@ -477,10 +597,13 @@ func _handle_dash(delta: float) -> bool:
 		velocity.y = 0.0
 		return true
 
-	if not Input.is_action_just_pressed("dash"):
+	# Buffered rather than edge-triggered, so a dash pressed during an attack swing or
+	# a knockback fires the instant the character is free instead of being swallowed.
+	if _dash_buffer_timer <= 0.0:
 		return false
 	if _dash_cooldown_timer > 0.0 or _is_attacking:
 		return false
+	_dash_buffer_timer = 0.0
 
 	# Toward the cursor's side. Dead centre falls back to current facing.
 	var to_mouse: float = get_global_mouse_position().x - global_position.x
@@ -494,6 +617,10 @@ func _handle_dash(delta: float) -> bool:
 	_dash_cooldown_timer = dash_cooldown
 	velocity.y = 0.0
 	_spawn_dash_trail()
+	# Kicked up behind the dash, so the burst has a direction you can read.
+	_spawn_dust(global_position - Vector2(_dash_dir * 6.0, 0.0), 9.0, Color(0.8, 0.86, 0.95))
+	if _sprite:
+		_sprite.scale = Vector2(1.25, 0.8)
 	return true
 
 
@@ -528,6 +655,97 @@ func _spawn_dash_trail() -> void:
 	trail.aoe_color = Color(0.75, 0.9, 1.0)
 	trail.is_directional = false
 	get_parent().add_child(trail)
+
+
+# ---- Drop-through ----
+
+func _handle_drop_through() -> void:
+	"""Press down on a one-way shelf to fall through it.
+
+	Works by adding a collision exception against the specific body underfoot rather
+	than by dropping the terrain mask, so the ground and the walls stay solid — you
+	can only ever fall through the thing you were standing on."""
+	if not Input.is_action_just_pressed("move_down"):
+		return
+	if not is_on_floor() or _drop_through_timer > 0.0:
+		return
+	if not movement_enabled:
+		return
+
+	var platform: Node = _floor_platform()
+	if platform == null:
+		return
+
+	_dropped_platform = platform
+	add_collision_exception_with(platform as CollisionObject2D)
+	_drop_through_timer = drop_through_time
+	# A nudge downward so the player separates from the surface immediately instead of
+	# waiting for gravity to build up past the one-way margin.
+	global_position.y += 2.0
+	velocity.y = maxf(velocity.y, 40.0)
+
+
+func _floor_platform() -> Node:
+	"""The one-way platform currently underfoot, or null if standing on solid ground."""
+	for i: int in range(get_slide_collision_count()):
+		var collision: KinematicCollision2D = get_slide_collision(i)
+		var collider: Object = collision.get_collider()
+		if collider is Node and (collider as Node).is_in_group("one_way_platform"):
+			return collider as Node
+	return null
+
+
+func _end_drop_through() -> void:
+	if _dropped_platform != null and is_instance_valid(_dropped_platform):
+		remove_collision_exception_with(_dropped_platform as CollisionObject2D)
+	_dropped_platform = null
+
+
+# ---- Landing, skid, squash & stretch ----
+
+func _check_landing() -> void:
+	if not (_was_airborne and is_on_floor()):
+		return
+	if _impact_speed < land_squash_speed:
+		return
+	# Heavier landings squash harder and throw more dust, up to a cap — otherwise a
+	# terminal-velocity drop looks identical to stepping off a kerb.
+	var t: float = clampf(_impact_speed / max_fall_speed, 0.0, 1.0)
+	if _sprite:
+		_sprite.scale = Vector2(1.0 + 0.28 * t, 1.0 - 0.26 * t)
+	_spawn_dust(global_position, 9.0 + 9.0 * t, Color(0.85, 0.82, 0.72))
+
+
+func _check_skid(speed_before: float) -> void:
+	"""Dust for a sudden horizontal stop — running into a wall, or braking hard."""
+	if not is_on_floor() or speed_before < move_speed * 0.7:
+		return
+	if absf(velocity.x) > speed_before * 0.45:
+		return  # still moving; not a stop
+	_spawn_dust(
+		global_position + Vector2(-signf(speed_before) * 4.0, 0.0),
+		8.0,
+		Color(0.8, 0.78, 0.7)
+	)
+
+
+func _apply_squash_stretch(delta: float) -> void:
+	"""Ease the sprite back to its true proportions. Everything else here only ever
+	pushes it away from 1:1; this is the only thing that returns it."""
+	if not _sprite:
+		return
+	if _sprite.scale.is_equal_approx(Vector2.ONE):
+		return
+	_sprite.scale = _sprite.scale.lerp(Vector2.ONE, clampf(squash_recovery * delta, 0.0, 1.0))
+
+
+func _spawn_dust(at: Vector2, radius: float, colour: Color) -> void:
+	var dust: AoEIndicator = AoEIndicator.new()
+	dust.aoe_center = at
+	dust.aoe_radius = radius
+	dust.aoe_color = colour
+	dust.is_directional = false
+	get_parent().add_child(dust)
 
 
 func _spawn_air_jump_puff() -> void:
@@ -574,7 +792,7 @@ func _handle_horizontal_movement(delta: float) -> void:
 		# make you far more precise airborne without changing how you run.
 		var accel: float = acceleration
 		if not is_on_floor():
-			accel *= air_control_mult
+			accel *= air_control_mult * air_accel_ratio
 		velocity.x = move_toward(velocity.x, input_dir * move_speed, accel * delta)
 		_facing_right = input_dir > 0.0
 	else:
@@ -672,14 +890,22 @@ func _apply_attack_damage() -> void:
 # ---- Skill Input ----
 
 func _handle_skill_input() -> void:
+	"""Spend a buffered skill press once the character can act on it.
+
+	`activate_skill` already refuses when the slot is empty or on cooldown, so the
+	buffer is cleared on a genuine attempt either way — otherwise a press at an empty
+	slot would keep retrying for the whole buffer window and fire later by surprise."""
 	if not _ability_manager:
 		return
-	if Input.is_action_just_pressed("skill_q"):
-		_ability_manager.activate_skill(0)
-	elif Input.is_action_just_pressed("skill_e"):
-		_ability_manager.activate_skill(1)
-	elif Input.is_action_just_pressed("skill_r"):
-		_ability_manager.activate_skill(2)
+	if _skill_buffer_slot < 0 or _skill_buffer_timer <= 0.0:
+		return
+	if _is_attacking or _dash_timer > 0.0:
+		return  # keep it buffered; the window is short
+
+	var slot: int = _skill_buffer_slot
+	_skill_buffer_slot = -1
+	_skill_buffer_timer = 0.0
+	_ability_manager.activate_skill(slot)
 
 
 func _on_skill_used(_skill: Resource) -> void:
@@ -689,7 +915,13 @@ func _on_skill_used(_skill: Resource) -> void:
 	into a jump lets the player keep height and stay mobile. Refilling air jumps
 	and reopening the coyote window covers both the floor-jump and air-jump paths.
 	Skipped when the legs are fully gone, since there is no jump to give back."""
-	if _is_dead or is_on_floor() or (not _can_jump and not has_wings):
+	if _is_dead or is_on_floor():
+		return
+	# The hang is granted to ANY aerial skill, including when the legs are gone and
+	# there is no jump left to refresh — that case is exactly when a moment to
+	# reorient matters most.
+	_air_hang_timer = air_skill_hang_time
+	if not _can_jump and not has_wings:
 		return
 	_air_jumps_left = max_air_jumps
 	_coyote_timer = coyote_time

@@ -25,6 +25,11 @@ var available_skills: Array[SkillData] = []
 # Filling an EMPTY slot is always allowed; that is how a skill first lands.
 var _reassign_window_open: bool = false
 
+# --- Travelling hitbox state (see _begin_sweep) ---
+var _sweep_skill: SkillData = null
+var _sweep_timer: float = 0.0
+var _sweep_hit: Array[Node] = []
+
 # Parent player reference.
 var _player: CharacterBody2D
 
@@ -43,6 +48,9 @@ func _process(delta: float) -> void:
 	for i: int in range(3):
 		if slot_cooldowns[i] > 0.0:
 			slot_cooldowns[i] = maxf(slot_cooldowns[i] - delta, 0.0)
+
+	if _sweep_skill != null:
+		_tick_sweep(delta)
 
 
 func _on_trait_changed(_trait_name: String, _new_stage: int) -> void:
@@ -107,6 +115,12 @@ func can_reassign() -> bool:
 	return _reassign_window_open
 
 
+func _loadout_editable() -> bool:
+	"""The lock, plus the testing escape hatch. Exercising a skill means being able to
+	put it in a slot on demand rather than devolving until the game grants it."""
+	return _reassign_window_open or GameState.show_dev_tools
+
+
 func close_reassign_window() -> void:
 	"""Lock the loadout again. Called when the skill editor is dismissed."""
 	_reassign_window_open = false
@@ -121,7 +135,7 @@ func assign_skill(slot_index: int, skill: SkillData) -> void:
 	# The window is NOT closed here: the loadout editor needs to make several edits
 	# in one sitting, so closing it is an explicit call (close_reassign_window) made
 	# when that screen is dismissed.
-	if skill_slots[slot_index] != null and not _reassign_window_open:
+	if skill_slots[slot_index] != null and not _loadout_editable():
 		return
 	# Remove skill from other slots if already assigned.
 	for i: int in range(3):
@@ -139,7 +153,7 @@ func assign_skill(slot_index: int, skill: SkillData) -> void:
 func unassign_skill(slot_index: int) -> void:
 	if slot_index < 0 or slot_index > 2:
 		return
-	if not _reassign_window_open:
+	if not _loadout_editable():
 		return
 	skill_slots[slot_index] = null
 	slot_cooldowns[slot_index] = 0.0
@@ -184,7 +198,26 @@ func _execute_skill(skill: SkillData) -> void:
 		aim_dir = _player.call("get_aim_direction")
 
 	# 1. Offensive component.
-	if skill.aoe_damage > 0.0:
+	#
+	# A skill that both hits AND moves you gets a hitbox that TRAVELS WITH YOU for the
+	# duration of the impulse, rather than one AoE resolved at the cast point. Landing
+	# it once on departure meant a Wing Dash flew straight through an enemy without
+	# touching it — no damage, and more importantly no knockback, so you ended the dash
+	# standing inside something that then hit you. The dash read as a way to hurt
+	# yourself.
+	#
+	# Reversed impulses (Backstep Slash) are excluded on purpose: there the strike
+	# lands where you were while the movement carries you away, which is the whole
+	# shape of the move.
+	var sweeps: bool = (
+		skill.aoe_damage > 0.0
+		and skill.impulse_speed > 0.0
+		and not skill.impulse_reverse
+	)
+
+	if sweeps:
+		_begin_sweep(skill, aim_dir)
+	elif skill.aoe_damage > 0.0:
 		_execute_offensive(skill, aim_dir)
 	else:
 		# Buff and movement skills still show a burst centred on the player.
@@ -210,6 +243,65 @@ func _execute_skill(skill: SkillData) -> void:
 		_apply_status_in_radius(skill)
 
 	EventBus.skill_used.emit(skill)
+
+
+# ---- Travelling hitbox (dash-attacks) ----
+
+func _begin_sweep(skill: SkillData, aim_dir: Vector2) -> void:
+	_sweep_skill = skill
+	_sweep_hit.clear()
+	_sweep_timer = 0.0
+	if _player.has_method("get_impulse_time"):
+		_sweep_timer = _player.call("get_impulse_time")
+	if _sweep_timer <= 0.0:
+		_sweep_timer = 0.25
+	_show_aoe(
+		_player.global_position + Vector2(0.0, -10.0),
+		skill.aoe_radius, skill.aoe_color, skill.is_directional, aim_dir
+	)
+	# Tick once immediately so anything already in reach is hit on the frame the
+	# skill fires, not one frame later.
+	_tick_sweep(0.0)
+
+
+func _tick_sweep(delta: float) -> void:
+	if _sweep_skill == null or not _player:
+		return
+	_sweep_timer -= delta
+
+	var center: Vector2 = _player.global_position + Vector2(0.0, -10.0)
+	var damage: float = _sweep_skill.aoe_damage
+	var status: StatusEffects = _get_status_effects()
+	if status:
+		damage *= status.get_damage_mult()
+
+	var hit_count: int = 0
+	for node: Node in get_tree().get_nodes_in_group("enemies"):
+		var enemy: Node2D = node as Node2D
+		if not enemy or not enemy.has_method("take_damage"):
+			continue
+		# Once per cast, however long the dash passes through something.
+		if _sweep_hit.has(enemy):
+			continue
+		if center.distance_to(enemy.global_position) > _sweep_skill.aoe_radius:
+			continue
+		_sweep_hit.append(enemy)
+
+		var kb_dir: Vector2 = (enemy.global_position - center).normalized()
+		if kb_dir.length_squared() < 0.01:
+			kb_dir = Vector2.RIGHT
+		enemy.call("take_damage", damage, Vector2(kb_dir.x * 220.0, -90.0))
+		_sweep_skill.apply_status_to(enemy)
+		hit_count += 1
+
+	if hit_count > 0:
+		EventBus.attack_landed.emit(hit_count)
+		if _player.has_method("report_damage_dealt"):
+			_player.call("report_damage_dealt", damage * float(hit_count))
+
+	if _sweep_timer <= 0.0:
+		_sweep_skill = null
+		_sweep_hit.clear()
 
 
 func _apply_status_in_radius(skill: SkillData) -> void:

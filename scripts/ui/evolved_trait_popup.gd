@@ -74,7 +74,7 @@ func _build_ui() -> void:
 	_desc_label.size = Vector2(300, 40)
 	_desc_label.custom_minimum_size = Vector2(300, 40)
 	_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_desc_label.add_theme_font_size_override("font_size", 8)
+	_desc_label.add_theme_font_size_override("font_size", 10)
 	_desc_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
 	_panel.add_child(_desc_label)
 
@@ -84,7 +84,7 @@ func _build_ui() -> void:
 	_flavor_label.size = Vector2(300, 34)
 	_flavor_label.custom_minimum_size = Vector2(300, 34)
 	_flavor_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_flavor_label.add_theme_font_size_override("font_size", 7)
+	_flavor_label.add_theme_font_size_override("font_size", 9)
 	_flavor_label.add_theme_color_override("font_color", Color(0.55, 0.6, 0.62))
 	_panel.add_child(_flavor_label)
 
@@ -94,7 +94,7 @@ func _build_ui() -> void:
 	_replaces_label.size = Vector2(300, 32)
 	_replaces_label.custom_minimum_size = Vector2(300, 32)
 	_replaces_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_replaces_label.add_theme_font_size_override("font_size", 7)
+	_replaces_label.add_theme_font_size_override("font_size", 9)
 	_replaces_label.add_theme_color_override("font_color", Color(0.5, 0.55, 0.6))
 	_panel.add_child(_replaces_label)
 
@@ -102,7 +102,7 @@ func _build_ui() -> void:
 	grow_btn.text = "Let it grow"
 	grow_btn.position = Vector2(10, 168)
 	grow_btn.custom_minimum_size = Vector2(150, 26)
-	grow_btn.add_theme_font_size_override("font_size", 9)
+	grow_btn.add_theme_font_size_override("font_size", 11)
 	grow_btn.pressed.connect(_on_grow)
 	_panel.add_child(grow_btn)
 
@@ -110,7 +110,7 @@ func _build_ui() -> void:
 	decline_btn.text = "Not yet"
 	decline_btn.position = Vector2(168, 168)
 	decline_btn.custom_minimum_size = Vector2(142, 26)
-	decline_btn.add_theme_font_size_override("font_size", 9)
+	decline_btn.add_theme_font_size_override("font_size", 11)
 	decline_btn.pressed.connect(_on_decline)
 	_panel.add_child(decline_btn)
 

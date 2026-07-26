@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3 uid="uid://evbvmfl63m1n"]
+[gd_scene load_steps=24 format=3 uid="uid://evbvmfl63m1n"]
 
 [ext_resource type="PackedScene" uid="uid://player_scene" path="res://scenes/player/player.tscn" id="1_player_scene"]
 [ext_resource type="PackedScene" uid="uid://base_enemy_scene" path="res://scenes/enemies/base_enemy.tscn" id="2_enemy_scene"]
@@ -16,6 +16,10 @@
 [ext_resource type="Script" path="res://scripts/systems/death_zone.gd" id="7_death_zone"]
 [ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top_stone.png" id="8_ground_top"]
 [ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_fill.png" id="9_ground_fill"]
+[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top_left.png" id="27_gtl"]
+[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top_right.png" id="28_gtr"]
+[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_fill_b.png" id="29_gfb"]
+[ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_fill_c.png" id="30_gfc"]
 [ext_resource type="Script" path="res://scripts/systems/wave_spawner.gd" id="10_wave_spawner"]
 [ext_resource type="Script" path="res://scripts/ui/character_screen.gd" id="11_char_screen"]
 [ext_resource type="Script" path="res://scripts/ui/skill_unlock_popup.gd" id="12_skill_popup"]
@@ -34,6 +38,7 @@ script = ExtResource("17_game_root")
 
 [node name="Camera" type="Camera2D" parent="."]
 position = Vector2(320, 180)
+zoom = Vector2(1.6, 1.6)
 position_smoothing_enabled = true
 script = ExtResource("6_camera_follow")
 target_path = NodePath("../Player")
@@ -63,6 +68,7 @@ texture_filter = 0
 script = ExtResource("5_arena_renderer")
 ground_top_texture = ExtResource("8_ground_top")
 ground_fill_texture = ExtResource("9_ground_fill")
+ground_fill_variants = Array[Texture2D]([ExtResource("29_gfb"), ExtResource("30_gfc")])
 arena_width_tiles = 60
 floor_depth_tiles = 4
 

@@ -126,7 +126,7 @@ func _build_ui() -> void:
 	controls.size = Vector2(PANEL_W - LABEL_X * 2.0, 26)
 	controls.custom_minimum_size = Vector2(PANEL_W - LABEL_X * 2.0, 26)
 	controls.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	controls.add_theme_font_size_override("font_size", 7)
+	controls.add_theme_font_size_override("font_size", 9)
 	controls.add_theme_color_override("font_color", Color(0.5, 0.52, 0.6))
 	_panel.add_child(controls)
 
@@ -134,7 +134,7 @@ func _build_ui() -> void:
 	close_btn.text = "Close"
 	close_btn.position = Vector2(PANEL_W - 96.0, 8)
 	close_btn.custom_minimum_size = Vector2(80, 18)
-	close_btn.add_theme_font_size_override("font_size", 8)
+	close_btn.add_theme_font_size_override("font_size", 10)
 	close_btn.pressed.connect(close)
 	_panel.add_child(close_btn)
 
@@ -143,7 +143,7 @@ func _section(text: String) -> void:
 	var lbl: Label = Label.new()
 	lbl.text = text
 	lbl.position = Vector2(LABEL_X, _rows_y)
-	lbl.add_theme_font_size_override("font_size", 9)
+	lbl.add_theme_font_size_override("font_size", 11)
 	lbl.add_theme_color_override("font_color", Color(0.55, 0.85, 0.85))
 	_panel.add_child(lbl)
 	_rows_y += 16.0
@@ -153,7 +153,7 @@ func _row_label(text: String) -> void:
 	var lbl: Label = Label.new()
 	lbl.text = text
 	lbl.position = Vector2(LABEL_X + 8.0, _rows_y + 2.0)
-	lbl.add_theme_font_size_override("font_size", 8)
+	lbl.add_theme_font_size_override("font_size", 10)
 	lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
 	_panel.add_child(lbl)
 
@@ -164,7 +164,7 @@ func _toggle_row(text: String, handler: Callable) -> Button:
 	btn.position = Vector2(CTRL_X, _rows_y)
 	btn.custom_minimum_size = Vector2(CTRL_W, 16)
 	btn.size = Vector2(CTRL_W, 16)
-	btn.add_theme_font_size_override("font_size", 8)
+	btn.add_theme_font_size_override("font_size", 10)
 	btn.pressed.connect(handler)
 	_panel.add_child(btn)
 	_rows_y += ROW_H

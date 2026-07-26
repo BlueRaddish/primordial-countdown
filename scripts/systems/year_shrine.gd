@@ -53,7 +53,7 @@ func _ready() -> void:
 	add_child(shape)
 
 	_prompt = Label.new()
-	_prompt.add_theme_font_size_override("font_size", 8)
+	_prompt.add_theme_font_size_override("font_size", 10)
 	_prompt.position = Vector2(-56.0, -54.0)
 	_prompt.size = Vector2(112, 20)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

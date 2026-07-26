@@ -114,7 +114,7 @@ func _build_ui() -> void:
 	_info_label = Label.new()
 	_info_label.text = ""
 	_info_label.position = Vector2(10, 28)
-	_info_label.add_theme_font_size_override("font_size", 10)
+	_info_label.add_theme_font_size_override("font_size", 11)
 	_info_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(_info_label)
 
@@ -122,7 +122,7 @@ func _build_ui() -> void:
 	_detail_label.text = ""
 	_detail_label.position = Vector2(12, 48)
 	_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_detail_label.add_theme_font_size_override("font_size", 8)
+	_detail_label.add_theme_font_size_override("font_size", 10)
 	_detail_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.82))
 	_panel.add_child(_detail_label)
 
@@ -152,7 +152,7 @@ func _build_card(index: int) -> void:
 	var stage_lbl: Label = Label.new()
 	stage_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stage_lbl.add_theme_font_size_override("font_size", 7)
+	stage_lbl.add_theme_font_size_override("font_size", 9)
 	stage_lbl.add_theme_color_override("font_color", Color(0.62, 0.62, 0.7))
 	card.add_child(stage_lbl)
 	_card_stages.append(stage_lbl)
@@ -162,7 +162,7 @@ func _build_card(index: int) -> void:
 	note_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note_lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	note_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note_lbl.add_theme_font_size_override("font_size", 8)
+	note_lbl.add_theme_font_size_override("font_size", 10)
 	note_lbl.add_theme_color_override("font_color", Color(0.82, 0.82, 0.88))
 	card.add_child(note_lbl)
 	_card_notes.append(note_lbl)

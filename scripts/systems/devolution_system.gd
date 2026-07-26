@@ -325,8 +325,40 @@ func apply_devolution(trait_name: String, trait_mgr: TraitManager) -> void:
 	trait_mgr.devolve_trait(trait_name)
 	EventBus.devolution_applied.emit(trait_name, trait_mgr.get_trait_stage(trait_name))
 	_awaiting_choice = false
+
+	# END THE RUN HERE if that was the last thing left to lose.
+	#
+	# This check used to live only inside _trigger_devolution(), which is unreachable
+	# once total_devolutions hits _thresholds.size() (14). So the final devolution
+	# resolved normally, degraded the last trait to Lost — and then nothing ever asked
+	# again, because the only code that asks is behind a counter that is already maxed.
+	# The run carried on at 0 years with every trait gone.
+	#
+	# Asking directly, right after the degradation that could have been the last one,
+	# does not depend on a future step firing.
+	if _is_fully_devolved(trait_mgr):
+		_finish_run()
+		return
+
 	# Years burned while the popup was open may already owe another step.
 	_try_trigger_devolution()
+
+
+func _is_fully_devolved(trait_mgr: TraitManager) -> bool:
+	"""True when no trait has any degradation left — PLANNING1 section 4's end."""
+	if not trait_mgr:
+		return false
+	for trait_name: String in TraitManager.ALL_TRAITS:
+		if trait_mgr.get_trait_stage(trait_name) < TraitManager.MAX_STAGE:
+			return false
+	return true
+
+
+func _finish_run() -> void:
+	if _finished:
+		return
+	_finished = true
+	EventBus.player_died.emit()
 
 
 func notify_choice_resolved() -> void:
@@ -376,8 +408,10 @@ func _trigger_devolution() -> void:
 	var options: Array[String] = get_devolution_options(trait_mgr, devolution_choice_count)
 	if options.is_empty():
 		# Nothing left to lose — fully devolved. PLANNING1 section 4: the run ends.
-		_finished = true
-		EventBus.player_died.emit()
+		# Kept as a second line of defence; apply_devolution() is what normally
+		# catches the end now, since this path is unreachable once the step counter
+		# has run out.
+		_finish_run()
 		return
 	_awaiting_choice = true
 	EventBus.devolution_pending.emit(options, total_devolutions)

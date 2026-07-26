@@ -145,7 +145,7 @@ func _build_year_counter() -> void:
 	_year_tag_label.text = "YEARS LEFT"
 	# Clear of the counter itself, which is 16px type and reaches ~x58 at four digits.
 	_year_tag_label.position = Vector2(64, 25)
-	_year_tag_label.add_theme_font_size_override("font_size", 7)
+	_year_tag_label.add_theme_font_size_override("font_size", 9)
 	_year_tag_label.add_theme_color_override("font_color", Color(0.65, 0.5, 0.5))
 	control.add_child(_year_tag_label)
 
@@ -155,7 +155,7 @@ func _build_year_counter() -> void:
 	_countdown_label.text = "--"
 	_countdown_label.position = Vector2(130, 25)
 	_countdown_label.add_theme_font_override("font", COUNTER_FONT)
-	_countdown_label.add_theme_font_size_override("font_size", 8)
+	_countdown_label.add_theme_font_size_override("font_size", 10)
 	_countdown_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.85))
 	control.add_child(_countdown_label)
 
@@ -178,28 +178,28 @@ func _build_run_info() -> void:
 	# The year counter above is 16px type sitting at y20, so it occupies down to ~y40.
 	# This block used to start at y34 and collide with it.
 	_wave_label.position = Vector2(8, 42)
-	_wave_label.add_theme_font_size_override("font_size", 8)
+	_wave_label.add_theme_font_size_override("font_size", 10)
 	_wave_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
 	control.add_child(_wave_label)
 
 	_kill_label = Label.new()
 	_kill_label.text = "Kills: 0   Atk: 0"
 	_kill_label.position = Vector2(60, 42)
-	_kill_label.add_theme_font_size_override("font_size", 8)
+	_kill_label.add_theme_font_size_override("font_size", 10)
 	_kill_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	control.add_child(_kill_label)
 
 	_time_label = Label.new()
 	_time_label.text = "0:00"
 	_time_label.position = Vector2(8, 52)
-	_time_label.add_theme_font_size_override("font_size", 8)
+	_time_label.add_theme_font_size_override("font_size", 10)
 	_time_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	control.add_child(_time_label)
 
 	_buff_label = Label.new()
 	_buff_label.text = ""
 	_buff_label.position = Vector2(8, 62)
-	_buff_label.add_theme_font_size_override("font_size", 8)
+	_buff_label.add_theme_font_size_override("font_size", 10)
 	_buff_label.add_theme_color_override("font_color", Color("f1c40f"))
 	control.add_child(_buff_label)
 
@@ -207,7 +207,7 @@ func _build_run_info() -> void:
 	_god_label = Label.new()
 	_god_label.text = ""
 	_god_label.position = Vector2(8, 66)
-	_god_label.add_theme_font_size_override("font_size", 8)
+	_god_label.add_theme_font_size_override("font_size", 10)
 	_god_label.add_theme_color_override("font_color", Color("2ecc71"))
 	control.add_child(_god_label)
 	_refresh_test_banner()
@@ -215,7 +215,7 @@ func _build_run_info() -> void:
 	var hint: Label = Label.new()
 	hint.text = "[C] Character  [Q/E/R] Skills"
 	hint.position = Vector2(8, 340)
-	hint.add_theme_font_size_override("font_size", 7)
+	hint.add_theme_font_size_override("font_size", 9)
 	hint.add_theme_color_override("font_color", Color(0.45, 0.45, 0.55))
 	control.add_child(hint)
 
@@ -226,7 +226,7 @@ func _build_boss_bar() -> void:
 	_boss_label = Label.new()
 	_boss_label.text = "STAGE BOSS"
 	_boss_label.position = Vector2(248, 8)
-	_boss_label.add_theme_font_size_override("font_size", 8)
+	_boss_label.add_theme_font_size_override("font_size", 10)
 	_boss_label.add_theme_color_override("font_color", Color("c0392b"))
 	_boss_label.visible = false
 	control.add_child(_boss_label)

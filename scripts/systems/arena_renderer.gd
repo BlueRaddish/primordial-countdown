@@ -45,6 +45,18 @@ const ONE_WAY_MARGIN_MIN: float = 6.0
 
 @export var ground_top_texture: Texture2D
 @export var ground_fill_texture: Texture2D
+# Edge caps and fill variants. The arena used to draw exactly two tiles — one top, one
+# fill — repeated across 60 columns and every platform, which is why it read as flat
+# and synthetic no matter how good the individual tile was.
+#
+# The fill variants are wired up and doing the work. The end caps are left EMPTY on
+# purpose: the only left/right caps in the Kenney pack are grass-topped, and the ground
+# here uses the stone top, so capping the ends put a green tile on the end of a stone
+# shelf. Assign them if a matching pair ever exists — the drawing code already handles
+# them.
+@export var ground_top_left_texture: Texture2D
+@export var ground_top_right_texture: Texture2D
+@export var ground_fill_variants: Array[Texture2D] = []
 @export var arena_width_tiles: int = 60
 @export var floor_depth_tiles: int = 4
 # Side walls are OFF by default. They spanned the full playable height, so any aerial
@@ -260,17 +272,37 @@ func _make_body(
 
 # ---- Drawing ----
 
+func _fill_for(x: int, y: int) -> Texture2D:
+	"""Pick a fill tile from the variants, keyed on position.
+
+	Deterministic rather than random: the arena is redrawn on every queue_redraw, and a
+	random pick would make the dirt shimmer. Hashing the coordinates gives the same tile
+	in the same place forever while still breaking up the grid."""
+	if ground_fill_variants.is_empty():
+		return ground_fill_texture
+	var h: int = absi(x * 73856093 ^ y * 19349663) % (ground_fill_variants.size() + 1)
+	if h == 0:
+		return ground_fill_texture
+	return ground_fill_variants[h - 1]
+
+
 func _draw() -> void:
 	if not ground_top_texture or not ground_fill_texture:
 		return
 
-	# Ground: one row of top tiles, fill rows beneath.
-	for x: int in range(arena_width_tiles):
-		draw_texture(ground_top_texture, Vector2(float(x * TILE_SIZE), GROUND_Y))
+	# Ground: capped ends, then varied fill beneath.
+	var w: int = arena_width_tiles
+	for x: int in range(w):
+		var top: Texture2D = ground_top_texture
+		if x == 0 and ground_top_left_texture:
+			top = ground_top_left_texture
+		elif x == w - 1 and ground_top_right_texture:
+			top = ground_top_right_texture
+		draw_texture(top, Vector2(float(x * TILE_SIZE), GROUND_Y))
 	for y: int in range(1, floor_depth_tiles):
-		for x: int in range(arena_width_tiles):
+		for x: int in range(w):
 			draw_texture(
-				ground_fill_texture,
+				_fill_for(x, y),
 				Vector2(float(x * TILE_SIZE), GROUND_Y + float(y * TILE_SIZE))
 			)
 
@@ -284,7 +316,13 @@ func _draw() -> void:
 				var pos: Vector2 = rect.position + Vector2(
 					float(cx * TILE_SIZE), float(cy * TILE_SIZE)
 				)
-				var tex: Texture2D = ground_top_texture if cy == 0 else ground_fill_texture
+				var tex: Texture2D = _fill_for(cx + i * 7, cy)
+				if cy == 0:
+					tex = ground_top_texture
+					if cx == 0 and ground_top_left_texture:
+						tex = ground_top_left_texture
+					elif cx == cols - 1 and ground_top_right_texture:
+						tex = ground_top_right_texture
 				draw_texture(tex, pos)
 
 		# A solid floating platform is now the exception, so it is the one worth

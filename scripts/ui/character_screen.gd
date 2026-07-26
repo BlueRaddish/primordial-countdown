@@ -127,7 +127,7 @@ func _build_ui() -> void:
 	var paused_hint: Label = Label.new()
 	paused_hint.text = "— time frozen —"
 	paused_hint.position = Vector2(148, 9)
-	paused_hint.add_theme_font_size_override("font_size", 8)
+	paused_hint.add_theme_font_size_override("font_size", 10)
 	paused_hint.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7))
 	_panel.add_child(paused_hint)
 
@@ -135,7 +135,7 @@ func _build_ui() -> void:
 	var close_hint: Label = Label.new()
 	close_hint.text = "[C] Close"
 	close_hint.position = Vector2(PANEL_W - 70.0, 8)
-	close_hint.add_theme_font_size_override("font_size", 8)
+	close_hint.add_theme_font_size_override("font_size", 10)
 	close_hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	_panel.add_child(close_hint)
 
@@ -149,14 +149,14 @@ func _build_trait_panel() -> void:
 	var traits_header: Label = Label.new()
 	traits_header.text = "TRAITS"
 	traits_header.position = Vector2(10, 28)
-	traits_header.add_theme_font_size_override("font_size", 10)
+	traits_header.add_theme_font_size_override("font_size", 11)
 	traits_header.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(traits_header)
 
 	_dev_header_hint = Label.new()
 	_dev_header_hint.text = "(DEV)"
 	_dev_header_hint.position = Vector2(190, 29)
-	_dev_header_hint.add_theme_font_size_override("font_size", 8)
+	_dev_header_hint.add_theme_font_size_override("font_size", 10)
 	_dev_header_hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	_panel.add_child(_dev_header_hint)
 
@@ -170,7 +170,7 @@ func _build_trait_panel() -> void:
 		var name_lbl: Label = Label.new()
 		name_lbl.text = tname.capitalize()
 		name_lbl.position = Vector2(10, y)
-		name_lbl.add_theme_font_size_override("font_size", 9)
+		name_lbl.add_theme_font_size_override("font_size", 11)
 		name_lbl.add_theme_color_override("font_color", Color.WHITE)
 		_panel.add_child(name_lbl)
 
@@ -178,14 +178,14 @@ func _build_trait_panel() -> void:
 		var stage_lbl: Label = Label.new()
 		stage_lbl.text = "□ □"
 		stage_lbl.position = Vector2(70, y)
-		stage_lbl.add_theme_font_size_override("font_size", 9)
+		stage_lbl.add_theme_font_size_override("font_size", 11)
 		stage_lbl.add_theme_color_override("font_color", Color(0.3, 0.8, 0.3))
 		_panel.add_child(stage_lbl)
 
 		var num_lbl: Label = Label.new()
 		num_lbl.text = "Intact"
 		num_lbl.position = Vector2(110, y)
-		num_lbl.add_theme_font_size_override("font_size", 8)
+		num_lbl.add_theme_font_size_override("font_size", 10)
 		num_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 		_panel.add_child(num_lbl)
 
@@ -193,7 +193,7 @@ func _build_trait_panel() -> void:
 		inc_btn.text = "+"
 		inc_btn.position = Vector2(190, y - 2)
 		inc_btn.custom_minimum_size = Vector2(18, 18)
-		inc_btn.add_theme_font_size_override("font_size", 8)
+		inc_btn.add_theme_font_size_override("font_size", 10)
 		inc_btn.pressed.connect(_on_dev_inc.bind(tname))
 		_panel.add_child(inc_btn)
 
@@ -201,7 +201,7 @@ func _build_trait_panel() -> void:
 		dec_btn.text = "-"
 		dec_btn.position = Vector2(212, y - 2)
 		dec_btn.custom_minimum_size = Vector2(18, 18)
-		dec_btn.add_theme_font_size_override("font_size", 8)
+		dec_btn.add_theme_font_size_override("font_size", 10)
 		dec_btn.pressed.connect(_on_dev_dec.bind(tname))
 		_panel.add_child(dec_btn)
 
@@ -219,7 +219,7 @@ func _build_skill_panel() -> void:
 	var skills_header: Label = Label.new()
 	skills_header.text = "SKILL SLOTS"
 	skills_header.position = Vector2(COL_R, 28)
-	skills_header.add_theme_font_size_override("font_size", 10)
+	skills_header.add_theme_font_size_override("font_size", 11)
 	skills_header.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(skills_header)
 
@@ -228,7 +228,7 @@ func _build_skill_panel() -> void:
 		var slot_lbl: Label = Label.new()
 		slot_lbl.text = "[%s] ---" % keys[i]
 		slot_lbl.position = Vector2(COL_R + float(i) * 96.0, 44.0)
-		slot_lbl.add_theme_font_size_override("font_size", 9)
+		slot_lbl.add_theme_font_size_override("font_size", 11)
 		slot_lbl.add_theme_color_override("font_color", Color.WHITE)
 		_panel.add_child(slot_lbl)
 		_skill_slot_labels.append(slot_lbl)
@@ -236,14 +236,14 @@ func _build_skill_panel() -> void:
 	var avail_header: Label = Label.new()
 	avail_header.text = "AVAILABLE SKILLS"
 	avail_header.position = Vector2(COL_R, 64)
-	avail_header.add_theme_font_size_override("font_size", 9)
+	avail_header.add_theme_font_size_override("font_size", 11)
 	avail_header.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
 	_panel.add_child(avail_header)
 
 	var avail_hint: Label = Label.new()
 	avail_hint.text = "(granted by lost traits)"
 	avail_hint.position = Vector2(COL_R + 110.0, 65)
-	avail_hint.add_theme_font_size_override("font_size", 7)
+	avail_hint.add_theme_font_size_override("font_size", 9)
 	avail_hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	_panel.add_child(avail_hint)
 
@@ -267,7 +267,7 @@ func _build_skill_panel() -> void:
 	_skill_detail_label.size = Vector2(COL_R_W, 22)
 	_skill_detail_label.custom_minimum_size = Vector2(COL_R_W, 22)
 	_skill_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_skill_detail_label.add_theme_font_size_override("font_size", 7)
+	_skill_detail_label.add_theme_font_size_override("font_size", 9)
 	_skill_detail_label.add_theme_color_override("font_color", Color(0.65, 0.65, 0.75))
 	_panel.add_child(_skill_detail_label)
 
@@ -276,14 +276,14 @@ func _build_evolved_panel() -> void:
 	var header: Label = Label.new()
 	header.text = "EVOLVED"
 	header.position = Vector2(COL_R, 228)
-	header.add_theme_font_size_override("font_size", 9)
+	header.add_theme_font_size_override("font_size", 11)
 	header.add_theme_color_override("font_color", Color("aed6f1"))
 	_panel.add_child(header)
 
 	var hint: Label = Label.new()
 	hint.text = "(grow back over a lost trait)"
 	hint.position = Vector2(COL_R + 60.0, 229)
-	hint.add_theme_font_size_override("font_size", 7)
+	hint.add_theme_font_size_override("font_size", 9)
 	hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	_panel.add_child(hint)
 
@@ -313,7 +313,7 @@ func _build_dev_panel() -> void:
 	var dev_header: Label = Label.new()
 	dev_header.text = "TESTING"
 	dev_header.position = Vector2(COL_L, 188)
-	dev_header.add_theme_font_size_override("font_size", 9)
+	dev_header.add_theme_font_size_override("font_size", 11)
 	dev_header.add_theme_color_override("font_color", Color("f1c40f"))
 	_panel.add_child(dev_header)
 	_dev_nodes.append(dev_header)
@@ -332,7 +332,7 @@ func _make_dev_button(y: float, handler: Callable) -> Button:
 	btn.position = Vector2(COL_L, y)
 	btn.custom_minimum_size = Vector2(230, 17)
 	btn.size = Vector2(230, 17)
-	btn.add_theme_font_size_override("font_size", 8)
+	btn.add_theme_font_size_override("font_size", 10)
 	btn.pressed.connect(handler)
 	_panel.add_child(btn)
 	_dev_nodes.append(btn)
@@ -386,7 +386,7 @@ func _refresh_evolved() -> void:
 
 		var name_lbl: Label = Label.new()
 		name_lbl.text = data.display_name
-		name_lbl.add_theme_font_size_override("font_size", 8)
+		name_lbl.add_theme_font_size_override("font_size", 10)
 		name_lbl.add_theme_color_override(
 			"font_color", data.color if blocker == null else Color(0.4, 0.4, 0.45)
 		)
@@ -396,20 +396,20 @@ func _refresh_evolved() -> void:
 		if grown:
 			var grown_lbl: Label = Label.new()
 			grown_lbl.text = "grown"
-			grown_lbl.add_theme_font_size_override("font_size", 7)
+			grown_lbl.add_theme_font_size_override("font_size", 9)
 			grown_lbl.add_theme_color_override("font_color", Color("2ecc71"))
 			hbox.add_child(grown_lbl)
 		elif blocker != null:
 			var closed_lbl: Label = Label.new()
 			closed_lbl.text = "closed off by %s" % blocker.display_name
-			closed_lbl.add_theme_font_size_override("font_size", 7)
+			closed_lbl.add_theme_font_size_override("font_size", 9)
 			closed_lbl.add_theme_color_override("font_color", Color(0.45, 0.4, 0.4))
 			hbox.add_child(closed_lbl)
 		else:
 			var grow_btn: Button = Button.new()
 			grow_btn.text = "Grow (over %s)" % data.replaces_trait.capitalize()
 			grow_btn.custom_minimum_size = Vector2(160, 14)
-			grow_btn.add_theme_font_size_override("font_size", 7)
+			grow_btn.add_theme_font_size_override("font_size", 9)
 			grow_btn.pressed.connect(_on_grow_evolved.bind(data.id))
 			hbox.add_child(grow_btn)
 
@@ -418,7 +418,7 @@ func _refresh_evolved() -> void:
 	if not any:
 		var empty_lbl: Label = Label.new()
 		empty_lbl.text = "None yet. Certain losses open older forms."
-		empty_lbl.add_theme_font_size_override("font_size", 7)
+		empty_lbl.add_theme_font_size_override("font_size", 9)
 		empty_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 		_evolved_container.add_child(empty_lbl)
 
@@ -508,7 +508,7 @@ func _refresh_skills() -> void:
 	if ability_mgr.available_skills.is_empty():
 		var empty_lbl: Label = Label.new()
 		empty_lbl.text = "None yet. Skills unlock as traits are lost."
-		empty_lbl.add_theme_font_size_override("font_size", 7)
+		empty_lbl.add_theme_font_size_override("font_size", 9)
 		empty_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 		_available_skills_container.add_child(empty_lbl)
 		_skill_detail_label.text = ""
@@ -520,7 +520,7 @@ func _refresh_skills() -> void:
 
 		var kind_lbl: Label = Label.new()
 		kind_lbl.text = skill.get_kind_label()
-		kind_lbl.add_theme_font_size_override("font_size", 6)
+		kind_lbl.add_theme_font_size_override("font_size", 8)
 		kind_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 		kind_lbl.custom_minimum_size = Vector2(30, 14)
 		hbox.add_child(kind_lbl)
@@ -529,21 +529,21 @@ func _refresh_skills() -> void:
 		lbl.text = skill.skill_name
 		if skill.is_multi_trait():
 			lbl.text += " *"
-		lbl.add_theme_font_size_override("font_size", 8)
+		lbl.add_theme_font_size_override("font_size", 10)
 		lbl.add_theme_color_override("font_color", skill.aoe_color)
 		lbl.custom_minimum_size = Vector2(110, 14)
 		hbox.add_child(lbl)
 
 		var cd_lbl: Label = Label.new()
 		cd_lbl.text = "%.0fs" % skill.cooldown
-		cd_lbl.add_theme_font_size_override("font_size", 6)
+		cd_lbl.add_theme_font_size_override("font_size", 8)
 		cd_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 		cd_lbl.custom_minimum_size = Vector2(18, 14)
 		hbox.add_child(cd_lbl)
 
 		var cost_lbl: Label = Label.new()
 		cost_lbl.text = skill.get_cost_label()
-		cost_lbl.add_theme_font_size_override("font_size", 6)
+		cost_lbl.add_theme_font_size_override("font_size", 8)
 		cost_lbl.add_theme_color_override(
 			"font_color", Color(0.4, 0.75, 0.45) if skill.year_cost <= 0.0 else Color("e08b6b")
 		)
@@ -554,7 +554,7 @@ func _refresh_skills() -> void:
 			var btn: Button = Button.new()
 			btn.text = ["Q", "E", "R"][i]
 			btn.custom_minimum_size = Vector2(20, 14)
-			btn.add_theme_font_size_override("font_size", 7)
+			btn.add_theme_font_size_override("font_size", 9)
 			btn.pressed.connect(_on_assign_skill.bind(i, skill))
 			btn.mouse_entered.connect(_on_skill_hovered.bind(skill))
 			# Reassignment is only open right after learning something new — see

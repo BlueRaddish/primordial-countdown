@@ -11,6 +11,11 @@
 # The ring is drawn at `strike_radius`, so it is the real danger zone, and the fill
 # sweeping to full is the real remaining windup time. When it completes, the strike
 # lands. Procedural for that reason — it has to follow numbers that get retuned.
+#
+# NOT gated behind the "show hitboxes" setting, unlike vfx_hitbox and the dash sweep.
+# Those two visualise YOUR reach, which is debug information. This visualises an
+# enemy's intent, which is the information the whole combat contract runs on — turning
+# it off would not tidy the screen, it would make the game unfair.
 extends Node2D
 
 var color: Color = Color("e74c3c")

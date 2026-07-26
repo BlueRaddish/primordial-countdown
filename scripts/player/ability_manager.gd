@@ -264,12 +264,16 @@ func _begin_sweep(skill: SkillData, aim_dir: Vector2) -> void:
 	# static burst was actively misleading here: it drew a circle where the dash began
 	# while the damage was happening somewhere else, so there was no way to see that
 	# the hitbox travelled at all, or how far it reached.
-	var sweep_vis: SweepIndicator = SweepIndicator.new()
-	sweep_vis.target = _player
-	sweep_vis.radius = skill.aoe_radius
-	sweep_vis.color = skill.aoe_color
-	sweep_vis.duration = _sweep_timer
-	_player.get_parent().add_child(sweep_vis)
+	# The travelling ring is a hitbox visualisation, so it obeys the same toggle. With
+	# it off, a dash-attack reads through its own animation and the impact sparks —
+	# which is the point of the setting: only the attack itself should be on screen.
+	if GameState.show_hitboxes:
+		var sweep_vis: SweepIndicator = SweepIndicator.new()
+		sweep_vis.target = _player
+		sweep_vis.radius = skill.aoe_radius
+		sweep_vis.color = skill.aoe_color
+		sweep_vis.duration = _sweep_timer
+		_player.get_parent().add_child(sweep_vis)
 
 	# Tick once immediately so anything already in reach is hit on the frame the
 	# skill fires, not one frame later.

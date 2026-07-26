@@ -17,7 +17,40 @@ ahead of the art/audio pass. Tiers 0, 1 and the known issues are shipped, as are
 
 ---
 
-## Playtest punch-list — diagnosed, not yet fixed
+## Playtest punch-list — P0 and P1 fixed 2026-07-26
+
+**Fixed this pass:**
+- **#1 run does not end at 0 years** — the diagnosis was exactly right. The end check
+  lived only inside `_trigger_devolution()`, unreachable once `total_devolutions` hits
+  the 14-step cap. `apply_devolution()` now asks `_is_fully_devolved()` directly, right
+  after the degradation that could have been the last one. Regression-tested.
+- **#2 dash fires instead of attack** — not the wrong action winning: the right one was
+  being *destroyed*. `_handle_dash()` owns the frame and returns before
+  `_handle_attack()`, and attack was the only input with no buffer, so every click
+  during a dash's 0.18s was silently dropped. Attack now buffers like dash/skills, and
+  wins a same-frame tie while the dash stays buffered for after.
+- **#3 make everything bigger** — `Camera2D.zoom` 1.0 → 1.6.
+- **#5 text too small** — 69 font sizes raised (6→8, 7→9, 8→10, 9/10→11). Headers left
+  alone; the fixed-position layouts would overflow.
+- **#4 fullscreen** — already fixed previously (F11 *and* F12 both bound); needs
+  re-testing in an export rather than the editor's embedded window.
+
+**Also fixed, reported separately:**
+- Hitbox toggle wasn't hiding anything. Three things drew shapes ungated: the obsolete
+  `SlashEffect` arc (now removed — the animated slash replaced it), the dash sweep ring
+  (now behind the toggle), and the enemy telegraph (deliberately NOT gated — it is the
+  information the combat contract runs on, not debug output).
+- Player scale was "completely off" because the squash-and-stretch code wrote
+  `_sprite.scale` every frame treating 1.0 as normal, overwriting the scene's 0.6. Now
+  every squash multiplies `SPRITE_SCALE`.
+- Ground read as flat: the arena drew exactly two tiles across 60 columns. Fill now
+  varies deterministically (hashed by position, so it never shimmers on redraw).
+
+Remaining items below (P2+) are untouched.
+
+---
+
+## Playtest punch-list — original diagnoses
 
 21 items from an actual playtest session, each diagnosed against the current code (no
 code was changed doing this — that's for whoever picks these up). Ordered most-important-

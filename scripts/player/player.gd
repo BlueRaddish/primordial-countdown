@@ -22,6 +22,14 @@ const BASE_COYOTE_TIME: float = 0.08
 # How long a skill impulse owns locomotion. AbilityManager reads this so a
 # dash-attack's travelling hitbox lasts exactly as long as the movement does.
 const IMPULSE_TIME: float = 0.25
+# Resting scale of the character sprite.
+#
+# The squash-and-stretch code writes _sprite.scale directly and used to treat 1.0 as
+# "normal", which silently overwrote whatever the SCENE set — so the Gothic hero, sized
+# to 0.6 in player.tscn, snapped back to full size on the first frame and rendered at
+# roughly twice the height of an enemy. Every squash now multiplies THIS instead of
+# assuming one, so changing the character's size is a single edit here.
+const SPRITE_SCALE: float = 0.6
 
 # --- Live values (rebuilt from traits) ---
 @export var move_speed: float = 120.0
@@ -58,6 +66,7 @@ const IMPULSE_TIME: float = 0.25
 # this, any press during those windows is silently eaten and reads as the game
 # ignoring you.
 @export var dash_buffer_time: float = 0.15
+@export var attack_buffer_time: float = 0.18
 @export var skill_buffer_time: float = 0.2
 
 # Squash and stretch. Purely cosmetic, and deliberately quick: it should register as
@@ -128,6 +137,7 @@ var attack_bleed_time: float = 0.0
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
 var _dash_buffer_timer: float = 0.0
+var _attack_buffer_timer: float = 0.0
 var _skill_buffer_timer: float = 0.0
 var _skill_buffer_slot: int = -1
 var _drop_through_timer: float = 0.0
@@ -163,7 +173,6 @@ var _aim_dir: Vector2 = Vector2.RIGHT
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var _attack_hitbox: Area2D = $AttackHitbox
 @onready var _attack_shape: CollisionShape2D = $AttackHitbox/CollisionShape2D
-@onready var _slash_effect: SlashEffect = $SlashEffect
 @onready var _trait_manager: TraitManager = $TraitManager
 @onready var _ability_manager: AbilityManager = $AbilityManager
 @onready var _status_effects: StatusEffects = $StatusEffects
@@ -428,8 +437,6 @@ func _apply_melee_reach(range_mod: float) -> void:
 	if rect:
 		rect.size.x = BASE_MELEE_LENGTH * scale_factor
 	_attack_shape.position.x = BASE_MELEE_RANGE * scale_factor
-	if _slash_effect:
-		_slash_effect.aoe_radius = BASE_MELEE_LENGTH * scale_factor
 
 
 func _apply_vision() -> void:
@@ -547,6 +554,11 @@ func _handle_timers(delta: float) -> void:
 	# Dash and skills buffer the same way the jump does: the press is remembered and
 	# spent as soon as it becomes legal, rather than being dropped because an attack
 	# animation or a knockback happened to own the character that frame.
+	if Input.is_action_just_pressed("attack"):
+		_attack_buffer_timer = attack_buffer_time
+	else:
+		_attack_buffer_timer -= delta
+
 	if Input.is_action_just_pressed("dash"):
 		_dash_buffer_timer = dash_buffer_time
 	else:
@@ -591,7 +603,7 @@ func _handle_jump() -> void:
 			# Stretch on the way up, squash on the way down. The pair reads as effort
 			# and then weight; either one alone just looks like a rendering glitch.
 			if _sprite:
-				_sprite.scale = Vector2(0.84, 1.2)
+				_sprite.scale = Vector2(0.84, 1.2) * SPRITE_SCALE
 			_spawn_dust(global_position, 7.0, Color(0.82, 0.8, 0.72))
 		elif _air_jumps_left > 0:
 			# Mid-air jump: reset vertical velocity rather than adding to it, so a
@@ -628,6 +640,13 @@ func _handle_dash(delta: float) -> bool:
 		return false
 	if _dash_cooldown_timer > 0.0 or _is_attacking:
 		return false
+	# Attack wins a tie. If a swing is also pending this frame, let it go first and
+	# keep the dash buffered — it fires the moment the swing is done. A stray graze of
+	# the right button should never pre-empt a deliberate click, and holding the dash
+	# rather than dropping it means the player still gets both inputs, in the order
+	# they meant them.
+	if _attack_buffer_timer > 0.0 and not arms_blocked and _attack_cooldown_timer <= 0.0:
+		return false
 	_dash_buffer_timer = 0.0
 
 	# Toward the cursor's side. Dead centre falls back to current facing.
@@ -645,7 +664,7 @@ func _handle_dash(delta: float) -> bool:
 	# Kicked up behind the dash, so the burst has a direction you can read.
 	_spawn_dust(global_position - Vector2(_dash_dir * 6.0, 0.0), 9.0, Color(0.8, 0.86, 0.95))
 	if _sprite:
-		_sprite.scale = Vector2(1.25, 0.8)
+		_sprite.scale = Vector2(1.25, 0.8) * SPRITE_SCALE
 	return true
 
 
@@ -739,7 +758,7 @@ func _check_landing() -> void:
 	# terminal-velocity drop looks identical to stepping off a kerb.
 	var t: float = clampf(_impact_speed / max_fall_speed, 0.0, 1.0)
 	if _sprite:
-		_sprite.scale = Vector2(1.0 + 0.28 * t, 1.0 - 0.26 * t)
+		_sprite.scale = Vector2(1.0 + 0.28 * t, 1.0 - 0.26 * t) * SPRITE_SCALE
 	_spawn_dust(global_position, 9.0 + 9.0 * t, Color(0.85, 0.82, 0.72))
 
 
@@ -761,9 +780,10 @@ func _apply_squash_stretch(delta: float) -> void:
 	pushes it away from 1:1; this is the only thing that returns it."""
 	if not _sprite:
 		return
-	if _sprite.scale.is_equal_approx(Vector2.ONE):
+	var rest: Vector2 = Vector2.ONE * SPRITE_SCALE
+	if _sprite.scale.is_equal_approx(rest):
 		return
-	_sprite.scale = _sprite.scale.lerp(Vector2.ONE, clampf(squash_recovery * delta, 0.0, 1.0))
+	_sprite.scale = _sprite.scale.lerp(rest, clampf(squash_recovery * delta, 0.0, 1.0))
 
 
 func _spawn_dust(at: Vector2, radius: float, _colour: Color) -> void:
@@ -843,9 +863,15 @@ func _handle_attack(delta: float) -> void:
 		return
 
 	if arms_blocked:
+		_attack_buffer_timer = 0.0
 		return
 
-	if Input.is_action_just_pressed("attack") and _attack_cooldown_timer <= 0.0:
+	# Buffered like the dash and the skills. A dash owns the whole frame and returns
+	# before this function runs, so without a buffer every click landing during those
+	# 0.18s was silently destroyed — which is what "dash fires instead of attack"
+	# actually was: not the wrong action winning, but the right one being thrown away.
+	if _attack_buffer_timer > 0.0 and _attack_cooldown_timer <= 0.0:
+		_attack_buffer_timer = 0.0
 		_start_attack()
 
 
@@ -867,9 +893,9 @@ func _start_attack() -> void:
 	_attack_hitbox.rotation = _aim_angle
 	_attack_shape.disabled = false
 
-	# Show AoE fill for the melee attack.
-	if _slash_effect:
-		_slash_effect.play(attack_duration, _aim_angle)
+	# NOTE: the old SlashEffect arc-fill is deliberately not played any more. It drew a
+	# big translucent wedge on every swing, which read as a debug hitbox rather than as
+	# an attack — and it is now fully replaced by the frame-animated slash below.
 
 	# The true melee hitbox, drawn solid, with the swing arc over it — so the reach
 	# you see is the reach that actually connects.
@@ -1018,8 +1044,6 @@ func _on_player_hit(_damage: float, knockback_dir: Vector2) -> void:
 func _on_player_died() -> void:
 	_is_dead = true
 	_attack_shape.disabled = true
-	if _slash_effect:
-		_slash_effect.stop()
 	if _status_effects:
 		_status_effects.clear_all()
 	set_collision_layer_value(1, false)

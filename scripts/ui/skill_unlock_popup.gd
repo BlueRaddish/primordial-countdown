@@ -91,7 +91,7 @@ func _build_ui() -> void:
 	_hint_label.size = Vector2(PANEL_W - 130.0, 22)
 	_hint_label.custom_minimum_size = Vector2(PANEL_W - 130.0, 22)
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint_label.add_theme_font_size_override("font_size", 7)
+	_hint_label.add_theme_font_size_override("font_size", 9)
 	_hint_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	_panel.add_child(_hint_label)
 
@@ -99,7 +99,7 @@ func _build_ui() -> void:
 	done.text = "Done"
 	done.position = Vector2(PANEL_W - 104.0, PANEL_H - 32.0)
 	done.custom_minimum_size = Vector2(90, 22)
-	done.add_theme_font_size_override("font_size", 9)
+	done.add_theme_font_size_override("font_size", 11)
 	done.pressed.connect(_on_done)
 	_panel.add_child(done)
 
@@ -108,7 +108,7 @@ func _build_new_skill_card() -> void:
 	var tag: Label = Label.new()
 	tag.text = "NEW"
 	tag.position = Vector2(COL_L, 30)
-	tag.add_theme_font_size_override("font_size", 8)
+	tag.add_theme_font_size_override("font_size", 10)
 	tag.add_theme_color_override("font_color", Color("f1c40f"))
 	_panel.add_child(tag)
 
@@ -119,7 +119,7 @@ func _build_new_skill_card() -> void:
 
 	_new_kind_label = Label.new()
 	_new_kind_label.position = Vector2(COL_L, 48)
-	_new_kind_label.add_theme_font_size_override("font_size", 7)
+	_new_kind_label.add_theme_font_size_override("font_size", 9)
 	_new_kind_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
 	_panel.add_child(_new_kind_label)
 
@@ -128,7 +128,7 @@ func _build_new_skill_card() -> void:
 	_desc_label.size = Vector2(238, 60)
 	_desc_label.custom_minimum_size = Vector2(238, 60)
 	_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_desc_label.add_theme_font_size_override("font_size", 8)
+	_desc_label.add_theme_font_size_override("font_size", 10)
 	_desc_label.add_theme_color_override("font_color", Color(0.86, 0.86, 0.92))
 	_panel.add_child(_desc_label)
 
@@ -137,7 +137,7 @@ func _build_new_skill_card() -> void:
 	_flavor_label.size = Vector2(238, 46)
 	_flavor_label.custom_minimum_size = Vector2(238, 46)
 	_flavor_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_flavor_label.add_theme_font_size_override("font_size", 7)
+	_flavor_label.add_theme_font_size_override("font_size", 9)
 	_flavor_label.add_theme_color_override("font_color", Color(0.52, 0.52, 0.64))
 	_panel.add_child(_flavor_label)
 
@@ -146,7 +146,7 @@ func _build_new_skill_card() -> void:
 	_req_label.size = Vector2(238, 30)
 	_req_label.custom_minimum_size = Vector2(238, 30)
 	_req_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_req_label.add_theme_font_size_override("font_size", 7)
+	_req_label.add_theme_font_size_override("font_size", 9)
 	_req_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	_panel.add_child(_req_label)
 
@@ -155,14 +155,14 @@ func _build_slots() -> void:
 	var head: Label = Label.new()
 	head.text = "LOADOUT"
 	head.position = Vector2(COL_R, 30)
-	head.add_theme_font_size_override("font_size", 9)
+	head.add_theme_font_size_override("font_size", 11)
 	head.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(head)
 
 	var sub: Label = Label.new()
 	sub.text = "(click a slot to put the selected skill in it)"
 	sub.position = Vector2(COL_R + 60.0, 31)
-	sub.add_theme_font_size_override("font_size", 7)
+	sub.add_theme_font_size_override("font_size", 9)
 	sub.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	_panel.add_child(sub)
 
@@ -173,7 +173,7 @@ func _build_slots() -> void:
 		btn.position = Vector2(COL_R, y)
 		btn.custom_minimum_size = Vector2(COL_R_W - 30.0, 22)
 		btn.size = Vector2(COL_R_W - 30.0, 22)
-		btn.add_theme_font_size_override("font_size", 8)
+		btn.add_theme_font_size_override("font_size", 10)
 		btn.pressed.connect(_on_slot_pressed.bind(i))
 		_panel.add_child(btn)
 		_slot_buttons.append(btn)
@@ -182,7 +182,7 @@ func _build_slots() -> void:
 		clear.text = "x"
 		clear.position = Vector2(COL_R + COL_R_W - 26.0, y)
 		clear.custom_minimum_size = Vector2(22, 22)
-		clear.add_theme_font_size_override("font_size", 8)
+		clear.add_theme_font_size_override("font_size", 10)
 		clear.pressed.connect(_on_slot_cleared.bind(i))
 		_panel.add_child(clear)
 		_slot_clear_buttons.append(clear)
@@ -192,7 +192,7 @@ func _build_list() -> void:
 	var head: Label = Label.new()
 	head.text = "ALL UNLOCKED SKILLS"
 	head.position = Vector2(COL_R, 128)
-	head.add_theme_font_size_override("font_size", 9)
+	head.add_theme_font_size_override("font_size", 11)
 	head.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(head)
 
@@ -283,7 +283,7 @@ func _refresh() -> void:
 		row.text = "%s%s  (%s)%s" % [mark, skill.skill_name, skill.get_kind_label(), slotted]
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		row.custom_minimum_size = Vector2(COL_R_W - 14.0, 16)
-		row.add_theme_font_size_override("font_size", 7)
+		row.add_theme_font_size_override("font_size", 9)
 		row.add_theme_color_override("font_color", skill.aoe_color)
 		row.pressed.connect(_on_skill_selected.bind(skill))
 		_list_container.add_child(row)

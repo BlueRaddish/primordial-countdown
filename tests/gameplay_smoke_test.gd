@@ -34,6 +34,7 @@ func _run() -> void:
 	_check_evolved_takes_slot()
 	await _check_dash_attack_sweeps()
 	await _check_air_skill_hang()
+	await _check_run_ends_when_fully_devolved()
 
 	print("[gameplay] FAILURES: %d" % _failures)
 	get_tree().quit(1 if _failures > 0 else 0)
@@ -249,6 +250,38 @@ func _check_dash_attack_sweeps() -> void:
 			% [hp_before, enemy.get_health_fraction()]
 	)
 	enemy.queue_free()
+
+
+# ---- End of run ----
+
+func _check_run_ends_when_fully_devolved() -> void:
+	"""Degrading the LAST remaining trait must end the run.
+
+	It did not: the end check lived only inside `_trigger_devolution()`, which becomes
+	unreachable once `total_devolutions` hits the 14-step cap. The final devolution
+	resolved normally and then nothing ever asked again, so the game carried on at 0
+	years with every trait fully lost."""
+	var devo: Node = get_tree().get_first_node_in_group("devolution_system")
+	var tm: TraitManager = _player.get_node("TraitManager") as TraitManager
+	if not devo or not tm:
+		_fail("no devolution system / trait manager")
+		return
+
+	var ended: Array[bool] = [false]
+	var on_died: Callable = func() -> void: ended[0] = true
+	EventBus.player_died.connect(on_died)
+
+	# Everything gone except one last stage on the very last trait.
+	for tname: String in TraitManager.ALL_TRAITS:
+		tm.set_trait_stage(tname, TraitManager.MAX_STAGE)
+	tm.set_trait_stage("head", TraitManager.STAGE_PARTIAL)
+	_expect(not ended[0], "run is still alive with one degradation left")
+
+	# Take it. This is the exact step that used to leave the game running forever.
+	devo.call("apply_devolution", "head", tm)
+	_expect(ended[0], "run ENDS when the last trait is fully lost")
+
+	EventBus.player_died.disconnect(on_died)
 
 
 # ---- Aerial hang ----

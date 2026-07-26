@@ -37,7 +37,7 @@ func _ready() -> void:
 		var key_lbl: Label = Label.new()
 		key_lbl.text = keys[i]
 		key_lbl.position = Vector2(2, 0)
-		key_lbl.add_theme_font_size_override("font_size", 8)
+		key_lbl.add_theme_font_size_override("font_size", 10)
 		key_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 		slot_panel.add_child(key_lbl)
 		_key_labels.append(key_lbl)
@@ -47,7 +47,7 @@ func _ready() -> void:
 		name_lbl.text = "---"
 		name_lbl.position = Vector2(2, 12)
 		name_lbl.size = Vector2(44, 18)
-		name_lbl.add_theme_font_size_override("font_size", 7)
+		name_lbl.add_theme_font_size_override("font_size", 9)
 		name_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 		name_lbl.clip_text = true
 		slot_panel.add_child(name_lbl)
@@ -59,7 +59,7 @@ func _ready() -> void:
 		cost_lbl.position = Vector2(16, 0)
 		cost_lbl.size = Vector2(30, 10)
 		cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		cost_lbl.add_theme_font_size_override("font_size", 7)
+		cost_lbl.add_theme_font_size_override("font_size", 9)
 		cost_lbl.add_theme_color_override("font_color", Color("e08b6b"))
 		slot_panel.add_child(cost_lbl)
 		_cost_labels.append(cost_lbl)

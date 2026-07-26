@@ -15,6 +15,33 @@ const UILayout := preload("res://scripts/ui/ui_layout.gd")
 
 const PAUSE_ID: String = "devolution"
 
+# --- Type sizes: measured from the fonts, not chosen by eye ---
+#
+# These cards were hard to read, and the reason was not the colours or the layout — it
+# was that every label asked its font for a size it cannot draw.
+#
+# Both fonts are pixel fonts, so their glyph outlines sit on a grid, and they only render
+# cleanly when one design pixel lands on a whole screen pixel. Measured from the files
+# (unitsPerEm 1024 in both):
+#
+#   Kenney Pixel            every ASCII glyph on a 64-unit grid  -> 1 px = 1/16 em
+#                           => crisp ONLY at font_size 16, 32, 48 ...
+#   Kenney Mini Square Mono every ASCII glyph on a 128-unit grid -> 1 px = 1/8 em
+#                           => crisp at 8, 16, 24 ...
+#
+# The cards were set to 9, 10, 11 and 12. Not one of those is a multiple of 16, so every
+# glyph edge fell on a fraction of a pixel and the rasteriser smeared it — which is why
+# the text looked mushy and unevenly weighted while the HUD, which uses the mono font at
+# a legal size, looked fine.
+#
+# Kenney Pixel therefore has exactly ONE usable size at a 640x360 viewport. Hierarchy
+# here comes from colour, weight and spacing, NOT from size — there is no smaller size
+# to step down to. Where something genuinely must be smaller, it uses the mono font at 8.
+const BODY_FONT: FontFile = preload("res://assets/fonts/Kenney Pixel.ttf")
+const SMALL_FONT: FontFile = preload("res://assets/fonts/Kenney Mini Square Mono.ttf")
+const BODY_SIZE: int = 16
+const SMALL_SIZE: int = 8
+
 var _panel: Panel
 var _title_label: Label
 var _info_label: Label
@@ -43,7 +70,12 @@ const MAX_OPTION_BUTTONS: int = 7
 # and seven (the dev "reveal all" toggle) still fit on the same row.
 const PANEL_MAX_W: float = 604.0
 const CARDS_TOP: float = 76.0
-const CARD_H: float = 118.0
+# 92, down from 118. The cards were always taller than their contents: even after the
+# consequence text went from 10px to 16 and started wrapping to two or three lines, the
+# old height left ~50px of empty card under it, which is what made them read as hollow
+# rectangles. Derived, not eyeballed: name ends at 26, stage at 39, note starts at 45 and
+# needs 3 lines x 12px = 36, plus 8 of bottom padding.
+const CARD_H: float = 92.0
 const CARD_GAP: float = 8.0
 const CARD_W_MAX: float = 150.0
 const SIDE_PAD: float = 12.0
@@ -106,23 +138,25 @@ func _build_ui() -> void:
 
 	_title_label = Label.new()
 	_title_label.text = "DEVOLUTION"
-	_title_label.position = Vector2(10, 8)
-	_title_label.add_theme_font_size_override("font_size", 12)
+	_title_label.position = Vector2(10, 6)
+	_apply_font(_title_label, BODY_FONT, BODY_SIZE)
 	_title_label.add_theme_color_override("font_color", Color("e74c3c"))
 	_panel.add_child(_title_label)
 
 	_info_label = Label.new()
 	_info_label.text = ""
-	_info_label.position = Vector2(10, 28)
-	_info_label.add_theme_font_size_override("font_size", 11)
+	_info_label.position = Vector2(10, 26)
+	_apply_font(_info_label, BODY_FONT, BODY_SIZE)
 	_info_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(_info_label)
 
 	_detail_label = Label.new()
 	_detail_label.text = ""
-	_detail_label.position = Vector2(12, 48)
+	_detail_label.position = Vector2(12, 47)
 	_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_detail_label.add_theme_font_size_override("font_size", 10)
+	# The one place the mono font earns its keep in the header: this is the longest
+	# string on screen, and at BODY_SIZE it would push the cards down a whole row.
+	_apply_font(_detail_label, SMALL_FONT, SMALL_SIZE)
 	_detail_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.82))
 	_panel.add_child(_detail_label)
 
@@ -145,14 +179,16 @@ func _build_card(index: int) -> void:
 	var name_lbl: Label = Label.new()
 	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", 11)
+	_apply_font(name_lbl, BODY_FONT, BODY_SIZE)
 	card.add_child(name_lbl)
 	_card_names.append(name_lbl)
 
+	# Mono, and small: this is a state transition, not prose, and the mono font is the
+	# only one of the two that has a legal size below 16.
 	var stage_lbl: Label = Label.new()
 	stage_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stage_lbl.add_theme_font_size_override("font_size", 9)
+	_apply_font(stage_lbl, SMALL_FONT, SMALL_SIZE)
 	stage_lbl.add_theme_color_override("font_color", Color(0.62, 0.62, 0.7))
 	card.add_child(stage_lbl)
 	_card_stages.append(stage_lbl)
@@ -160,15 +196,34 @@ func _build_card(index: int) -> void:
 	var note_lbl: Label = Label.new()
 	note_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	note_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	note_lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	# Centred in whatever body height is left, so a one-line consequence sits in the
+	# middle of the card instead of being stranded against the stage line.
+	note_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	note_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note_lbl.add_theme_font_size_override("font_size", 10)
+	_apply_font(note_lbl, BODY_FONT, BODY_SIZE)
 	note_lbl.add_theme_color_override("font_color", Color(0.82, 0.82, 0.88))
 	card.add_child(note_lbl)
 	_card_notes.append(note_lbl)
 
 
+func _apply_font(label: Label, font: FontFile, size: int) -> void:
+	"""Set font AND size together.
+
+	Setting only the size — which is what this file did before — leaves the font as the
+	project theme's default. That is Kenney Pixel (project.godot sets theme/custom_font),
+	so the font was never actually wrong; the SIZE was illegal for it. Overriding both
+	here makes the pairing explicit, so a later theme change cannot silently put a font
+	with a different grid behind these sizes."""
+	label.add_theme_font_override("font", font)
+	label.add_theme_font_size_override("font_size", size)
+
+
 func _card_style(accent: Color, bg: Color) -> StyleBoxFlat:
+	"""THE one place a card's appearance is decided.
+
+	Keep it that way. Everything else here passes colours in and gets a finished style
+	back, so swapping StyleBoxFlat for a StyleBoxTexture later is a change to this
+	function alone."""
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = accent
@@ -181,6 +236,13 @@ func _card_style(accent: Color, bg: Color) -> StyleBoxFlat:
 	sb.corner_radius_top_right = 3
 	sb.corner_radius_bottom_left = 3
 	sb.corner_radius_bottom_right = 3
+	# Cast the cards off the panel. They sat perfectly flush with the background, which
+	# is most of why they read as coloured rectangles rather than as things you pick up
+	# and choose between. Offset down-right so the light reads as coming from the same
+	# top-left the panel border already implies.
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(2.0, 3.0)
+	sb.shadow_color = Color(0.0, 0.0, 0.0, 0.55)
 	return sb
 
 
@@ -246,17 +308,25 @@ func _layout_cards() -> void:
 		card.custom_minimum_size = Vector2(card_w, CARD_H)
 
 		# Name and stage at the top of the card, consequence filling the body.
+		#
+		# Line heights, since the numbers below are derived from them rather than nudged
+		# until they looked right: Kenney Pixel at 16 is 10px ascent + 2px descent = 12;
+		# the mono font at 8 is 8 + 2 = 10.
 		_card_names[i].position = Vector2(6, 8)
-		_card_names[i].size = Vector2(inner, 16)
-		_card_names[i].custom_minimum_size = Vector2(inner, 16)
+		_card_names[i].size = Vector2(inner, 18)
+		_card_names[i].custom_minimum_size = Vector2(inner, 18)
 
-		_card_stages[i].position = Vector2(6, 27)
-		_card_stages[i].size = Vector2(inner, 12)
-		_card_stages[i].custom_minimum_size = Vector2(inner, 12)
+		_card_stages[i].position = Vector2(6, 29)
+		_card_stages[i].size = Vector2(inner, 10)
+		_card_stages[i].custom_minimum_size = Vector2(inner, 10)
 
-		_card_notes[i].position = Vector2(6, 48)
-		_card_notes[i].size = Vector2(inner, CARD_H - 56.0)
-		_card_notes[i].custom_minimum_size = Vector2(inner, CARD_H - 56.0)
+		# The consequence gets everything left. At the old 10px it was a single short
+		# line stranded at the top of a 118px card, leaving ~60px of dead space that made
+		# every card look unfinished. At 16 it wraps to two or three lines and fills the
+		# body, which is the same fix as the legibility one — not a separate change.
+		_card_notes[i].position = Vector2(6, 45)
+		_card_notes[i].size = Vector2(inner, CARD_H - 53.0)
+		_card_notes[i].custom_minimum_size = Vector2(inner, CARD_H - 53.0)
 
 
 func _refresh_cards() -> void:

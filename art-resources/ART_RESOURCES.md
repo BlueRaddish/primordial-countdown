@@ -16,6 +16,19 @@ which were already copied into `assets/sprites/backgrounds/volcano/` and
 `assets/fonts/` before this pass — see "Currently wired into the game" below.
 This folder is a staging area — copy out only what you use.
 
+**Two rules added in the 2026-07-26 cleanup:**
+
+- **No .zip archives are kept.** Packs are stored extracted; the archive is a second
+  copy of the same bytes. `.gitignore` has a `*.zip` rule so one cannot drift back in.
+  Every download URL is in the attribution table at the bottom, so any pack can be
+  re-fetched.
+- **`.gdignore` makes Godot skip this whole tree.** Without it Godot imported all of
+  these packs as game assets — 969 `.import` files, and a `.godot/` cache several times
+  the size of the game's real `assets/`, re-scanned on every editor start. Nothing here
+  loads through `res://`; the scripts in `tools/` read these files from disk with Python,
+  which `.gdignore` does not affect. If you copy a pack file into `assets/`, it imports
+  normally there — that is the intended path.
+
 ---
 
 ## Currently wired into the game
@@ -239,33 +252,53 @@ Thirteen of Luis Zuno's 2016–17 packs in one archive: `Gothic-hero-Files`,
 as packs 12–14, see the implementation blocker above). Not currently wired
 into anything; a candidate for enemy variety in the town/swamp eras.
 
-### 9. `09_kenney_audio/` — SFX
+### 9, 10, 11 — the audio source packs (REMOVED 2026-07-26)
 
-Three CC0 packs, 246 files total, OGG + WAV: `kenney_impact-sounds.zip`
-(784 KB, 134 files), `kenney_rpg-audio.zip` (944 KB, 56 files),
-`kenney_ui-audio.zip` (404 KB, 56 files). Not wired into `assets/audio/`
-yet — that directory is still empty.
+`09_kenney_audio/`, `10_kenney_music_jingles/` and `11_fantasy_ambience_music/`
+are gone. All three existed only as .zip archives — nothing was ever extracted
+beside them — and together they were 101 MB, over half this folder.
 
-### 10. `10_kenney_music_jingles/` — event stingers
+Everything they supplied lives on downstream and nothing was lost:
 
-**kenney_music-jingles.zip** · 1.2 MB · 95 files · CC0. Short stings for
-devolution steps, skill unlocks, boss spawn, death.
+- The SFX and stingers actually chosen are in `15_selected_devolution_assets/audio`
+  as OGG, and shipped in `assets/audio/` (1.9 MB, wired through
+  `scripts/autoload/audio_manager.gd`).
+- The music is in `assets/audio/music/` as OGG. The two town-era tracks that had
+  never been converted were converted during the cleanup rather than deleted
+  (12.8 MB and 11.3 MB WAV -> 0.92 MB and 0.80 MB OGG) and sit in pack 15.
+- The 6 source WAVs in pack 15 (53 MB) were deleted after verifying each one had
+  an OGG counterpart in either staging or `assets/`.
 
-### 11. `11_fantasy_ambience_music/` — background music
+**The CC BY 4.0 obligation did not go away.** North Fantasy Music's tracks are
+still in the shipped game; deleting the source archive changes nothing about
+that. The attribution rows in this file and in the project README stay.
 
-**CC BY 4.0** · North Fantasy Music — this one *does* need attribution.
-`fantasyambience.zip` (69 MB, 7 tracks) + `fantasyambience_drumloops.zip`
-(30 MB, 5 loops), 44.1kHz 16-bit stereo WAV. **Convert to OGG before import**
-— Godot will otherwise embed the raw WAV size, and this is 99 MB uncompressed.
+To get any of it back: the download URLs are in the attribution table below, and
+every deleted file is still in git history.
+
+### 17. `17_kenney_pixel_platformer/` — ground tiles
+
+**Pixel Platformer 1.2** · 1.6 MB · CC0 · <https://kenney.nl/assets/pixel-platformer>
+
+Moved here on 2026-07-26. It had been sitting loose in the project root as
+`kenney_pixel-platformer_extracted/` next to its own zip, outside this folder and
+excluded from version control by name — so the source of tiles the game actually
+ships was the one pack not recorded alongside the others. It is a normal staged
+pack now.
+
+Supplies the arena ground tiles in `assets/sprites/arenas/` that `arena_renderer.gd`
+draws. Also contains Tiled and Construct 3 project files, which are reference only —
+the arena is generated in GDScript, not authored in a tile editor.
 
 ### 15. `15_selected_devolution_assets/` — this pass's curated picks
 
-Not a new download — every file here is copied out of packs 1, 2, 9, 10, and 11
-above (same licenses: CC0 except the North Fantasy Music files, which stay
-CC BY 4.0 and need attribution same as pack 11). This folder exists so the
-handful of files actually picked during the animation/audio review don't stay
-buried inside the full packs. Still staging, not `assets/` — nothing here is
-wired into a scene yet.
+Not a new download — every file here was copied out of packs 1, 2, 9, 10
+and 11 (packs 9-11 have since been deleted, see above; same licenses: CC0
+except the North Fantasy Music files, which stay CC BY 4.0 and need
+attribution). Audio here is OGG only — the 53 MB of source WAVs was removed
+on 2026-07-26 once every one had a converted counterpart. This folder exists
+so the handful of files actually picked during the animation/audio review
+don't stay buried inside the full packs.
 
 ```
 avatars/                         — body-stage sprite candidates (idle+run+hit

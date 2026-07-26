@@ -1,0 +1,9 @@
+# Godot skips this whole directory.
+#
+# art-resources is a staging area, not part of the game — ART_RESOURCES.md calls it
+# "copy out only what you use". Without this file Godot imported all ~200MB of it,
+# generating 969 .import files and a .godot cache several times the size of the game's
+# real assets, and re-scanning it on every editor start.
+#
+# Nothing loads from here through res://. The build scripts in tools/ read these packs
+# from disk with Python, which .gdignore does not affect.

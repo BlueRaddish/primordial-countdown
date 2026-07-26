@@ -19,8 +19,10 @@ export_credentials.cfg
 # Personal Settings
 .vscode
 
-# Downloaded asset packs (originals kept outside version control)
-kenney_pixel-platformer.zip
-kenney_pixel-platformer_extracted/
 # UI smoke-test screenshots (regenerated on every run)
 /tests/_uishots/
+
+# Source archives. Every pack in art-resources/ is stored extracted; the .zip it came
+# from is a second copy of the same bytes, so archives are not kept in the tree. The
+# download URL for each pack is recorded in art-resources/ART_RESOURCES.md.
+*.zip

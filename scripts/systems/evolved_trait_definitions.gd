@@ -56,6 +56,8 @@ static func get_all() -> Array[EvolvedTraitData]:
 	claws.restores_attack = true
 	claws.attack_damage_mult = 1.15 # Harder than an intact arm ever swung...
 	claws.attack_range_mult = 0.5   # ...but you have to be right on top of it.
+	claws.attack_bleed_dps = 4.0    # ...and every swing leaves the wound open.
+	claws.attack_bleed_time = 3.0
 	# Arms gone and skin gone: nothing to protect, so the limb becomes the weapon.
 	claws.unlock_conditions = {"arms": [LOST, LOST], "skin": [LOST, LOST]}
 	out.append(claws)

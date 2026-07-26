@@ -2,15 +2,29 @@
 # Enemy with a patrol/chase state machine plus three movement patterns.
 # All enemy types extend from this.
 #
-# Behaviours:
-#   WALKER — patrols, chases on sight, turns at ledges and walls.
-#   LUNGER — closes to a stand-off distance, telegraphs, then lunges hard.
-#   HOPPER — chases in hops and will jump to reach a player standing above it,
-#            so it can actually use the arena's platforms.
+# THE COMBAT CONTRACT
+# Every enemy hurts you through a telegraphed strike, never by standing near you:
+#
+#   CHASE -> WINDUP (visible tell) -> STRIKE (the hit window) -> RECOVER (your turn)
+#
+# That loop is the whole fight. Proximity used to be the threat — an enemy dealt
+# full contact damage just by touching the player, on its own cooldown, even while
+# being knocked back — so there was no safe window to attack into and trading hits
+# was the only way to deal damage. Now contact is a small chip for standing inside a
+# monster, a hurt enemy cannot touch you at all, and RECOVER is a real punish window.
+#
+# Hitting an enemy during WINDUP interrupts the strike outright and staggers it for
+# longer than a normal hit. Reading the tell and answering it is the game.
+#
+# Behaviours (they differ in how they close and how they strike, not in the loop):
+#   WALKER — patrols, chases on sight, turns at ledges. Strikes in place: a short
+#            swipe you can simply back out of.
+#   LUNGER — closes to a stand-off distance, telegraphs, then dashes through you.
+#   HOPPER — chases in hops, jumps to reach a player above it, strikes by leaping.
 class_name BaseEnemy
 extends CharacterBody2D
 
-enum State { PATROL, CHASE, WINDUP, LUNGE, RECOVER, HURT, DEAD }
+enum State { PATROL, CHASE, WINDUP, STRIKE, RECOVER, HURT, DEAD }
 enum Behavior { WALKER, LUNGER, HOPPER }
 
 # --- Tuning ---
@@ -19,8 +33,11 @@ enum Behavior { WALKER, LUNGER, HOPPER }
 @export var move_speed: float = 40.0
 @export var chase_speed: float = 65.0
 @export var detection_range: float = 130.0
-@export var contact_damage: float = 15.0
-@export var contact_cooldown: float = 0.8
+# Chip damage for occupying the same space as an enemy. Deliberately small: this is
+# not how enemies are meant to hurt you, it only stops standing inside one being
+# free. The strike is the real threat.
+@export var contact_damage: float = 6.0
+@export var contact_cooldown: float = 1.2
 @export var gravity: float = 800.0
 @export var max_fall_speed: float = 400.0
 @export var knockback_decay: float = 400.0
@@ -32,6 +49,11 @@ enum Behavior { WALKER, LUNGER, HOPPER }
 # a horned chort that lunges, a small imp that hops.
 # The boss supplies its own frames, so it turns this off in boss_enemy.tscn.
 @export var use_behavior_sprite: bool = true
+
+# Same idea for the attack numbers: normal enemies take their timings from the
+# profile for their pattern, while hand-tuned enemies (the boss) turn this off and
+# keep whatever their scene set.
+@export var use_behavior_profile: bool = true
 
 const BEHAVIOR_SPRITE_FRAMES: Dictionary = {
 	Behavior.WALKER: preload("res://resources/sprite_frames/enemy_walker.tres"),
@@ -48,17 +70,48 @@ const BEHAVIOR_SPRITE_Y: Dictionary = {
 	Behavior.HOPPER: -8.0,
 }
 
-# --- Lunger tuning ---
-@export var lunge_range: float = 62.0
-@export var windup_time: float = 0.45
-@export var lunge_speed: float = 210.0
-@export var lunge_time: float = 0.3
-@export var recover_time: float = 0.55
+# How each pattern fights. The three are meant to demand different answers:
+# the walker punishes standing still, the lunger punishes standing in a line,
+# the hopper punishes standing under it.
+const BEHAVIOR_ATTACK_PROFILES: Dictionary = {
+	# Slow, obvious, short reach. Back up one step and it whiffs entirely.
+	Behavior.WALKER: {
+		"range": 30.0, "windup": 0.55, "strike": 0.2, "recover": 0.6,
+		"damage": 14.0, "radius": 30.0, "dash": 70.0, "rise": 0.0,
+	},
+	# Commits from far out and covers ground fast. Dodge sideways, not backwards.
+	Behavior.LUNGER: {
+		"range": 66.0, "windup": 0.5, "strike": 0.3, "recover": 0.75,
+		"damage": 22.0, "radius": 30.0, "dash": 210.0, "rise": -70.0,
+	},
+	# Quickest tell of the three, but it arcs — so it beats backing away and loses
+	# to simply moving under or past it.
+	Behavior.HOPPER: {
+		"range": 48.0, "windup": 0.35, "strike": 0.45, "recover": 0.45,
+		"damage": 13.0, "radius": 28.0, "dash": 140.0, "rise": -190.0,
+	},
+}
+
+# --- Strike tuning (set from the profile unless use_behavior_profile is off) ---
+@export var lunge_range: float = 62.0   # distance at which it commits to a strike
+@export var windup_time: float = 0.45   # the tell
+@export var lunge_speed: float = 210.0  # movement carried into the strike
+@export var lunge_time: float = 0.3     # how long the hit window stays open
+@export var recover_time: float = 0.55  # the punish window afterwards
+@export var strike_damage: float = 20.0
+@export var strike_radius: float = 30.0
+@export var strike_rise: float = -70.0
 
 # --- Hopper tuning ---
 @export var hop_force: float = -230.0
 @export var hop_interval: float = 0.75
 @export var hop_horizontal: float = 90.0
+
+# --- Interrupt ---
+# Landing a hit during the tell cancels the strike and staggers for this much longer
+# than an ordinary hit. This is the payoff for reading an enemy instead of trading.
+const INTERRUPT_STUN_MULT: float = 2.6
+const HURT_STUN_TIME: float = 0.25
 
 # --- Internal state ---
 var _current_health: float
@@ -72,14 +125,28 @@ var _state_timer: float = 0.0
 var _hop_timer: float = 0.0
 var _flash_timer: float = 0.0
 var _lunge_dir: float = 1.0
+# One connect per strike, so a dash cannot rake the player for its whole duration.
+var _strike_connected: bool = false
+
+# --- Status effects, applied by player skills (see status_effects.gd) ---
+var _bleed_timer: float = 0.0
+var _bleed_dps: float = 0.0
+var _mire_timer: float = 0.0
+var _mire_mult: float = 1.0
+var _reel_timer: float = 0.0
+var _reel_mult: float = 1.0
+
+const BLEED_TINT: Color = Color(1.5, 0.55, 0.6)
+const MIRE_TINT: Color = Color(0.6, 0.8, 1.5)
+const REEL_TINT: Color = Color(1.5, 1.3, 0.55)
 
 # Colour the sprite returns to once a hit flash ends. Subclasses can tint themselves
 # by overriding this instead of fighting _update_flash every frame.
 var _base_modulate: Color = Color.WHITE
 
-# --- Danger sense (driven by the player's Instinct skill) ---
-# How close an enemy with no windup animation has to be before it counts as an
-# imminent threat. Roughly the range at which a bump becomes unavoidable.
+# --- Danger sense (driven by the player's Hindbrain skill) ---
+# How close an enemy has to be before an imminent strike counts as a threat worth
+# lighting up. Roughly the reach of the shortest strike.
 const CONTACT_TELL_RANGE: float = 30.0
 const DANGER_HIGHLIGHT: Color = Color(2.4, 1.7, 0.35)
 
@@ -91,6 +158,7 @@ var _danger_highlight: bool = false
 func _ready() -> void:
 	add_to_group("enemies")
 	_apply_behavior_sprite()
+	_apply_behavior_profile()
 	if _sprite:
 		_base_modulate = _sprite.modulate
 	_current_health = max_health
@@ -112,6 +180,24 @@ func _apply_behavior_sprite() -> void:
 		_sprite.position.y = BEHAVIOR_SPRITE_Y[behavior]
 
 
+func _apply_behavior_profile() -> void:
+	"""Take the strike numbers from this enemy's pattern. Same timing as the sprite
+	swap — `behavior` is final by _ready, so this runs once."""
+	if not use_behavior_profile:
+		return
+	if not BEHAVIOR_ATTACK_PROFILES.has(behavior):
+		return
+	var p: Dictionary = BEHAVIOR_ATTACK_PROFILES[behavior]
+	lunge_range = p["range"]
+	windup_time = p["windup"]
+	lunge_time = p["strike"]
+	recover_time = p["recover"]
+	strike_damage = p["damage"]
+	strike_radius = p["radius"]
+	lunge_speed = p["dash"]
+	strike_rise = p["rise"]
+
+
 func _physics_process(delta: float) -> void:
 	if _state == State.DEAD:
 		_process_dead(delta)
@@ -124,8 +210,8 @@ func _physics_process(delta: float) -> void:
 			_process_chase(delta)
 		State.WINDUP:
 			_process_windup(delta)
-		State.LUNGE:
-			_process_lunge(delta)
+		State.STRIKE:
+			_process_strike(delta)
 		State.RECOVER:
 			_process_recover(delta)
 		State.HURT:
@@ -133,6 +219,7 @@ func _physics_process(delta: float) -> void:
 
 	_apply_gravity(delta)
 	_contact_timer -= delta
+	_tick_statuses(delta)
 	_update_flash(delta)
 
 	move_and_slide()
@@ -184,41 +271,38 @@ func _process_chase(delta: float) -> void:
 	if dir == 0.0:
 		dir = _patrol_direction
 
+	# Every pattern commits to a telegraphed strike once it is close enough. Only
+	# how it *closes* differs below.
+	if dist <= lunge_range and _can_begin_strike(to_player):
+		_begin_windup(dir)
+		return
+
 	match behavior:
-		Behavior.LUNGER:
-			_chase_as_lunger(dist, dir)
 		Behavior.HOPPER:
 			_chase_as_hopper(delta, to_player, dir)
 		_:
-			_chase_as_walker(dir)
+			_chase_as_ground(dir)
 
 
-func _chase_as_walker(dir: float) -> void:
-	# Walkers still respect ledges: they stop at the edge rather than dropping off.
+func _can_begin_strike(to_player: Vector2) -> bool:
+	"""Ground patterns will not swing at a player far above or below them — without
+	this they lock into windup/recover cycles at someone standing on a platform."""
+	if behavior == Behavior.HOPPER:
+		return true
+	return absf(to_player.y) < 34.0
+
+
+func _chase_as_ground(dir: float) -> void:
+	# Ground chasers respect ledges: they stop at the edge rather than dropping off.
 	if is_on_floor() and _is_ledge_ahead(dir):
 		velocity.x = move_toward(velocity.x, 0.0, knockback_decay * 0.02)
 		return
 	velocity.x = dir * _effective_chase_speed()
 
 
-func _chase_as_lunger(dist: float, dir: float) -> void:
-	if dist <= lunge_range:
-		_lunge_dir = dir
-		_state = State.WINDUP
-		_state_timer = windup_time
-		velocity.x = 0.0
-		return
-	if is_on_floor() and _is_ledge_ahead(dir):
-		velocity.x = 0.0
-		return
-	velocity.x = dir * _effective_chase_speed()
-
-
 func _effective_chase_speed() -> float:
-	"""Current chase speed. Kept as a hook (enemies used to be slowed by the
-	player's speech aura, which has since been retired); world-evolution modifiers
-	would attach here."""
-	return chase_speed
+	"""Current chase speed, after any slow a player skill has put on this enemy."""
+	return chase_speed * _mire_mult
 
 
 func _chase_as_hopper(delta: float, to_player: Vector2, dir: float) -> void:
@@ -236,30 +320,62 @@ func _chase_as_hopper(delta: float, to_player: Vector2, dir: float) -> void:
 	if _hop_timer <= 0.0 or player_is_above or blocked:
 		_hop_timer = hop_interval
 		velocity.y = hop_force
-		velocity.x = dir * hop_horizontal * (_effective_chase_speed() / maxf(chase_speed, 0.01))
+		velocity.x = dir * hop_horizontal * _mire_mult
 
 
-# ---- State: WINDUP / LUNGE / RECOVER (lunger pattern) ----
+# ---- State: WINDUP / STRIKE / RECOVER ----
+
+func _begin_windup(dir: float) -> void:
+	_lunge_dir = dir
+	_state = State.WINDUP
+	_state_timer = windup_time
+	_strike_connected = false
+	velocity.x = 0.0
+
 
 func _process_windup(delta: float) -> void:
 	_state_timer -= delta
 	velocity.x = move_toward(velocity.x, 0.0, 800.0 * delta)
-	# Telegraph: the sprite pulses while the enemy is committed to attacking.
+	# Telegraph: the sprite pulses while the enemy is committed to attacking. This is
+	# the window in which a hit interrupts it entirely.
 	_flash_timer = 0.0
-	var pulse: float = 0.5 + 0.5 * sin(_state_timer * 28.0)
-	_sprite.modulate = Color(1.0, 0.4 + pulse * 0.4, 0.4 + pulse * 0.4)
+	if _sprite:
+		# Steady red instead of a strobe when the accessibility option is on. The
+		# telegraph still reads — it is the same colour — it just does not flicker.
+		var pulse: float = 0.0 if GameState.reduce_flashing else 0.5 + 0.5 * sin(_state_timer * 28.0)
+		_sprite.modulate = Color(1.0, 0.4 + pulse * 0.4, 0.4 + pulse * 0.4)
 	if _state_timer <= 0.0:
-		_state = State.LUNGE
+		_state = State.STRIKE
 		_state_timer = lunge_time
 		velocity.x = _lunge_dir * lunge_speed
-		velocity.y = -70.0
+		if strike_rise != 0.0:
+			velocity.y = strike_rise
 
 
-func _process_lunge(delta: float) -> void:
+func _process_strike(delta: float) -> void:
 	_state_timer -= delta
+	_try_connect_strike()
 	if _state_timer <= 0.0 or is_on_wall():
 		_state = State.RECOVER
 		_state_timer = recover_time
+
+
+func _try_connect_strike() -> void:
+	"""Land the strike if the player is inside its reach. Once per strike, so a dash
+	passing through cannot rake for its whole duration."""
+	if _strike_connected:
+		return
+	var player: Node2D = _find_player()
+	if not player or not player.has_method("take_damage"):
+		return
+	if global_position.distance_to(player.global_position) > strike_radius:
+		return
+
+	_strike_connected = true
+	var dir: float = signf(player.global_position.x - global_position.x)
+	if dir == 0.0:
+		dir = _lunge_dir
+	player.call("take_damage", strike_damage, Vector2(dir, -0.5).normalized())
 
 
 func _process_recover(delta: float) -> void:
@@ -296,7 +412,11 @@ func take_damage(amount: float, knockback: Vector2 = Vector2.ZERO) -> void:
 	if _state == State.DEAD:
 		return
 
-	_current_health -= amount
+	# Interrupting a telegraphed strike is the core reward loop: the attack is
+	# cancelled outright and the stagger runs far longer than a normal hit.
+	var interrupted: bool = _state == State.WINDUP
+
+	_current_health -= amount * _reel_mult
 	_flash_timer = 0.2
 
 	velocity = knockback
@@ -305,9 +425,91 @@ func take_damage(amount: float, knockback: Vector2 = Vector2.ZERO) -> void:
 		_die()
 	else:
 		_state = State.HURT
-		_hurt_timer = 0.25
+		_hurt_timer = HURT_STUN_TIME * (INTERRUPT_STUN_MULT if interrupted else 1.0)
+		_strike_connected = true # whatever was winding up does not get to land
 
 	EventBus.enemy_hit.emit(self, amount, knockback)
+
+
+# ---- Status effects ----
+#
+# Applied by player skills so that skills can combine rather than each doing exactly
+# one thing. Every status is a plain timer here; the skill that applied it is gone by
+# the time it matters.
+
+func apply_bleed(dps: float, duration: float) -> void:
+	"""Damage over time. Stacks by taking the stronger source, never by adding."""
+	if dps <= 0.0 or duration <= 0.0:
+		return
+	_bleed_dps = maxf(_bleed_dps, dps)
+	_bleed_timer = maxf(_bleed_timer, duration)
+
+
+func apply_mire(mult: float, duration: float) -> void:
+	"""Slow. mult below 1.0 is slower; the strongest slow wins."""
+	if duration <= 0.0:
+		return
+	_mire_mult = minf(_mire_mult, clampf(mult, 0.05, 1.0))
+	_mire_timer = maxf(_mire_timer, duration)
+
+
+func apply_reeling(mult: float, duration: float) -> void:
+	"""Vulnerability. mult above 1.0 means this enemy takes more damage."""
+	if duration <= 0.0:
+		return
+	_reel_mult = maxf(_reel_mult, maxf(mult, 1.0))
+	_reel_timer = maxf(_reel_timer, duration)
+
+
+func is_bleeding() -> bool:
+	return _bleed_timer > 0.0
+
+
+func is_mired() -> bool:
+	return _mire_timer > 0.0
+
+
+func is_reeling() -> bool:
+	return _reel_timer > 0.0
+
+
+func _tick_statuses(delta: float) -> void:
+	if _bleed_timer > 0.0:
+		_bleed_timer -= delta
+		var tick: float = _bleed_dps * delta
+		_current_health -= tick
+		# Routed through the player so bleed feeds omnivamp (Gorge, Rend) the same
+		# way a swing does — the whole point of layering statuses onto skills.
+		var player: Node2D = _find_player()
+		if player and player.has_method("report_damage_dealt"):
+			player.call("report_damage_dealt", tick)
+		if _bleed_timer <= 0.0:
+			_bleed_dps = 0.0
+		if _current_health <= 0.0 and _state != State.DEAD:
+			_die()
+			return
+
+	if _mire_timer > 0.0:
+		_mire_timer -= delta
+		if _mire_timer <= 0.0:
+			_mire_mult = 1.0
+
+	if _reel_timer > 0.0:
+		_reel_timer -= delta
+		if _reel_timer <= 0.0:
+			_reel_mult = 1.0
+
+
+func _status_tint() -> Color:
+	"""Whichever status is most worth knowing about, or the base colour if none.
+	Reeling wins because it is the one the player can act on right now."""
+	if _reel_timer > 0.0:
+		return REEL_TINT
+	if _bleed_timer > 0.0:
+		return BLEED_TINT
+	if _mire_timer > 0.0:
+		return MIRE_TINT
+	return _base_modulate
 
 
 # ---- Danger sense ----
@@ -315,15 +517,15 @@ func take_damage(amount: float, knockback: Vector2 = Vector2.ZERO) -> void:
 func is_telegraphing() -> bool:
 	"""True when this enemy is committed to hurting the player in the next moment.
 
-	Two shapes of threat: a lunger that has wound up or is mid-lunge, and anything
-	else close enough to land contact damage with its cooldown already spent. The
-	second case is what makes the sense worth having — walkers and hoppers have no
-	windup animation, so their threat is otherwise invisible."""
+	Windup and strike are the honest answer now that every pattern telegraphs. The
+	proximity case is kept for the moment just before a windup begins, so the sense
+	still warns you about something walking into range rather than only about an
+	attack already underway."""
 	if _state == State.DEAD:
 		return false
-	if _state == State.WINDUP or _state == State.LUNGE:
+	if _state == State.WINDUP or _state == State.STRIKE:
 		return true
-	if _contact_timer > 0.0:
+	if _state == State.HURT or _state == State.RECOVER:
 		return false
 	var player: Node2D = _find_player()
 	if not player:
@@ -357,7 +559,14 @@ func _die() -> void:
 # ---- Contact damage ----
 
 func _check_contact_damage() -> void:
+	"""Chip damage for sharing space with a monster — not the main threat.
+
+	Staggered and recovering enemies deal none at all: those states are the player's
+	window to attack, and letting a knocked-back enemy still hurt them on the way out
+	is exactly what made every exchange a trade."""
 	if _state == State.DEAD or _contact_timer > 0.0:
+		return
+	if _state == State.HURT or _state == State.RECOVER:
 		return
 
 	for i: int in range(get_slide_collision_count()):
@@ -370,11 +579,7 @@ func _check_contact_damage() -> void:
 			var dir: float = signf(collider_node.global_position.x - global_position.x)
 			if dir == 0.0:
 				dir = 1.0
-			# A lunge connecting hits noticeably harder than a bump.
-			var damage: float = contact_damage
-			if _state == State.LUNGE:
-				damage *= 1.5
-			collider.call("take_damage", damage, Vector2(dir, -0.5).normalized())
+			collider.call("take_damage", contact_damage, Vector2(dir, -0.5).normalized())
 			_contact_timer = contact_cooldown
 			break
 
@@ -408,13 +613,16 @@ func _find_player() -> Node2D:
 func _update_flash(delta: float) -> void:
 	if _state == State.WINDUP:
 		return # Windup owns the modulate while telegraphing.
+	if not _sprite:
+		return
 	if _flash_timer > 0.0:
 		_flash_timer -= delta
-		_sprite.modulate = Color(2.0, 0.5, 0.5) if fmod(_flash_timer, 0.1) > 0.05 else _base_modulate
+		var strobe: bool = not GameState.reduce_flashing and fmod(_flash_timer, 0.1) <= 0.05
+		_sprite.modulate = _status_tint() if strobe else Color(2.0, 0.5, 0.5)
 	elif _danger_highlight:
 		_sprite.modulate = DANGER_HIGHLIGHT
 	else:
-		_sprite.modulate = _base_modulate
+		_sprite.modulate = _status_tint()
 
 
 func _update_animation() -> void:

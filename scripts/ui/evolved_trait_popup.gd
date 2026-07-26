@@ -8,6 +8,8 @@
 # from the character screen for as long as the combo holds.
 extends Control
 
+const UILayout := preload("res://scripts/ui/ui_layout.gd")
+
 const PAUSE_ID: String = "evolved_trait"
 
 var _panel: Panel
@@ -37,9 +39,7 @@ func _build_ui() -> void:
 	add_child(overlay)
 
 	_panel = Panel.new()
-	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.size = Vector2(320, 210)
-	_panel.position = Vector2(-160, -105)
+	UILayout.center(_panel, 320, 210)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.06, 0.09, 0.08, 0.96)
 	style.border_color = Color("aed6f1")

@@ -16,9 +16,10 @@ Current state: milestone 3 — *the loop exists*.
 | `Space` / `W` | Jump — press again in mid-air to double jump. With wings, hold while falling to glide. |
 | Left mouse / `J` | Melee attack, aimed at the cursor |
 | `Q` / `E` / `R` | Skill slots |
+| `F` | Interact (shrines) |
 | `C` | Character screen (freezes game time) |
-| `F11` / `Alt`+`Enter` | Toggle fullscreen |
-| `Esc` | Pause |
+| `F11` / `F12` / `Alt`+`Enter` | Toggle fullscreen |
+| `Esc` | Settings (freezes the run) |
 
 Firing **any skill while in mid-air refreshes your jump** (not a double jump — the
 ground jump itself is handed back), so weaving a skill into a jump keeps you
@@ -28,8 +29,50 @@ airborne. Aerial skill chains are a real mobility option.
 
 The game renders at a fixed 640×360 and scales up to fill any window or screen
 (`canvas_items` stretch, `expand` aspect), so it is fully resizable and
-fullscreen-able. `F11` or `Alt`+`Enter` toggles borderless fullscreen; the window
-manager lives in `scripts/autoload/window_manager.gd`.
+fullscreen-able. `F11`, `F12` or `Alt`+`Enter` toggles borderless fullscreen; the
+window manager lives in `scripts/autoload/window_manager.gd`.
+
+> The action was bound to physical keycode `4194343` — which is **F12**, not F11, so
+> the documented shortcut did nothing. Both are bound now.
+
+**640×360 is a hard UI budget.** Every screen is built in code and centred, so a panel
+larger than the viewport hangs off both edges with no clipping to warn you. Centre
+panels with `UILayout.center()` (`scripts/ui/ui_layout.gd`) rather than
+`set_anchors_preset(PRESET_CENTER)` plus a manual offset: the preset only resolves
+correctly if the size is assigned in the same pass, so a panel that resizes itself
+later — the devolution popup sizes to its option count — silently ends up at raw
+negative coordinates off the top-left corner.
+
+`tests/ui_smoke_test.tscn` opens every screen, asserts each panel fits *and* sits
+inside the viewport, and saves screenshots:
+
+```
+godot --path . --resolution 1280x720 res://tests/ui_smoke_test.tscn
+```
+
+Do not run `--headless --editor` on this project while the Godot editor is open — it
+hangs on the import lock. Running a scene directly is fine.
+
+## Settings
+
+`Esc` in a run, or the gear button, opens settings (`scripts/ui/settings_panel.gd`).
+The scope is what a small 2D action roguelike actually needs:
+
+| Section | Options |
+| --- | --- |
+| **Display** | Fullscreen, VSync |
+| **Audio** | Master, Music, Sound effects |
+| **Accessibility** | Reduce flashing, Screen shake |
+| **Advanced** | Developer tools |
+
+**Reduce flashing** is not decorative here. Every telegraph in this game is a rapidly
+pulsing sprite colour — enemy windups, the boss slam, the invincibility flicker — which
+is a photosensitivity hazard and is also simply harder to read. With it on, each becomes
+a steady colour in the same hue: the information is preserved, the strobe is not.
+
+**Developer tools** gates the testing controls out of the character screen. Someone
+playtesting normally should see a character sheet, not a god-mode switch and a row of
+trait +/- buttons that make it trivial to invalidate the thing they were testing.
 
 ---
 
@@ -146,6 +189,40 @@ core idea of the trait it comes from.
 Every skill costs **years** off the countdown when it fires, on top of its cooldown. A
 normal attack costs 1 year for comparison.
 
+### The loadout locks between unlocks
+
+Skills can only be **reassigned in the window right after learning a new one**
+(`AbilityManager.can_reassign()`). Filling an *empty* slot is always allowed, so a newly
+learned skill is never stranded. Without this the character screen is a free mid-fight
+loadout swap — pause, slot whatever counters the thing currently killing you, unpause —
+which drains the tension out of every hard moment and makes the trait-driven kit
+meaningless.
+
+### No skill does only one thing
+
+Each skill carries at least two of **{damage, self-buff, movement, status}**. A kit where
+every entry is purely an attack, purely a dash, or purely a buff gives the player nothing
+to combine — the interesting decision is which skill sets up which. The HUD tag reflects
+the mix (`ATK+MOVE`, `BUFF+HEX`), built from the components a skill actually has rather
+than from a single declared kind.
+
+The connective tissue is three **statuses** left on enemies, shared across the whole kit:
+
+| Status | Effect | Why it chains |
+| --- | --- | --- |
+| **Bleed** | Damage over time | Routed through the player's damage report, so it **feeds omnivamp**. Gorge, Rend and Apex Instinct all heal off a bleed anything else applied. |
+| **Mire** | Slow | Buys the spacing the telegraph-based enemies punish you for not having. |
+| **Reeling** | Raises **all** incoming damage on that enemy | Pure setup. Statuses land *after* the applying skill's own damage, so a skill can never amplify its own hit. |
+
+The intended shape: open with a Reeling skill, spend the window on your heaviest hit, and
+keep a Bleed running underneath if you have any omnivamp. **Rend** is the signature combo
+on its own — the heaviest bleed in the game running underneath its own omnivamp window, so
+it heals you off the wound it opened. **Claws** extend this to ordinary swings: with them
+grown, every basic attack leaves a bleed.
+
+This follows how Hades layers its boons — a core action plus a status the rest of the kit
+keys off — rather than giving each skill an isolated, bigger number.
+
 ### Single-trait skills
 
 | Skill | Trait | Kind | CD | Cost | Effect |
@@ -233,21 +310,31 @@ counting down, shown on the HUD.
 | Skill | the skill's own `year_cost` (see the tables above) |
 | Pounce | free |
 
-A run starts at **2000 years**. That figure is the single knob for run length:
+A run starts at **1000 years**. That figure is the single knob for run length:
 `starting_years` on the DevolutionSystem node. The 14 devolution steps are *derived* from
-it, spread along a growth curve and normalised to sum to exactly `starting_years`, so
-raising or lowering it lengthens or shortens the run without desynchronising anything.
+it, spread along a curve and normalised to sum to exactly `starting_years`, so raising or
+lowering it lengthens or shortens the run without desynchronising anything.
 
-At the shipped settings (`devolution_curve_growth = 2.0`, so the last step costs 3× the
-first) the schedule works out to:
+The curve is **geometric**, controlled by `devolution_step_ratio` (10.0 — the last step
+costs 10× the first). Each step costs a fixed multiple of the one before, so the opening
+is genuinely cheap:
 
 ```
-71, 82, 93, 104, 115, 126, 137, 148, 159, 170, 181, 192, 203, 214   = 2000
+step cost:   18  21  25  30  36  43  51  61  73  87 104 124 148 177   = 1000
+cumulative:  18  39  64  94 130 173 225 286 359 446 550 674 823 1000
 ```
 
-So the first devolution takes ~71 attacks and the last takes ~214: devolution starts slow
-and accelerates. Spending your last year lands exactly on your last devolution, so
-**reaching 0 means fully devolved**, which is `PLANNING1.md` section 4's end condition.
+So the **first devolution lands after ~18 attacks** and three land inside the first ~64.
+
+> This replaced a linear curve at 2000 starting years, which put the first devolution
+> ~71 attacks in and every step after that further out still. That meant minutes of play
+> before the game's central mechanic did anything — the opposite of the intended shape,
+> where the body starts failing immediately and the failure then accelerates. A linear
+> ramp cannot fix this on its own: its first step is always within a small factor of its
+> last. A geometric one can.
+
+Spending your last year lands exactly on your last devolution, so **reaching 0 means
+fully devolved**, which is `PLANNING1.md` section 4's end condition.
 
 Because skills are paid for in the same currency, leaning on them burns the run faster.
 That is the intended tension — a 15-year Apex Instinct is fifteen swings you will never
@@ -260,13 +347,39 @@ damage dealt, time survived, wave clears. Kills are deliberately off — kill co
 is close to fixed, which would make the clock a schedule with no skill expression.
 
 Degradation is a **choice**. Each devolution offers a randomized set of **3** traits
-that still have room to degrade, and you pick which one loses a stage (`PLANNING1.md`
-section 6's player-chosen degradation, promoted from a dev toggle to the standard
-flow). The order is now yours: you decide which capabilities to protect and which to
-spend, which is also how you steer toward the evolved-trait combos above. The total is
-still 14 degradations however you order them, so the countdown schedule lines up
-exactly. A dev toggle widens the offer to *every* degradable trait for testing
-(`devolution_choice_count` sets the normal count).
+that still have room to degrade, presented as cards — each with its own border, the
+trait's colour, the stage transition and what it actually costs you — and you pick
+which one loses a stage (`PLANNING1.md` section 6's player-chosen degradation,
+promoted from a dev toggle to the standard flow). The order is now yours: you decide
+which capabilities to protect and which to spend, which is also how you steer toward
+the evolved-trait combos above. The total is still 14 degradations however you order
+them, so the countdown schedule lines up exactly. A dev toggle widens the offer to
+*every* degradable trait for testing (`devolution_choice_count` sets the normal count).
+
+The roll is **weighted toward traits you have kept whole** (`PROTECTION_BIAS`): an
+intact trait is 1.5× as likely to be offered as a partial one. A flat shuffle too often
+produced three options that were all already half gone — an easy step with nothing at
+stake, which turns the fork into a menu. This is a bias and never a rule, so protecting
+a single trait on purpose stays possible, which is what keeps combos like Wings (needs
+intact lungs) and Hide (needs intact skin) reachable by intent rather than by luck.
+
+### Spending years on purpose
+
+Between waves a **shrine** may appear — the countdown as something you choose to spend,
+not only something that drains (`scripts/systems/year_shrine.gd`). Walk to it and press
+`F`:
+
+| Shrine | Price | Effect |
+| --- | --- | --- |
+| **Rest** | 40 yr | Restore 45 health. |
+| **Passage** | 60 yr | Skip the next wave entirely. |
+
+Passage is the more interesting trade: skipping a wave saves every attack that wave
+would have cost, so it is *cheaper than fighting* whenever clearing it would have run
+you more than 60 years — a real calculation rather than a straight tax. The wave number
+still advances, so the boss cycle keeps its rhythm; you are paying to not fight it, not
+to rewind the run. A shrine will not sell you your last year: if the price would end the
+run it reads "not enough years" and refuses.
 
 Alongside the raw counter the HUD shows a logarithmic geological readout (3.50B → 1000),
 which `PLANNING1.md` section 5 settles on. It is a display layer over the same counter,
@@ -330,6 +443,13 @@ One-way platforms use a thin 8px collider pinned to the top surface rather than 
 full-height one. A thick one-way box lets the player end up *inside* it on the way up and
 pop out at the wrong edge — that was the source of the platforms feeling wrong.
 
+Their `one_way_collision_margin` is **16px**, which has to exceed the furthest the player
+can fall in one physics frame or a fast landing passes straight through between frames. At
+`max_fall_speed` 400 px/s and 60 physics ticks/s that distance is 6.67px, and the margin
+used to be 6.0 — already under it, so any landing near terminal velocity could tunnel,
+which is what made double jumps onto those shelves unreliable. 16 clears it with room for
+a dropped frame.
+
 Layout lives in `scripts/systems/arena_renderer.gd`, which generates both the tiles and the
 colliders from one list.
 
@@ -337,22 +457,77 @@ colliders from one list.
 
 ## Enemies
 
-Three movement patterns, mixed per wave and weighted toward walkers early:
+### The combat contract
 
-| Pattern | Behaviour |
-| --- | --- |
-| **Walker** | Patrols, chases on sight, turns at ledges and walls rather than walking off. |
-| **Lunger** | Closes to a stand-off distance, telegraphs with a visible pulse, then lunges hard. A connecting lunge hits 1.5× harder than a bump. |
-| **Hopper** | Chases in hops and jumps when the player is above it, so it uses the platforms. |
+Every enemy hurts you through a **telegraphed strike**, never by standing near you:
 
-**Stage boss** every 3rd wave: twice the size, twice the contact damage, 420 health, and a
-telegraphed ground slam. Boss waves spawn half the usual minions so the boss is the fight.
+```
+CHASE  ->  WINDUP (visible tell)  ->  STRIKE (hit window)  ->  RECOVER (your turn)
+```
 
-Only the lunger telegraphs on its own. **Hindbrain** (Head lost) makes the rest legible for
-its duration: `BaseEnemy.is_telegraphing()` marks a lunger winding up or mid-lunge, plus
-any enemy close enough to land contact damage with its cooldown already spent. A hit flash
-still overrides the highlight, because taking damage should always read first.
-A boss health bar appears at the top of the HUD.
+That loop is the whole fight, and three rules make it fair:
+
+- **Hitting an enemy during WINDUP interrupts the strike outright** and staggers it 2.6×
+  longer than a normal hit. Reading a tell and answering it is the game's core reward.
+- **Staggered and recovering enemies cannot touch you at all.** Those states are your
+  window; letting a knocked-back enemy still damage you on the way out is what made every
+  exchange a trade.
+- **Contact damage is chip only** (6, on a 1.2s cooldown) — a cost for standing inside a
+  monster, not the threat.
+
+Proximity used to *be* the threat: an enemy dealt full contact damage simply by touching
+you, on its own cooldown, even mid-knockback. There was no safe window to attack into, so
+trading hits was the only way to deal damage. Player reach also outranges the walker's
+strike (44px vs 30px) by design, so there is always a distance from which you can hit
+something that cannot hit you back.
+
+On the player's side, melee damage is now checked **every frame the swing is open** rather
+than once when it ends, with a per-swing hit set so each enemy is still hit once. Landing
+it only on the final frame meant you had to stay inside an enemy for the whole 0.2s swing.
+
+### Patterns
+
+Three movement patterns, mixed per wave and weighted toward walkers early. They share the
+loop above and differ in how they close and what they punish:
+
+| Pattern | Behaviour | Punishes |
+| --- | --- | --- |
+| **Walker** | Patrols, chases on sight, turns at ledges. Slow obvious tell, 30px reach, strikes in place. | Standing still — back up one step and it whiffs entirely. |
+| **Lunger** | Commits from 66px out and dashes through you. Longest reach, hardest hit (22). | Standing in a line with it — dodge sideways, not backwards. |
+| **Hopper** | Chases in hops, jumps to reach a player above it, strikes by leaping. Quickest tell (0.35s). | Backing away — the arc follows you. Move under or past it. |
+
+Timings live in `BEHAVIOR_ATTACK_PROFILES`. Hand-tuned enemies (the boss) set
+`use_behavior_profile = false` and keep their scene values, mirroring how
+`use_behavior_sprite` already worked.
+
+### Stage boss
+
+Every 3rd wave: twice the size, 420 health, and a ground slam on top of the normal strike
+loop. Boss waves spawn half the usual minions so the boss is the fight. A boss health bar
+appears at the top of the HUD.
+
+It fights in **phases**, because a boss that never changes is just a walker with a big
+number. Each threshold shortens its tells and adds to the slam, and it reddens as it
+escalates so the phase is legible without UI:
+
+| Phase | Health | Adds |
+| --- | --- | --- |
+| 1 | 100–66% | Ground slam on a slow cycle. |
+| 2 | 66–33% | Faster tells; every slam throws a delayed **outer shockwave**, so standing just past the slam is no longer safe. |
+| 3 | 33–0% | Faster again, and the slam comes **twice in a row**. |
+
+Its damage order is deliberate: **slam 58 > strike 40 > contact 12**. The attack you get
+the most warning about is the one that punishes hardest for eating it. That used to be
+inverted — the slam was 22 against a 45-damage lunge — which quietly taught the player to
+ignore the one attack the fight actually telegraphs.
+
+### Reading the fight
+
+Every pattern telegraphs, but the tell is a sprite pulse you have to be looking at.
+**Hindbrain** (Head lost) makes threat legible for its duration:
+`BaseEnemy.is_telegraphing()` marks anything in WINDUP or STRIKE, plus anything about to
+walk into range. A hit flash still overrides the highlight, because taking damage should
+always read first.
 
 ---
 

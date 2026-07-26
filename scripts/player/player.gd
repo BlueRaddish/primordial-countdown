@@ -61,6 +61,8 @@ var glide_gravity_mult: float = 0.35 # How much gravity wings cancel while glidi
 var has_tail: bool = false # Tail: mid-air steering that survives losing the legs
 var air_control_mult: float = 1.0 # Tail: mid-air steering authority
 var knockback_resist: float = 0.0 # Plates: fraction of incoming knockback shrugged off
+var attack_bleed_dps: float = 0.0 # Claws: ordinary swings leave a bleed
+var attack_bleed_time: float = 0.0
 
 # --- Internal state ---
 var _coyote_timer: float = 0.0
@@ -74,6 +76,9 @@ var _spawn_position: Vector2 = Vector2.ZERO
 var _attack_timer: float = 0.0
 var _attack_cooldown_timer: float = 0.0
 var _is_attacking: bool = false
+# Enemies already damaged by the current swing, so a swing that stays open for
+# several frames still only hits each target once.
+var _hit_this_swing: Array[Node2D] = []
 var _invincibility_timer: float = 0.0
 var _impulse_timer: float = 0.0
 var _facing_right: bool = true
@@ -169,9 +174,12 @@ func recalculate_from_traits(trait_mgr: TraitManager) -> void:
 	air_control_mult = 1.0
 	knockback_resist = 0.0
 
-	# Arms: damage and reach.
+	# Arms: damage and reach. Only a natural weapon bleeds, so this clears back to
+	# nothing and the evolved pass below puts it back if claws have grown.
 	attack_damage = BASE_ATTACK_DAMAGE * trait_mgr.get_arm_damage_mod()
 	_apply_melee_reach(trait_mgr.get_arm_range_mod())
+	attack_bleed_dps = 0.0
+	attack_bleed_time = 0.0
 
 	# Gut: passive health regen.
 	health_regen = trait_mgr.get_gut_regen_rate()
@@ -227,6 +235,8 @@ func _apply_evolved_traits() -> void:
 		arms_blocked = false
 		attack_damage = BASE_ATTACK_DAMAGE * restorer.attack_damage_mult
 		_apply_melee_reach(restorer.attack_range_mult)
+		attack_bleed_dps = restorer.attack_bleed_dps
+		attack_bleed_time = restorer.attack_bleed_time
 
 	# --- legs slot: Tail ---
 	if _evolved_manager.call("has_trait", "tail"):
@@ -482,6 +492,11 @@ func _handle_attack(delta: float) -> void:
 
 	if _is_attacking:
 		_attack_timer -= delta
+		# Damage is checked every frame the swing is open, not once when it ends.
+		# Landing it only on the final frame meant you had to stay inside an enemy for
+		# the whole swing to hit it at all — which is most of why trading damage felt
+		# compulsory. Each enemy is still only hit once per swing.
+		_apply_attack_damage()
 		if _attack_timer <= 0.0:
 			_finish_attack()
 		return
@@ -496,6 +511,7 @@ func _handle_attack(delta: float) -> void:
 func _start_attack() -> void:
 	_is_attacking = true
 	_attack_timer = attack_duration
+	_hit_this_swing.clear()
 
 	# Throat sets the baseline swing recovery; a buff (Second Wind) can cut it back down.
 	var cd_mult: float = attack_cooldown_mult
@@ -522,22 +538,34 @@ func _finish_attack() -> void:
 	_is_attacking = false
 	_attack_shape.disabled = true
 
+
+func _apply_attack_damage() -> void:
+	"""Damage every enemy inside the swing that this swing has not already hit.
+
+	Called on each frame the hitbox is open. The per-swing set is what keeps a 0.2s
+	window from ticking damage twelve times while still letting the hit register the
+	instant an enemy enters reach."""
 	var damage: float = attack_damage
 	if _status_effects:
 		damage *= _status_effects.get_damage_mult()
 
-	# AoE: damage ALL enemies currently overlapping the rotated hitbox.
 	var hit_count: int = 0
-	var overlapping: Array[Node2D] = _attack_hitbox.get_overlapping_bodies()
-	for body: Node2D in overlapping:
-		if body.is_in_group("enemies") and body.has_method("take_damage"):
-			var player_center: Vector2 = global_position + Vector2(0.0, -10.0)
-			var kb_dir: Vector2 = (body.global_position - player_center).normalized()
-			if kb_dir == Vector2.ZERO:
-				kb_dir = _aim_dir
-			var kb: Vector2 = Vector2(kb_dir.x * knockback_force, knockback_up)
-			body.call("take_damage", damage, kb)
-			hit_count += 1
+	for body: Node2D in _attack_hitbox.get_overlapping_bodies():
+		if not body.is_in_group("enemies") or not body.has_method("take_damage"):
+			continue
+		if _hit_this_swing.has(body):
+			continue
+		_hit_this_swing.append(body)
+
+		var player_center: Vector2 = global_position + Vector2(0.0, -10.0)
+		var kb_dir: Vector2 = (body.global_position - player_center).normalized()
+		if kb_dir == Vector2.ZERO:
+			kb_dir = _aim_dir
+		var kb: Vector2 = Vector2(kb_dir.x * knockback_force, knockback_up)
+		body.call("take_damage", damage, kb)
+		if attack_bleed_dps > 0.0 and body.has_method("apply_bleed"):
+			body.call("apply_bleed", attack_bleed_dps, attack_bleed_time)
+		hit_count += 1
 
 	if hit_count > 0:
 		EventBus.attack_landed.emit(hit_count)
@@ -629,7 +657,12 @@ func _handle_regen(delta: float) -> void:
 func _handle_invincibility(delta: float) -> void:
 	if _invincibility_timer > 0.0:
 		_invincibility_timer -= delta
-		_sprite.modulate.a = 0.3 if fmod(_invincibility_timer, 0.1) > 0.05 else 1.0
+		if GameState.reduce_flashing:
+			# Steady semi-transparency rather than a strobe: still obviously
+			# invincible, without the flicker.
+			_sprite.modulate.a = 0.55
+		else:
+			_sprite.modulate.a = 0.3 if fmod(_invincibility_timer, 0.1) > 0.05 else 1.0
 	else:
 		_sprite.modulate.a = 1.0
 

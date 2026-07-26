@@ -34,16 +34,33 @@ var _spawn_queue: int = 0
 var _spawn_timer: float = 0.0
 var _boss_queued: bool = false
 var _started: bool = false
+# Set by a PASSAGE shrine: the next wave is counted but never fought.
+var _skip_next_wave: bool = false
 
 var _arena: Node
 
+# --- Between-wave shrines (ideate 2.1) ---
+# A chance of a year-priced offer after each cleared wave, so the countdown becomes
+# something the player spends deliberately and not only something that drains.
+@export var shrine_chance: float = 0.6
+# Never on the very first clear — the player should have felt the countdown move on
+# its own before being asked to spend it.
+@export var shrine_first_wave: int = 2
+
 
 func _ready() -> void:
+	add_to_group("wave_spawner")
 	EventBus.enemy_died.connect(_on_enemy_died)
 	# Start first wave after a brief delay.
 	_wave_delay_timer = 1.5
 	_started = true
 	call_deferred("_find_arena")
+
+
+func skip_next_wave() -> void:
+	"""Bought from a PASSAGE shrine. The wave still counts toward the wave number and
+	the boss cycle — you are paying to not fight it, not to rewind the run."""
+	_skip_next_wave = true
 
 
 func _find_arena() -> void:
@@ -78,6 +95,15 @@ func _process(delta: float) -> void:
 func _start_next_wave() -> void:
 	_current_wave += 1
 	GameState.current_wave = _current_wave
+
+	# A bought passage: the wave number advances (so the boss cycle keeps its
+	# rhythm) but nothing spawns, and it reports as cleared immediately.
+	if _skip_next_wave:
+		_skip_next_wave = false
+		EventBus.wave_started.emit(_current_wave, 0)
+		EventBus.wave_cleared.emit(_current_wave)
+		_wave_delay_timer = wave_delay
+		return
 
 	var count: int = base_enemies_per_wave + (_current_wave - 1) * enemies_per_wave_growth
 	count = mini(count, max_enemies_per_wave)
@@ -163,3 +189,22 @@ func _on_enemy_died(enemy: Node) -> void:
 	if _alive_enemies.is_empty() and not _spawning and not _boss_queued and _current_wave > 0:
 		EventBus.wave_cleared.emit(_current_wave)
 		_wave_delay_timer = wave_delay
+		_maybe_spawn_shrine()
+
+
+func _maybe_spawn_shrine() -> void:
+	"""Offer a year-priced choice in the gap between waves.
+
+	The delay before the next wave is short, but the shrine survives it and only
+	disappears when the next wave actually starts — so the decision can be made while
+	walking to it rather than against a timer."""
+	if _current_wave < shrine_first_wave:
+		return
+	if randf() > shrine_chance:
+		return
+
+	var shrine: YearShrine = YearShrine.new()
+	# Rest is the common offer; a passage is the rarer, steeper one.
+	shrine.kind = YearShrine.Kind.PASSAGE if randf() < 0.35 else YearShrine.Kind.REST
+	shrine.global_position = _pick_ground_position()
+	get_parent().add_child(shrine)

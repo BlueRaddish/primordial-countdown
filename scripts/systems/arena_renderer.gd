@@ -25,7 +25,13 @@ const TERRAIN_LAYER: int = 3 # project.godot: 2d_physics/layer_3 = "terrain"
 # full-height one. A thick one-way box lets the player end up inside it on the way
 # up and pop out at the wrong edge, which is what made the platforms feel wrong.
 const ONE_WAY_THICKNESS: float = 8.0
-const ONE_WAY_MARGIN: float = 6.0
+# Must exceed the worst-case distance the player can fall in a single physics frame,
+# or a fast fall passes straight through the thin collider between two frames.
+# At player.gd's max_fall_speed of 400 px/s and the project's 60 physics ticks/s
+# that is 400/60 = 6.67 px — the old margin of 6.0 was already below it, so any
+# landing at or near terminal velocity could tunnel. 16 clears it with enough
+# headroom to survive a dropped frame (two frames at terminal velocity = 13.3 px).
+const ONE_WAY_MARGIN: float = 16.0
 
 @export var ground_top_texture: Texture2D
 @export var ground_fill_texture: Texture2D

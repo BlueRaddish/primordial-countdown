@@ -17,6 +17,14 @@ var all_skills: Array[SkillData] = []
 # Currently unlocked skills (conditions met by current traits).
 var available_skills: Array[SkillData] = []
 
+# --- Loadout lock ---
+# Reassigning skills is only allowed in the window right after learning a new one.
+# Without this the character screen is a free mid-fight loadout swap — pause, slot
+# whatever counters the thing currently killing you, unpause — which drains the
+# tension out of every hard moment and makes the trait-driven kit meaningless.
+# Filling an EMPTY slot is always allowed; that is how a skill first lands.
+var _reassign_window_open: bool = false
+
 # Parent player reference.
 var _player: CharacterBody2D
 
@@ -75,6 +83,8 @@ func refresh_available_skills() -> void:
 				was_available = true
 				break
 		if not was_available:
+			# Learning something new is the one moment the loadout opens up.
+			_reassign_window_open = true
 			EventBus.skill_unlocked.emit(skill)
 
 	# Remove skills that are no longer unlocked from slots.
@@ -92,9 +102,19 @@ func refresh_available_skills() -> void:
 				EventBus.skill_assigned.emit(i, null)
 
 
+func can_reassign() -> bool:
+	"""True while the player is allowed to change an occupied slot."""
+	return _reassign_window_open
+
+
 func assign_skill(slot_index: int, skill: SkillData) -> void:
 	if slot_index < 0 or slot_index > 2:
 		return
+	# Occupied slots are locked outside the post-unlock window. An empty slot can
+	# always be filled, so a newly learned skill is never stranded.
+	if skill_slots[slot_index] != null and not _reassign_window_open:
+		return
+	_reassign_window_open = false
 	# Remove skill from other slots if already assigned.
 	for i: int in range(3):
 		if skill_slots[i] != null:
@@ -110,6 +130,8 @@ func assign_skill(slot_index: int, skill: SkillData) -> void:
 
 func unassign_skill(slot_index: int) -> void:
 	if slot_index < 0 or slot_index > 2:
+		return
+	if not _reassign_window_open:
 		return
 	skill_slots[slot_index] = null
 	slot_cooldowns[slot_index] = 0.0
@@ -174,7 +196,23 @@ func _execute_skill(skill: SkillData) -> void:
 		var move_dir: Vector2 = -aim_dir if skill.impulse_reverse else aim_dir
 		_player.call("apply_impulse", move_dir, skill.impulse_speed, skill.impulse_upward_bias)
 
+	# 4. Status component for skills with no damage of their own — a buff or a dash
+	# that still leaves something on everything around you.
+	if skill.status_radius > 0.0 and skill.has_status():
+		_apply_status_in_radius(skill)
+
 	EventBus.skill_used.emit(skill)
+
+
+func _apply_status_in_radius(skill: SkillData) -> void:
+	var origin: Vector2 = _player.global_position + Vector2(0.0, -10.0)
+	for node: Node in get_tree().get_nodes_in_group("enemies"):
+		var enemy: Node2D = node as Node2D
+		if not enemy:
+			continue
+		if origin.distance_to(enemy.global_position) > skill.status_radius:
+			continue
+		skill.apply_status_to(enemy)
 
 
 func _execute_offensive(skill: SkillData, aim_dir: Vector2) -> void:
@@ -198,6 +236,10 @@ func _execute_offensive(skill: SkillData, aim_dir: Vector2) -> void:
 		if kb_dir.length_squared() < 0.01:
 			kb_dir = aim_dir
 		enemy.call("take_damage", damage, Vector2(kb_dir.x * 220.0, -90.0))
+		# Statuses land after the damage, so a skill that both hits and leaves the
+		# target reeling does not amplify its own hit — the setup is for what comes
+		# next, which is what makes it a combo rather than a bigger number.
+		skill.apply_status_to(enemy)
 		hit_count += 1
 
 	if hit_count > 0:

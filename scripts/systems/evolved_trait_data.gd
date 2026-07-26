@@ -55,6 +55,10 @@ extends Resource
 @export var restores_attack: bool = false
 @export var attack_damage_mult: float = 0.0 # 0.0 = no override
 @export var attack_range_mult: float = 0.0  # 0.0 = no override
+# A natural weapon tears rather than strikes: ordinary swings leave a bleed behind,
+# which is also what makes claws worth pairing with any omnivamp.
+@export var attack_bleed_dps: float = 0.0
+@export var attack_bleed_time: float = 0.0
 
 # Gills: breathing moves off the ruined lungs, so swing recovery is paced by this
 # instead of the lungs' penalty. (0.0 = no override)

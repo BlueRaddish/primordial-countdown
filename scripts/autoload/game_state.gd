@@ -15,6 +15,26 @@ var is_run_active: bool = false
 var kill_count: int = 0
 var current_wave: int = 0
 
+# ---- Settings ----
+# Owned here so every screen reads one source of truth. Applied by settings_panel.gd
+# and persisted through SaveManager.
+var master_volume: float = 0.8
+var music_volume: float = 0.7
+var sfx_volume: float = 0.9
+var vsync_enabled: bool = true
+
+# Accessibility. This game telegraphs almost everything through rapidly pulsing
+# sprite colour — enemy windups, boss slams, the invincibility flicker — which is a
+# real problem for photosensitivity and is also just hard to read. With this on,
+# every one of those becomes a steady colour instead of a strobe. The information is
+# preserved; only the flashing goes.
+var reduce_flashing: bool = false
+var screen_shake: bool = true
+
+# Testing controls are hidden from the character screen unless this is on, so normal
+# playtesting shows a character sheet rather than a debug console.
+var show_dev_tools: bool = false
+
 # ---- Dev / testing ----
 var god_mode: bool = false
 var no_skill_cooldown: bool = false

@@ -12,17 +12,21 @@ collision_mask = 5
 script = ExtResource("1_boss")
 behavior = 1
 use_behavior_sprite = false
+use_behavior_profile = false
 max_health = 420.0
 move_speed = 34.0
 chase_speed = 58.0
 detection_range = 240.0
-contact_damage = 30.0
+contact_damage = 12.0
 patrol_distance = 120.0
 lunge_range = 96.0
 windup_time = 0.55
 lunge_speed = 240.0
 lunge_time = 0.35
 recover_time = 0.7
+strike_damage = 40.0
+strike_radius = 36.0
+strike_rise = -70.0
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 texture_filter = 0

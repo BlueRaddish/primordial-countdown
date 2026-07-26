@@ -126,6 +126,26 @@ machine gun.
 
 ---
 
+### Off-screen enemies
+
+The arena is 1080px wide against a 640px viewport and the camera sits at 1.6 zoom, so
+most of the fight is out of frame at any moment. `scripts/ui/offscreen_markers.gd` draws
+a **slowly pulsing red glow on whichever screen edge an off-screen enemy lies past** —
+brighter the closer it is, orange for a boss.
+
+It shows direction and urgency, never a count or a position: it answers "which way, and
+how soon" without becoming a minimap that removes the need to look at the arena. The
+pulse is deliberately slow (2.4 rad/s) because it sits in peripheral vision for a whole
+wave, and it respects **Reduce flashing** — steady instead of pulsing, information kept.
+
+> This existed before as 5px triangles and was **invisible**, for a reason worth
+> remembering: the Control called `set_anchors_preset()` in `_ready()`, but the layout
+> pass that turns anchors into a real `size` had not run yet, so `size` was `(0,0)` and
+> every `_draw()` bailed on its own zero-size guard. It now reads `get_viewport_rect()`
+> directly, which needs no layout pass. This is the same class of bug as the devolution
+> popup that resolved to negative coordinates — **do not trust a Control's `size` during
+> `_ready()`.**
+
 ## The player character
 
 The player is ansimuz's **Gothic hero** (`resources/sprite_frames/player_hero.tres`),

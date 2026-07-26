@@ -161,8 +161,9 @@ func _build_year_counter() -> void:
 
 
 func _build_offscreen_markers() -> void:
-	"""Edge markers pointing at enemies that are off screen. Added first in the child
-	order and given a negative z_index so it can never draw over the readouts."""
+	"""Edge glow pointing at enemies that are off screen. Added first in the child order
+	so every readout still draws over it — the glow hugs the borders, the readouts sit
+	in the top-left, so in practice they never overlap anyway."""
 	var markers: Control = Control.new()
 	markers.set_script(load("res://scripts/ui/offscreen_markers.gd"))
 	markers.name = "OffscreenMarkers"

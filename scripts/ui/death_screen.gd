@@ -22,11 +22,14 @@ const PAUSE_ID: String = "death"
 const _TRAITS: GDScript = preload("res://scripts/player/trait_manager.gd")
 const _STAGES: GDScript = preload("res://scripts/systems/stage_manager.gd")
 
-# Font sizes are multiples of 8, Kenney Pixel's native size. Asking a pixel font for 9 or
-# 11px renders it mushy and unevenly weighted; whole multiples stay crisp.
-const SIZE_TITLE: int = 24
+# Font sizes come off the measurement in devolution_popup.gd, not off the eye: Kenney Pixel
+# puts every glyph on a 64-unit grid at unitsPerEm 1024, so one design pixel is 1/16 em and
+# it rasterises cleanly ONLY at 16, 32, 48. It is the project-wide theme font
+# (project.godot:37), so it is what every label here draws with. 24 and 8 are both off that
+# grid — they smeared exactly as predicted — so the hierarchy is carried by two crisp sizes
+# plus colour, rather than by a third size that cannot be drawn.
+const SIZE_TITLE: int = 32
 const SIZE_BODY: int = 16
-const SIZE_QUIET: int = 8
 
 const COLOR_TITLE: Color = Color("e74c3c")
 const COLOR_BODY: Color = Color(0.90, 0.90, 0.95)
@@ -69,7 +72,7 @@ func _ready() -> void:
 
 
 func _style() -> void:
-	_era_line.add_theme_font_size_override("font_size", SIZE_QUIET)
+	_era_line.add_theme_font_size_override("font_size", SIZE_BODY)
 	_era_line.add_theme_color_override("font_color", COLOR_QUIET)
 
 	_title.text = "YOU DIED"
@@ -93,7 +96,7 @@ func _style() -> void:
 	_closing.add_theme_font_size_override("font_size", SIZE_BODY)
 	_closing.add_theme_color_override("font_color", COLOR_QUIET)
 
-	_menu_btn.add_theme_font_size_override("font_size", SIZE_QUIET)
+	_menu_btn.add_theme_font_size_override("font_size", SIZE_BODY)
 	_menu_btn.add_theme_stylebox_override("normal", _btn_style(Color(0.14, 0.13, 0.18, 0.95)))
 	_menu_btn.add_theme_stylebox_override("hover", _btn_style(Color(0.22, 0.18, 0.24, 0.98)))
 	_menu_btn.add_theme_stylebox_override("pressed", _btn_style(Color(0.10, 0.09, 0.13, 1.0)))

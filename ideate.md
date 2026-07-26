@@ -10,10 +10,206 @@ The north star: **the run should read as a body coming apart and improvising aro
 the wreckage, against a clock that never stops.** Devolution is loss; the only power
 you gain is power that grows out of loss.
 
-**Next up: Tier 1.5 (art/audio pass), then Tier 2.3, then Tier 3.** Tiers 0, 1 and the
-known issues are shipped, as are 2.1 and 2.2. The one Tier 2 item left is 2.3, but it is
-blocked on 3.2 by its own dependency — so the near-term front of the queue is Tier 1.5
-and Tier 3 groundwork.
+**Next up: the playtest punch-list below, then Tier 1.5, then Tier 2.3/Tier 3.** A fresh
+playtest pass turned up 21 items — two of them break the core loop outright — so they jump
+ahead of the art/audio pass. Tiers 0, 1 and the known issues are shipped, as are 2.1 and
+2.2. The one Tier 2 item left is 2.3, but it is blocked on 3.2 by its own dependency.
+
+---
+
+## Playtest punch-list — diagnosed, not yet fixed
+
+21 items from an actual playtest session, each diagnosed against the current code (no
+code was changed doing this — that's for whoever picks these up). Ordered most-important-
+and-easiest first. File/function references are exact; line numbers will drift as the code
+changes, so search for the function name if a line moved.
+
+### P0 — breaks the core loop, fix these first
+
+**1. The run does not end at 0 years.** Root cause found, and it's a real logic bug, not a
+tuning issue: `devolution_system.gd`'s `total_devolutions` counter is capped at
+`_thresholds.size()` (14, one per trait-stage increment across 7 traits × 2 stages), and
+`_try_trigger_devolution()` refuses to fire a 15th time once that cap is hit — but the
+"nothing left to lose, end the run" check (`options.is_empty() → _finished = true;
+EventBus.player_died.emit()`) only happens *inside* `_trigger_devolution()`, which is only
+reachable through that same capped call. So the 14th (final) devolution popup fires and
+resolves completely normally, correctly degrading the last trait to Lost — but nothing
+ever re-checks afterward whether that was the final one, because the counter that would
+trigger that check is already maxed out. The game just keeps running at 0 years with every
+trait fully lost. **Fix direction:** check the end condition independently after
+`apply_devolution()` finishes applying the *last* possible degradation, rather than only
+as a side effect of a new step trying to fire — e.g. after `trait_mgr.devolve_trait()`
+in `apply_devolution()`, check whether `get_devolution_options()` is now empty and end the
+run there directly, instead of relying on a future `_trigger_devolution()` call that will
+never come.
+
+**2. Dash sometimes fires instead of attack.** The input map itself is clean — `attack` is
+left-click/J (`button_index 1`), `dash` is right-click/L-Shift (`button_index 2`), no
+overlapping bindings in `project.godot`. The likely mechanism is in
+`player.gd::_physics_process()`: `_handle_dash(delta)` is checked and resolved *before*
+`_handle_attack(delta)` every single frame, and if it returns `true` (a dash starting or
+already in progress) the function returns immediately, skipping the attack check
+entirely for that frame with no fallback. So any frame where a dash-input registers
+alongside an attack-click — an accidental graze of the right button, a mouse/trackpad that
+double-reports, or an OS-level swapped-buttons accessibility setting — silently eats that
+frame's attack with no retry. **Fix direction:** confirm with the actual hardware first
+(does it reproduce with a different mouse?); if it's genuinely simultaneous-input rather
+than a device quirk, decide whether attack should win ties, or whether dash should require
+its own frame with no attack input rather than always taking priority.
+
+### P1 — high-impact, quick wins
+
+**3. Make the character/everything bigger.** `player.tscn`'s `Camera2D` has no `zoom`
+override at all (confirmed — grepped the scene file, nothing there), so it renders at the
+default `Vector2(1,1)`: true native pixel scale on a 640×360 canvas. The 16×16 player
+sprite is occupying about 2.5% of the viewport's width before the `canvas_items` stretch
+scales the *whole* window up. This is a one-line fix — set `Camera2D.zoom` to something
+like `Vector2(1.5, 1.5)` or `Vector2(2, 2)` and everything on screen (player, enemies,
+arena) gets proportionally bigger at once, no sprite work needed. Re-check platform
+spacing/jump arcs afterward, since `arena_renderer.gd`'s comments size those against the
+player's *screen-space* jump feel as much as the raw pixel numbers.
+
+**4. Fullscreen doesn't work.** The most common cause of this exact complaint is already
+fixed in the current build: `ideate.md`'s own "UI pass" entry above notes
+`toggle_fullscreen` was bound to physical keycode `4194343` (F12) instead of F11, and
+`project.godot` now binds both (`4194342` = F11, `4194343` = F12) to the same action. The
+Settings panel's Fullscreen *button* also calls the same `WindowManager` autoload
+correctly (`settings_panel.gd::_on_fullscreen()` → `/root/WindowManager` →
+`toggle_fullscreen()`), and the autoload is registered in `project.godot`. If this is
+still reproducing on the current build, the most likely remaining explanation is running
+via the Godot editor's embedded/debug window rather than an exported build — fullscreen
+mode switches are a known rough edge there. Worth re-testing in an actual export before
+treating this as unfixed.
+
+**5. The text is hard to read (loadout included).** Not one bug — a pattern across the
+whole UI. Every screen built in code uses 6–9px font sizes: `hud.gd`'s wave/kill/buff
+labels are 8px, `devolution_popup.gd`'s card notes are 8px, `settings_panel.gd`'s rows are
+8px, `skill_unlock_popup.gd`'s hint and skill-list rows are 7px. None of it is blurry
+(pixel-perfect nearest-neighbor scaling per the project's display settings), it's just
+*small* — an 8px glyph on a 640-wide canvas stays proportionally tiny no matter how big the
+window gets. Combined with item 3's lack of camera zoom, this is really one root cause
+(everything is rendered at native 640×360 scale with no allowance made for how small that
+reads on a real monitor) wearing two complaints. **Fix direction:** a pass raising the
+smallest font sizes (the 6–7px labels especially) to a readable floor, likely alongside
+item 3's zoom change rather than instead of it.
+
+### P2 — UX clarity
+
+**6. More description of what the HUD means / what "years till upgrade" is.** The HUD
+(`hud.gd`) shows raw numbers with a label but no explanation: `YEARS LEFT`, a countdown
+readout, `Wave: N`, `Kills: N Atk: N` — someone who hasn't read the README has no way to
+know years *are* the devolution counter, or that the small readout under it is a
+log-scaled "era." There is no tooltip/legend system anywhere in the UI code. **Fix
+direction:** this doesn't need new mechanics, just a one-time explainer — either a
+first-run overlay, or hover tooltips added to the existing HUD labels.
+
+**7. Remove/streamline the info at the top of the HUD (kill count, year, wave).** This is
+in direct tension with item 6 — one asks for more explanation, the other for less
+clutter. Both are right about different things: `hud.gd` currently places the year
+counter, era readout, wave label, kill/attack counter, elapsed time, and buff list all in
+the top-left 8–70px band. **Fix direction:** don't do both blindly — consolidate. Keep
+years-left and health prominent (they're the two numbers that matter every second);
+demote or move kill count / attack count / elapsed time into the character screen (`C`),
+which already exists as the "read the details" surface, rather than trying to explain
+seven simultaneous top-left labels in place.
+
+**8. Add a screen describing the different powerups/abilities.** Confirmed missing —
+there is no codex/tutorial/description screen anywhere in `scripts/ui/`. The closest
+things that exist are `character_screen.gd` (shows current trait stages and grown evolved
+traits, but only what you *have*, not what any of it means or what's still out there) and
+`skill_unlock_popup.gd` (only shows a skill's own description at the moment it unlocks,
+never again as a browsable reference). **Fix direction:** a new screen — could be as
+simple as a scrollable list in the existing character-screen style, reusing
+`evolved_trait_definitions.gd` and `skill_definitions.gd` as the data source, since both
+already carry `description`/`flavor`/requirement text.
+
+**9. Make it clearer skills are interchangeable / why you can't swap mid-game.** The
+mid-run lock is intentional, not a bug — `ability_manager.gd`'s own comment explains it:
+letting the character screen freely reassign skills mid-fight would drain the tension out
+of every hard moment ("slot whatever counters the thing currently killing you, unpause").
+Reassignment only opens in the `skill_unlock_popup.gd` window right after learning
+something new, and that screen does label itself reasonably well (`"(click a slot to put
+the selected skill in it)"`). The actual gap: nothing on the **character screen** (where a
+player would go looking mid-fight to swap) explains *why* the slots are locked there or
+*when* they'll open again — it just doesn't offer the option, silently. **Fix direction:**
+a short, visible note on the character screen's skill panel ("loadout locks after the
+unlock window — next chance: your next new skill") rather than a silent no-op.
+
+### P3 — balance
+
+**10. Losing legs is disproportionately punishing.** Grounded in `trait_manager.gd` and
+`player.gd`: Legs at Lost sets `is_movement_blocked() = true` and `can_jump() = false`,
+removing walking *and* jumping outright — the only trait whose full loss removes a core
+verb rather than a secondary system. Its evolved fallback, Tail, only restores **mid-air**
+steering (`player.gd::_handle_horizontal_movement`'s tail branch explicitly checks `not
+is_on_floor()`) — unlike Claws, which fully restores Arms' actual attack. So even with
+Tail grown, ground movement stays gone forever; only the free dash (unaffected by
+`movement_enabled`, just shortened) and impulse-based skills still move the player at all.
+This is deliberately harsh by design (the trait table says exactly this), but it's the one
+trait whose full-loss compensation doesn't actually give back the lost capability, which
+is probably why it reads as uniquely brutal rather than just "hard like the others."
+
+**11. Too much life.** Player `max_health = 100` against current numbers: a regular
+enemy's contact tick is 6 damage (`base_enemy.gd`), the boss's rebalanced slam/strike are
+38/24 (per the "first boss was unwinnable" fix above). A single regular enemy needs ~16
+unguarded contacts to kill the player, on top of Gut's passive regen continuously topping
+health back up between hits. Worth a numbers pass, but low-risk to tune since nothing else
+reads `max_health` structurally.
+
+**12. Gills feel useless without water terrain.** Partly a legibility problem, partly a
+real gap. The benefit is not actually gated behind terrain — `player.gd::
+_apply_evolved_traits()` applies Gills' swing-penalty cancellation unconditionally the
+moment it's grown (`cd_override = get_attack_cooldown_override(); if cd_override > 0.0:
+attack_cooldown_mult = cd_override`), no map needed. But it's a passive stat correction
+with no visual payoff or dedicated skill (deliberately — see Tier 1.1: "No skill — see
+3.3"), so it's easy to grow and never notice it did anything. The water-terrain hook
+(Tier 3.3, "terrain that reads traits") is the piece that would make Gills legible, and
+it's still unbuilt — that half of the complaint is accurate.
+
+### P4 — audio polish
+
+**13. Music sounds jank.** `audio_manager.gd::play_music()` swaps the base↔boss track
+with a hard cut — `_play_music_stream()` just calls `.play()` on the new stream instantly,
+no fade. The *only* thing that actually crossfades is the late-run tension layer
+(`FADE_SPEED`-driven `move_toward` on `volume_db`). So a boss spawning or dying causes an
+abrupt track switch while everything else in the audio system fades smoothly — the
+inconsistency is likely what reads as "jank" rather than either track individually.
+**Fix direction:** give `play_music()` the same fade treatment the tension layer already
+has, rather than an instant stream swap.
+
+**14. Tune down the sword noises.** `audio_manager.gd::play_sfx()` has no per-sound volume
+calibration at all — every SFX plays at the `AudioStreamPlayer`'s base `volume_db` (0),
+so if `sfx_blade_slice.ogg`'s source recording is simply louder than the others, there's
+nothing in code compensating for it; the three volume sliders in Settings only scale
+whole buses, not individual sounds. **Fix direction:** add a per-SFX `volume_db` offset to
+the `SFX` dictionary (or a parallel one), and turn the blade slice down specifically —
+cheap, since the plumbing (`play_sfx(id, pitch_variance)`) already takes an `id`.
+
+### P5 — content gaps (bigger asks)
+
+**15. "Teleportation to next level" doesn't work.** There is no level/stage-transition
+system anywhere in the code to be broken — confirmed no `teleport`/`portal`/scene-change
+logic exists outside `GameState`'s menu↔game transitions. The only thing that could read
+as "going somewhere" is `year_shrine.gd`'s PASSAGE shrine, drawn as a doorway, which
+*skips the next wave* (`wave_spawner.gd::skip_next_wave()`) rather than transitioning
+anywhere — same arena, no scene change. `stage_manager.gd` (meant to eventually swap
+era backgrounds — swamp/town/cyberpunk) is confirmed an empty stub per
+`ART_RESOURCES.md`. This isn't a bug to patch; it's a feature that was never built. If a
+PASSAGE shrine is what was interacted with, it's working as designed but has no dramatic
+payoff (the wave just reports "cleared" instantly) — worth its own visual beat regardless
+of whether real stage transitions ever get built.
+
+**16. Use the wing skins that already exist.** Already the plan — see Tier 1.5.4 below:
+the angel's full idle+run frame set sits in
+`art-resources/15_selected_devolution_assets/powerup_reference/`, confirmed the one
+genuinely croppable asset from the whole animation review. `body_marks.gd::_draw_wings()`
+still draws a procedural polygon today, working but not using this art. No new
+diagnosis needed here — it's queued, just not done yet.
+
+### Confirmed working — no action needed
+
+**17. Death music works.** Noted as-is; `audio_manager.gd::_on_player_died()` plays the
+death jingle and stops music correctly. Kept here so it doesn't get "fixed" by accident.
 
 ---
 

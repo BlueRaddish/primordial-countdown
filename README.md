@@ -2,9 +2,17 @@
 
 A 2D pixel sidescroller roguelike built in Godot 4.x.
 
-**You devolve. The world around you evolves.** See `PLANNING1.md` for the design.
+**You devolve. The world around you evolves.** A single countdown of years drains with
+every attack and skill you use, and every so often it forces a devolution: you choose
+which of seven traits — arms, legs, gut, lungs, eyes, skin, head — degrades next, in
+exchange for a buff that never fully makes up for what was lost. Clear each stage boss and
+the arena itself reskins into the next of three eras (prehistoric → industrial →
+cyberpunk). There is no way to beat the clock, only to see how much of you is left when it
+hits zero. See `PLANNING1.md` for the full design.
 
-Current state: milestone 3 — *the loop exists*.
+Current state: milestone 3 complete — the loop exists — plus two milestone-4 items
+already shipped on top of it: the era reskin and the ending screen. See `PLANNING1.md` § 9
+for the roadmap.
 
 ---
 
@@ -754,6 +762,50 @@ always read first.
 
 ---
 
+## Eras
+
+The run is one continuous arena, reskinned in place three times rather than three
+separate levels: **prehistoric → industrial → cyberpunk**, in that order, with no way back
+to an earlier one. `scripts/systems/stage_manager.gd` owns it. Era boundaries are hardcoded
+to the boss cycle — era 2 starts after boss 1 dies, era 3 after boss 2 — rather than the
+wave counter directly, and the reskin itself is gated behind the player physically walking
+through an `EraDoor` that only spawns once the wave the boss died in is fully clear.
+Spawning it the instant the boss falls could still leave that wave's stragglers alive
+while the player walks straight past them.
+
+Reskinning only touches appearance: enemy and boss sprites, the parallax backdrop, and the
+base music track all swap per era, while wave counts, stats, health, years, traits and
+skills are completely untouched — `wave_spawner.gd` has no awareness this system exists.
+
+There is no fourth era. Once the cyberpunk boss falls, a wordless toast reads **"No door
+opens after this one."** — not a state change, no pause, just an acknowledgment that the
+world has run out of eras; the run keeps going exactly as it already did past wave 9.
+
+## The ending
+
+There is no win state. `scripts/ui/death_screen.gd` says it outright: the countdown is
+the antagonist and it always wins, so a screen that could say "you won" would be telling a
+different story than the rest of the game. Every run ends here.
+
+The picture behind the text is the run itself — the era backdrop the player actually
+reached and their own devolved sprite, held still by the paused tree — not a generic
+game-over graphic. The dimmer over it is tinted per era, so the ending reads as coloured
+by how far the player got rather than always looking the same.
+
+The readout reports the run in ascending specificity:
+
+| Line | Reports |
+| --- | --- |
+| Stats | Wave reached, kills, and which of the 3 eras |
+| Remains | How many of the 7 traits were still intact when it ended, named if only one or two |
+| Devolution | A severity line, bucketed on total degradations across all traits (0, 1–4, 5–9, 10–13, 14) |
+
+The devolution buckets share their thresholds with `ideate.md`'s sketched body-stage
+avatar system, so if that system gets built later its visuals line up with what this line
+already says rather than drifting from it.
+
+---
+
 ## Art
 
 The player and boss are animated sprites from 0x72's DungeonTileset II, at four frames per
@@ -762,9 +814,12 @@ idle and run cycle. The three enemy patterns wear the cyberpunk era's CraftPix s
 0x72 minions followed — a pattern is given its own distinct body so it's legible before it
 even moves:
 
+This is the run's final (cyberpunk) look — see **Eras** below for the two reskins
+enemies and the boss go through earlier in the run. The player never reskins per era.
+
 | On screen | Sprite | Frame size |
 | --- | --- | --- |
-| Player | `knight_m` | 16×28 |
+| Player | Gothic hero (`player_hero`) | varies per animation — see the player character table above |
 | Walker | Biker (cyberpunk) | 33×34, drawn at 0.6× |
 | Lunger | Punk (cyberpunk) | 27×34, drawn at 0.6× |
 | Hopper | Cyborg (cyberpunk) | 32×35, drawn at 0.6× |

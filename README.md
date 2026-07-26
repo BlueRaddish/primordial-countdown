@@ -107,11 +107,12 @@ run getting late sounds like something added to the world, not a different song.
 small voice pool with slight pitch scatter keeps repeated swings from turning into a
 machine gun.
 
-> **Known gap:** the music is still 16-bit WAV (~30MB). `ART_RESOURCES.md` asks for OGG
-> conversion before import and there is no ffmpeg on this machine. Converting is a
-> drop-in replacement — the `preload` paths in `audio_manager.gd` are the only thing
-> that changes. Music is North Fantasy Music under **CC BY 4.0** and needs attribution;
-> everything else is Kenney CC0.
+> **Format:** everything is OGG Vorbis. The music arrived as 16-bit WAV (30MB) and was
+> converted with libsndfile via Python's `soundfile` — there is no ffmpeg on this
+> machine — down to **1.8MB** with identical duration, channels and sample rate. If you
+> ever repeat it: libsndfile's Vorbis encoder crashes outright on a whole 72-second
+> buffer, so the conversion has to be written in blocks. Music is North Fantasy Music
+> under **CC BY 4.0** and needs attribution; everything else is Kenney CC0.
 
 ---
 
@@ -373,7 +374,7 @@ What stage 1 actually costs, at 1 year per swing:
 wave 1   5 mobs x 2 swings                       = 10
 wave 2   7 mobs x 2 swings                       = 14
 wave 3   4 mobs x 2 swings + boss (260/25 = 11)  = 19
-                                          total  = 43 swings
+										  total  = 43 swings
 ```
 
 (Perfect accuracy with no skills — a whiff still costs its year, so 43 is the floor.)

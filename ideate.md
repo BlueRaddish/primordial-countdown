@@ -160,9 +160,11 @@ Everything here came out of actually playing the build, and all of it is verifie
   sound changes with their armour state; a tension layer fades in under 45% years
   remaining. Wired to the settings sliders through real Master/Music/SFX buses.
 
-**Still open:** the music is 16-bit WAV (~30MB) — `ART_RESOURCES.md` wants OGG and there
-is no ffmpeg here. Control rebinding is still a static reference list, and settings are
-not persisted (`SaveManager` remains unused).
+Music was converted to OGG Vorbis as `ART_RESOURCES.md` asks: 30MB -> 1.8MB, same
+duration/channels/rate, done with libsndfile via Python since there is no ffmpeg here.
+
+**Still open:** control rebinding is a static reference list, and settings are not
+persisted (`SaveManager` remains unused).
 
 ---
 

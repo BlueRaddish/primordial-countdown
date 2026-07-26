@@ -14,10 +14,11 @@
 # the music, which is North Fantasy Music under CC BY 4.0 and is credited in the
 # README — see ART_RESOURCES.md.
 #
-# KNOWN GAP: the music is still 16-bit WAV. ART_RESOURCES.md asks for OGG conversion
-# before import (Godot embeds the raw size otherwise) and there is no ffmpeg on this
-# machine, so it is ~30MB of the repo. Converting is a drop-in replacement — the paths
-# below are the only thing that would change.
+# FORMAT: everything is OGG Vorbis, as ART_RESOURCES.md asks for. The music started as
+# 16-bit WAV (30MB) and was converted with libsndfile via Python's soundfile — there is
+# no ffmpeg on this machine. 30MB -> 1.8MB with identical duration, channels and rate.
+# Note for anyone repeating it: libsndfile's Vorbis encoder crashes outright on a whole
+# 72-second buffer, so the conversion has to be written in blocks.
 extends Node
 
 # --- SFX ---
@@ -38,12 +39,12 @@ const SFX: Dictionary = {
 }
 
 # --- Music ---
-const MUSIC_BASE: AudioStream = preload("res://assets/audio/music/music_swamp_era.wav")
-const MUSIC_BOSS: AudioStream = preload("res://assets/audio/music/music_boss_tension.wav")
+const MUSIC_BASE: AudioStream = preload("res://assets/audio/music/music_swamp_era.ogg")
+const MUSIC_BOSS: AudioStream = preload("res://assets/audio/music/music_boss_tension.ogg")
 # Layered on top rather than replacing the base: the run getting late should sound
 # like something added to the world, not like a different track.
 const MUSIC_LATE_LAYER: AudioStream = preload(
-	"res://assets/audio/music/music_late_run_tension_layer.wav"
+	"res://assets/audio/music/music_late_run_tension_layer.ogg"
 )
 
 # Years-remaining fraction below which the tension layer fades in.
@@ -161,8 +162,11 @@ func stop_music() -> void:
 # ---- Internals ----
 
 func _play_music_stream(player: AudioStreamPlayer, stream: AudioStream, db: float) -> void:
-	# These are WAVs, which do not carry a loop flag from the importer — set it on the
-	# resource so the track repeats instead of stopping dead after one pass.
+	# The importer does not mark these as looping, so set it on the resource — a music
+	# bed that stops dead after one pass is worse than no music.
+	var ogg: AudioStreamOggVorbis = stream as AudioStreamOggVorbis
+	if ogg:
+		ogg.loop = true
 	var wav: AudioStreamWAV = stream as AudioStreamWAV
 	if wav and wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:
 		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD

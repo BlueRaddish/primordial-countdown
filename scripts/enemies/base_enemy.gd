@@ -24,6 +24,8 @@
 class_name BaseEnemy
 extends CharacterBody2D
 
+const Vfx := preload("res://scripts/vfx/vfx.gd")
+
 enum State { PATROL, CHASE, WINDUP, STRIKE, RECOVER, HURT, DEAD }
 enum Behavior { WALKER, LUNGER, HOPPER }
 
@@ -143,6 +145,9 @@ var _flash_timer: float = 0.0
 var _lunge_dir: float = 1.0
 # One connect per strike, so a dash cannot rake the player for its whole duration.
 var _strike_connected: bool = false
+# The windup warning ring, held so an interrupt can collapse it — a ring that kept
+# filling for a strike that is no longer coming would be actively lying.
+var _telegraph: Node2D = null
 
 # --- Status effects, applied by player skills (see status_effects.gd) ---
 var _bleed_timer: float = 0.0
@@ -384,6 +389,11 @@ func _begin_windup(dir: float) -> void:
 	_state_timer = windup_time
 	_strike_connected = false
 	velocity.x = 0.0
+	# A ring at the TRUE strike radius that fills as the windup runs out. The sprite
+	# pulse said "something is coming"; it said nothing about where it lands or how far
+	# it reaches, which is the information the whole telegraph contract depends on —
+	# a walker's 30px swipe and a lunger's 66px commit looked identical.
+	_telegraph = Vfx.telegraph(get_parent(), self, strike_radius, windup_time)
 
 
 func _process_windup(delta: float) -> void:
@@ -398,6 +408,7 @@ func _process_windup(delta: float) -> void:
 		var pulse: float = 0.0 if GameState.reduce_flashing else 0.5 + 0.5 * sin(_state_timer * 28.0)
 		_sprite.modulate = Color(1.0, 0.4 + pulse * 0.4, 0.4 + pulse * 0.4)
 	if _state_timer <= 0.0:
+		_cancel_telegraph()
 		_state = State.STRIKE
 		_state_timer = lunge_time
 		velocity.x = _lunge_dir * lunge_speed
@@ -429,6 +440,13 @@ func _try_connect_strike() -> void:
 	if dir == 0.0:
 		dir = _lunge_dir
 	player.call("take_damage", strike_damage, Vector2(dir, -0.5).normalized())
+	# The strike, drawn at its real radius: what you see is what could have hit you.
+	Vfx.enemy_strike(
+		get_parent(),
+		global_position + Vector2(0.0, -10.0),
+		strike_radius,
+		Vector2(dir, -0.25).normalized()
+	)
 
 
 func _process_recover(delta: float) -> void:
@@ -468,6 +486,18 @@ func take_damage(amount: float, knockback: Vector2 = Vector2.ZERO) -> void:
 	# Interrupting a telegraphed strike is the core reward loop: the attack is
 	# cancelled outright and the stagger runs far longer than a normal hit.
 	var interrupted: bool = _state == State.WINDUP
+	if interrupted:
+		_cancel_telegraph()
+		# A distinct pop for the interrupt, so the payoff for reading the tell is
+		# visible rather than only felt in the stagger duration.
+		var pop: Node2D = Vfx.sprite(
+			get_parent(), global_position + Vector2(0.0, -10.0), Vfx.TEX_STAR
+		)
+		if pop:
+			pop.set("color", Color("f7dc6f"))
+			pop.set("start_size", 12.0)
+			pop.set("end_size", 40.0)
+			pop.set("lifetime", 0.28)
 
 	_current_health -= amount * _reel_mult
 	_flash_timer = 0.2
@@ -586,6 +616,12 @@ func is_telegraphing() -> bool:
 	return global_position.distance_to(player.global_position) < CONTACT_TELL_RANGE
 
 
+func _cancel_telegraph() -> void:
+	if is_instance_valid(_telegraph):
+		_telegraph.call("cancel")
+	_telegraph = null
+
+
 func set_danger_highlight(on: bool) -> void:
 	"""Mark this enemy as an imminent threat. _update_flash paints it; a hit flash
 	still wins, since taking damage should always read first."""
@@ -602,6 +638,8 @@ func _die() -> void:
 	_state = State.DEAD
 	_death_timer = 0.4
 	velocity.x = 0.0
+	_cancel_telegraph()
+	Vfx.death(get_parent(), global_position + Vector2(0.0, -10.0), Color("ff9a6a"))
 	# Disable all collision.
 	set_collision_layer_value(2, false)
 	set_collision_mask_value(1, false)

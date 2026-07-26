@@ -9,6 +9,8 @@
 class_name StatusEffects
 extends Node
 
+const Vfx := preload("res://scripts/vfx/vfx.gd")
+
 
 class ActiveBuff extends RefCounted:
 	var id: String = ""
@@ -196,12 +198,20 @@ func _tick_pulse(buff: ActiveBuff, delta: float) -> void:
 	var origin: Vector2 = _player.global_position + Vector2(0.0, -10.0)
 	var hits: int = _damage_enemies_near(origin, buff.pulse_radius, buff.pulse_damage, 90.0)
 
-	var indicator: AoEIndicator = AoEIndicator.new()
-	indicator.aoe_center = origin
-	indicator.aoe_radius = buff.pulse_radius
-	indicator.aoe_color = buff.color
-	indicator.is_directional = false
-	_player.get_parent().add_child(indicator)
+	# Echo Sense's pulse: the ring is drawn at the true pulse radius, over the solid
+	# area that actually damages, so "did that reach it" is answerable by looking.
+	var hb: Node2D = Vfx.hitbox(_player.get_parent(), origin)
+	if hb:
+		hb.set("color", buff.color)
+		hb.set("radius", buff.pulse_radius)
+		hb.set("lifetime", 0.22)
+	var ring: Node2D = Vfx.sprite(_player.get_parent(), origin, Vfx.TEX_MAGIC_RING)
+	if ring:
+		ring.set("color", buff.color)
+		ring.set("start_size", buff.pulse_radius * 0.4)
+		ring.set("end_size", buff.pulse_radius * 2.1)
+		ring.set("lifetime", 0.34)
+		ring.set("start_alpha", 0.75)
 
 	if hits > 0 and _player.has_method("report_damage_dealt"):
 		_player.call("report_damage_dealt", buff.pulse_damage * float(hits))

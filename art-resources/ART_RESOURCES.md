@@ -20,6 +20,16 @@ This folder is a staging area — copy out only what you use.
 
 ## Currently wired into the game
 
+- `assets/sprites/vfx/*.png` — 22 textures from the **Kenney Particle Pack** (CC0),
+  downloaded 2026-07-25 and driving every combat effect through
+  `scripts/vfx/vfx.gd`: sparks, slashes, muzzle flashes, smoke, dirt, scorch, flares,
+  traces, twirls. This replaced the pack-4-era gap left when CodeManu's VFX pack was
+  culled — the game had no effect art at all, so every hit, buff, dash and boss slam
+  spawned the same drawn circle. Source:
+  https://kenney.nl/assets/particle-pack
+- `assets/audio/` — the curated SFX/jingles plus four music tracks, converted from
+  WAV to OGG Vorbis (30MB -> 1.8MB).
+
 - `assets/sprites/backgrounds/volcano/bg_volcano_1.png` … `_6.png` — driving
   `parallax_backdrop.gd`, referenced by `scenes/main/game.tscn`. **Scrapped**:
   the team decided against a volcanic look in favor of the three eras below.

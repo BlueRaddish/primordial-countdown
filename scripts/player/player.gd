@@ -3,6 +3,10 @@
 # Stats are rebuilt from TraitManager on every trait change via recalculate_from_traits().
 extends CharacterBody2D
 
+# Every visual effect goes through this. Preloaded rather than referenced by
+# class_name so headless runs do not depend on the editor having rescanned.
+const Vfx := preload("res://scripts/vfx/vfx.gd")
+
 # --- Base constants (never change) ---
 const BASE_MOVE_SPEED: float = 120.0
 const BASE_ACCELERATION: float = 900.0
@@ -391,6 +395,27 @@ func _get_devolution_fraction(trait_mgr: TraitManager) -> float:
 	return float(total) / float(max_total)
 
 
+func _melee_rect_size() -> Vector2:
+	"""The AttackHitbox's live extents, read from the shape itself so the drawn box is
+	the real one even after the arms degrade and shrink it."""
+	if _attack_shape:
+		var rect: RectangleShape2D = _attack_shape.shape as RectangleShape2D
+		if rect:
+			return rect.size
+	return Vector2(BASE_MELEE_LENGTH, 28.0)
+
+
+func _melee_offset() -> float:
+	"""How far the hitbox sits from the player, again read from the live node."""
+	if _attack_shape:
+		return _attack_shape.position.x
+	return BASE_MELEE_RANGE
+
+
+func _melee_reach() -> float:
+	return _melee_offset() + _melee_rect_size().x * 0.5
+
+
 func _apply_melee_reach(range_mod: float) -> void:
 	"""Shrink the melee hitbox toward the player as the arms degrade.
 
@@ -649,12 +674,14 @@ func get_dash_cooldown_fraction() -> float:
 
 
 func _spawn_dash_trail() -> void:
-	var trail: AoEIndicator = AoEIndicator.new()
-	trail.aoe_center = global_position + Vector2(0.0, -10.0)
-	trail.aoe_radius = 16.0
-	trail.aoe_color = Color(0.75, 0.9, 1.0)
-	trail.is_directional = false
-	get_parent().add_child(trail)
+	# A streak along the roll rather than a circle: the dash is directional, and a
+	# symmetric puff said nothing about which way you had committed.
+	Vfx.dash_trail(
+		get_parent(),
+		global_position + Vector2(0.0, -10.0),
+		Vector2(_dash_dir, 0.0),
+		Color(0.75, 0.9, 1.0)
+	)
 
 
 # ---- Drop-through ----
@@ -739,23 +766,22 @@ func _apply_squash_stretch(delta: float) -> void:
 	_sprite.scale = _sprite.scale.lerp(Vector2.ONE, clampf(squash_recovery * delta, 0.0, 1.0))
 
 
-func _spawn_dust(at: Vector2, radius: float, colour: Color) -> void:
-	var dust: AoEIndicator = AoEIndicator.new()
-	dust.aoe_center = at
-	dust.aoe_radius = radius
-	dust.aoe_color = colour
-	dust.is_directional = false
-	get_parent().add_child(dust)
+func _spawn_dust(at: Vector2, radius: float, _colour: Color) -> void:
+	# Radius is reused as "how hard" — a heavier landing throws more.
+	Vfx.dust(get_parent(), at, clampf(radius / 10.0, 0.4, 2.0))
 
 
 func _spawn_air_jump_puff() -> void:
-	"""Small burst under the player so the second jump reads visually."""
-	var puff: AoEIndicator = AoEIndicator.new()
-	puff.aoe_center = global_position
-	puff.aoe_radius = 12.0
-	puff.aoe_color = Color(0.8, 0.9, 1.0)
-	puff.is_directional = false
-	get_parent().add_child(puff)
+	"""A downward kick of air under the feet, so the second jump reads as pushing off
+	something rather than as a generic sparkle."""
+	var ring: Node2D = Vfx.sprite(get_parent(), global_position, Vfx.TEX_TWIRL)
+	if ring:
+		ring.set("color", Color(0.8, 0.9, 1.0))
+		ring.set("start_size", 8.0)
+		ring.set("end_size", 30.0)
+		ring.set("lifetime", 0.26)
+		ring.set("start_alpha", 0.7)
+	Vfx.dust(get_parent(), global_position, 0.5)
 
 
 # ---- Horizontal movement ----
@@ -845,6 +871,18 @@ func _start_attack() -> void:
 	if _slash_effect:
 		_slash_effect.play(attack_duration, _aim_angle)
 
+	# The true melee hitbox, drawn solid, with the swing arc over it — so the reach
+	# you see is the reach that actually connects.
+	var swing_center: Vector2 = global_position + Vector2(0.0, -10.0) + _aim_dir * _melee_offset()
+	var box: Node2D = Vfx.hitbox(get_parent(), swing_center)
+	if box:
+		box.set("shape", 1) # VfxHitbox.Shape.RECT
+		box.set("color", melee_aoe_color)
+		box.set("rect_size", _melee_rect_size())
+		box.set("angle", _aim_angle)
+		box.set("lifetime", attack_duration + 0.06)
+	Vfx.slash(get_parent(), swing_center, _aim_angle, _melee_reach(), melee_aoe_color)
+
 	# This is the devolution clock's driver: every swing counts, landed or not.
 	EventBus.attack_made.emit()
 
@@ -878,8 +916,11 @@ func _apply_attack_damage() -> void:
 			kb_dir = _aim_dir
 		var kb: Vector2 = Vector2(kb_dir.x * knockback_force, knockback_up)
 		body.call("take_damage", damage, kb)
+		Vfx.impact(get_parent(), body.global_position + Vector2(0.0, -10.0), kb_dir, melee_aoe_color)
 		if attack_bleed_dps > 0.0 and body.has_method("apply_bleed"):
 			body.call("apply_bleed", attack_bleed_dps, attack_bleed_time)
+			# Claws tear rather than strike, so a bleeding hit gets its own mark.
+			Vfx.sprite(get_parent(), body.global_position + Vector2(0.0, -10.0), Vfx.TEX_SCRATCH)
 		hit_count += 1
 
 	if hit_count > 0:
@@ -961,6 +1002,14 @@ func _on_player_hit(_damage: float, knockback_dir: Vector2) -> void:
 	velocity = knockback_dir * hit_knockback_force * (1.0 - knockback_resist)
 	velocity.y = minf(velocity.y, -60.0)
 	_invincibility_timer = invincibility_duration
+	# Taking a hit needs to read as loudly as landing one — in red, from the direction
+	# it came, so a bad trade is legible in the moment rather than only on the bar.
+	Vfx.impact(
+		get_parent(),
+		global_position + Vector2(0.0, -10.0),
+		knockback_dir.normalized(),
+		Color("ff5a4a")
+	)
 
 
 func _on_player_died() -> void:

@@ -19,6 +19,8 @@
 class_name YearShrine
 extends Area2D
 
+const Vfx := preload("res://scripts/vfx/vfx.gd")
+
 enum Kind { REST, PASSAGE }
 
 @export var kind: Kind = Kind.REST
@@ -138,12 +140,17 @@ func _activate() -> void:
 			if spawner and spawner.has_method("skip_next_wave"):
 				spawner.call("skip_next_wave")
 
-	var flare: AoEIndicator = AoEIndicator.new()
-	flare.aoe_center = global_position
-	flare.aoe_radius = INTERACT_RADIUS * 1.6
-	flare.aoe_color = _accent()
-	flare.is_directional = false
-	get_parent().add_child(flare)
+	# Paying a shrine costs years, so it gets a real send-off rather than a flat blip.
+	var burst: Node2D = Vfx.sprite(get_parent(), global_position, Vfx.TEX_FLARE)
+	if burst:
+		burst.set("color", _accent())
+		burst.set("start_size", INTERACT_RADIUS * 0.6)
+		burst.set("end_size", INTERACT_RADIUS * 3.0)
+		burst.set("lifetime", 0.55)
+	if kind == Kind.REST:
+		Vfx.heal(get_parent(), global_position + Vector2(0.0, -12.0))
+	else:
+		Vfx.buff(get_parent(), global_position + Vector2(0.0, -12.0), _accent())
 
 	queue_free()
 

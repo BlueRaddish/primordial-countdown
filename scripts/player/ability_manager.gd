@@ -28,6 +28,7 @@ var _reassign_window_open: bool = false
 # Preloaded rather than referenced by class_name: a newly declared global class is
 # invisible to a headless run until the editor rescans.
 const SweepIndicator := preload("res://scripts/player/sweep_indicator.gd")
+const Vfx := preload("res://scripts/vfx/vfx.gd")
 
 # --- Travelling hitbox state (see _begin_sweep) ---
 var _sweep_skill: SkillData = null
@@ -224,9 +225,9 @@ func _execute_skill(skill: SkillData) -> void:
 	elif skill.aoe_damage > 0.0:
 		_execute_offensive(skill, aim_dir)
 	else:
-		# Buff and movement skills still show a burst centred on the player.
-		_show_aoe(_player.global_position + Vector2(0.0, -10.0), skill.aoe_radius,
-			skill.aoe_color, false, aim_dir)
+		# Buff and movement skills get the cast punctuation instead of a hit area,
+		# since they have no area that hurts anything.
+		_show_cast(skill)
 
 	# 2. Buff component.
 	if skill.buff_duration > 0.0:
@@ -303,14 +304,14 @@ func _tick_sweep(delta: float) -> void:
 			kb_dir = Vector2.RIGHT
 		enemy.call("take_damage", damage, Vector2(kb_dir.x * 220.0, -90.0))
 		_sweep_skill.apply_status_to(enemy)
-		# A pop on each target as the sweep passes through it, so a connect is
+		# A spark on each target as the sweep passes through it, so a connect is
 		# distinguishable from a near miss at speed.
-		var pop: AoEIndicator = AoEIndicator.new()
-		pop.aoe_center = enemy.global_position
-		pop.aoe_radius = _sweep_skill.aoe_radius * 0.55
-		pop.aoe_color = _sweep_skill.aoe_color
-		pop.is_directional = false
-		_player.get_parent().add_child(pop)
+		Vfx.impact(
+			_player.get_parent(),
+			enemy.global_position + Vector2(0.0, -10.0),
+			kb_dir,
+			_sweep_skill.aoe_color
+		)
 		hit_count += 1
 
 	if hit_count > 0:
@@ -355,6 +356,10 @@ func _execute_offensive(skill: SkillData, aim_dir: Vector2) -> void:
 		if kb_dir.length_squared() < 0.01:
 			kb_dir = aim_dir
 		enemy.call("take_damage", damage, Vector2(kb_dir.x * 220.0, -90.0))
+		Vfx.impact(
+			_player.get_parent(), enemy.global_position + Vector2(0.0, -10.0),
+			kb_dir, skill.aoe_color
+		)
 		# Statuses land after the damage, so a skill that both hits and leaves the
 		# target reeling does not amplify its own hit — the setup is for what comes
 		# next, which is what makes it a combo rather than a bigger number.
@@ -371,17 +376,29 @@ func _execute_offensive(skill: SkillData, aim_dir: Vector2) -> void:
 	_show_aoe(center, skill.aoe_radius, skill.aoe_color, skill.is_directional, aim_dir)
 
 
+func _show_cast(skill: SkillData) -> void:
+	"""Punctuation on the player when a skill fires. Buffs get rising motes, so a
+	self-buff never reads the same as an attack going off."""
+	var at: Vector2 = _player.global_position + Vector2(0.0, -10.0)
+	Vfx.cast(_player.get_parent(), at, skill.aoe_color, maxf(skill.aoe_radius, 20.0))
+	if skill.buff_duration >= 1.0:
+		Vfx.buff(_player.get_parent(), at, skill.aoe_color)
+
+
 func _show_aoe(center: Vector2, radius: float, color: Color, directional: bool, aim_dir: Vector2) -> void:
 	if not _player:
 		return
-	var indicator: AoEIndicator = AoEIndicator.new()
-	indicator.aoe_center = center
-	indicator.aoe_radius = radius
-	indicator.aoe_color = color
-	indicator.is_directional = directional
-	indicator.direction = aim_dir
-	# Add to game root so it stays in world space.
-	_player.get_parent().add_child(indicator)
+	# The true hit area drawn solid, with the flourish over it — so a skill's real
+	# reach is legible instead of being implied by a burst that overshoots it.
+	var hb: Node2D = Vfx.hitbox(_player.get_parent(), center)
+	if hb:
+		hb.set("color", color)
+		hb.set("radius", radius)
+		hb.set("lifetime", 0.24)
+		if directional:
+			hb.set("shape", 2) # VfxHitbox.Shape.ARC
+			hb.set("angle", aim_dir.angle())
+	Vfx.aoe(_player.get_parent(), center, color, radius)
 
 
 func get_skill_in_slot(slot_index: int) -> SkillData:

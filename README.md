@@ -126,6 +126,40 @@ machine gun.
 
 ---
 
+## Visual effects
+
+Every effect goes through `scripts/vfx/vfx.gd`, one named call each — `impact`,
+`slash`, `cast`, `aoe`, `telegraph`, `slam`, `death`. Before this, gameplay code
+spawned `AoEIndicator` directly, so a landed hit, a buff, a dash and a boss slam all
+produced the *same fading circle*. In a game whose whole contract is "read what is
+about to happen", that is a real problem, not a polish gap.
+
+**Two kinds of effect, deliberately:**
+
+| Kind | Used for | Why |
+| --- | --- | --- |
+| **Sprites** (Kenney Particle Pack, CC0) | sparks, slashes, smoke, scorch, flares | Real texture reads far better than drawn shapes against pixel art |
+| **Procedural** (`vfx_hitbox.gd`, `vfx_telegraph.gd`, `sweep_indicator.gd`) | the true hitbox shape, an enemy's real strike radius | A texture cannot follow a number that gets retuned; a drawn shape can |
+
+**The hitbox is drawn under the animation.** An animation is a lie by design — it
+flourishes past its own reach for feel. Every attack therefore draws its *real* shape
+(the melee `RectangleShape2D` at its live size and offset, a skill's `aoe_radius`, an
+enemy's `strike_radius`) as a solid translucent form at `z_index 4`, with the sprite
+flourish over it at `z_index 8`. What you see is what hits, and it still has weight.
+
+**Enemy telegraphs are the biggest win.** The tell used to be the sprite pulsing red —
+which says *something* is coming and nothing about where it lands or how far it
+reaches. A walker's 30px swipe and a lunger's 66px commit looked identical. Now a ring
+is drawn at the true strike radius and fills as the windup runs out, tracking the enemy
+as it moves; interrupting collapses it, because a ring still filling for a strike that
+is no longer coming would be lying. The boss slam gets the same treatment at its blast
+radius.
+
+Effects are also given distinct *shapes of motion*: hits throw directional shards, buffs
+rise, dust falls and drifts, slams scorch the ground and throw debris.
+
+---
+
 ## Traits
 
 Traits are the single source of truth for what the player can currently do. Each moves
@@ -702,6 +736,7 @@ readouts (`~25`, `??`) the same width as the real thing.
 | Pixel Platformer Industrial Expansion — ground tile | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer-industrial-expansion |
 | Kenney Fonts — Kenney Pixel, Kenney Mini Square Mono | Kenney | CC0 1.0 | https://kenney.nl/assets/kenney-fonts |
 | Gothicvania Patreon Collection — skill/attack animation reference | Luis Zuno (ansimuz) | Public domain, credit appreciated | https://opengameart.org/content/gothicvania-patreons-collection |
+| Particle Pack — all combat VFX (sparks, slashes, smoke, scorch, flares) | Kenney | CC0 1.0 | https://kenney.nl/assets/particle-pack |
 | Impact Sounds — hit/impact SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/impact-sounds |
 | RPG Audio — blade slice SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/rpg-audio |
 | Music Jingles — devolution/skill/death stingers | Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles |

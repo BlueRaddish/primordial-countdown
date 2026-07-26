@@ -122,12 +122,19 @@ func _enter_phase() -> void:
 
 	# A wide flash on the transition so the escalation reads as a moment.
 	if _phase > 0:
-		var flare: AoEIndicator = AoEIndicator.new()
-		flare.aoe_center = global_position
-		flare.aoe_radius = slam_radius * 1.5
-		flare.aoe_color = PHASE_TINTS[mini(_phase, PHASE_TINTS.size() - 1)]
-		flare.is_directional = false
-		get_parent().add_child(flare)
+		var tint: Color = PHASE_TINTS[mini(_phase, PHASE_TINTS.size() - 1)]
+		var flare: Node2D = Vfx.sprite(get_parent(), global_position, Vfx.TEX_FLARE)
+		if flare:
+			flare.set("color", tint)
+			flare.set("start_size", slam_radius * 0.6)
+			flare.set("end_size", slam_radius * 3.0)
+			flare.set("lifetime", 0.6)
+		var shock: Node2D = Vfx.sprite(get_parent(), global_position, Vfx.TEX_MAGIC_RING)
+		if shock:
+			shock.set("color", tint)
+			shock.set("start_size", slam_radius * 0.3)
+			shock.set("end_size", slam_radius * 2.6)
+			shock.set("lifetime", 0.5)
 
 
 # ---- Slam ----
@@ -147,6 +154,7 @@ func _process_slam(delta: float) -> void:
 			velocity.y = slam_rise
 			_slam_falling = true
 		return
+
 
 	if _slam_falling:
 		if is_on_floor() and velocity.y >= 0.0:
@@ -172,11 +180,21 @@ func _process_slam(delta: float) -> void:
 	_slam_timer = slam_interval
 	_slam_windup_timer = slam_windup
 	_slams_queued = 2 if _phase >= 2 else 1
+	# The slam is the fight's signature attack and its hardest hit, so it gets a
+	# warning ring at the true blast radius — dodging it becomes a spatial decision
+	# rather than a guess about how far "near the boss" reaches.
+	Vfx.telegraph(get_parent(), self, slam_radius, slam_windup)
 
 
 func _do_slam() -> void:
 	var origin: Vector2 = global_position
-	_show_ring(origin, slam_radius, Color("c0392b"))
+	# Scorch, shock ring and thrown debris, over the true blast radius drawn solid.
+	var hb: Node2D = Vfx.hitbox(get_parent(), origin)
+	if hb:
+		hb.set("color", Color("c0392b"))
+		hb.set("radius", slam_radius)
+		hb.set("lifetime", 0.28)
+	Vfx.slam(get_parent(), origin, slam_radius, Color("ff7a4a"))
 	_hit_player_in_radius(origin, slam_radius, slam_damage, slam_knockback)
 
 	# From phase 2 the slam is followed by a wider, weaker ring.
@@ -192,19 +210,21 @@ func _process_shockwave(delta: float) -> void:
 	if _shockwave_timer > 0.0:
 		return
 	var radius: float = slam_radius * shockwave_radius_mult
-	_show_ring(_shockwave_origin, radius, Color("e67e22"))
+	var hb: Node2D = Vfx.hitbox(get_parent(), _shockwave_origin)
+	if hb:
+		hb.set("color", Color("e67e22"))
+		hb.set("radius", radius)
+		hb.set("lifetime", 0.26)
+	var wave: Node2D = Vfx.sprite(get_parent(), _shockwave_origin, Vfx.TEX_MAGIC_RING)
+	if wave:
+		wave.set("color", Color("e67e22"))
+		wave.set("start_size", radius * 0.5)
+		wave.set("end_size", radius * 2.2)
+		wave.set("lifetime", 0.38)
 	_hit_player_in_radius(_shockwave_origin, radius, shockwave_damage, 1.2)
 
 
 # ---- Shared helpers ----
-
-func _show_ring(origin: Vector2, radius: float, color: Color) -> void:
-	var indicator: AoEIndicator = AoEIndicator.new()
-	indicator.aoe_center = origin
-	indicator.aoe_radius = radius
-	indicator.aoe_color = color
-	indicator.is_directional = false
-	get_parent().add_child(indicator)
 
 
 func _hit_player_in_radius(

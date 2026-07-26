@@ -1,329 +1,276 @@
 # Open-source art & audio resources for Primordial Countdown
 
-Eleven downloaded packs, chosen against what this game actually is: a **640×360 2D pixel
-sidescroller roguelike in Godot 4** with an animated player, three enemy movement patterns,
-a 2×-size stage boss, ~15 skills that need icons and VFX, seven traits with three stages
-each, and an arena of generated tiles.
+Chosen against what this game actually is: a **640×360 2D pixel sidescroller
+roguelike in Godot 4** with an animated player, three enemy movement patterns, a
+2×-size stage boss, ~15 skills that need icons and VFX, seven traits with three
+stages each, and an arena of generated tiles. The run is themed as three
+**time-period backdrops** the world scrolls through while the player devolves.
 
-Every pack in this folder was downloaded from its original source, verified to open, and
-its contents listed below are what is actually inside the archive — not what the store page
-claims. Total: **112 MB** (99 MB of that is the music in pack 11).
+Every pack in this folder was downloaded from its original source, verified to
+open, and its contents listed below are what is actually inside the archive —
+not what the store page claims.
 
-Nothing here has been added to the project's own `assets/` tree and no existing file was
-touched. This folder is a staging area — copy out only what you use.
-
----
-
-## The gaps these fill
-
-The project currently ships Kenney Pixel Platformer tiles plus eight untouched player
-tiles. These directories are **empty**: `assets/sprites/enemies/`, `assets/sprites/bosses/`,
-`assets/sprites/ui/`, `assets/fonts/`, `assets/audio/sfx/`, `assets/audio/music/`.
-
-| Need | Pack |
-| --- | --- |
-| Animated player (idle/run/hit) | 1, 2 |
-| Walker / Lunger / Hopper enemies | 1, 2 |
-| Stage boss at 2× minion size | 1 (`big_demon` is literally 32×36 vs 16×16), 2 |
-| Arena tiles beyond the current set | 3, 4 |
-| Parallax background | 2, 4 |
-| Skill VFX (13 skills fire an AoE or a dash) | 5 |
-| HUD panels, bars, buttons | 6 |
-| Trait + skill icons (7 traits × 3 stages, ~18 skills) | 8, 6 |
-| Pixel font for the year counter / HUD | 7 |
-| Hit, swing, damage, UI SFX | 9 |
-| Devolution / skill-unlock / death stingers | 10 |
-| Background music | 11 |
+Nothing here has been added to the project's own `assets/` tree and no existing
+file was touched, **except** the volcano layers from the now-removed pack 4,
+which were already copied into `assets/sprites/backgrounds/volcano/` and
+`assets/fonts/` before this pass — see "Currently wired into the game" below.
+This folder is a staging area — copy out only what you use.
 
 ---
 
-## Summary
+## Currently wired into the game
 
-| # | Pack | Author | License | Size | Best for |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 16×16 DungeonTileset II v1.7 | 0x72 | CC0 | 408 KB | Enemies, boss, player |
-| 2 | Gothicvania Patreon Collection | Luis Zuno (ansimuz) | Public domain / CC0 | 3.9 MB | Hero, monsters, parallax, tilesets |
-| 3 | Pixel Platformer — Industrial Expansion | Kenney | CC0 | 164 KB | Arena tiles (style-matched) |
-| 4 | 2D Platformer Volcano Pack 1.1 | Tio Aimar | CC0 | 820 KB | Primordial/volcanic theme |
-| 5 | Free Pixel Effects Pack + sword slash | CodeManu, tbbk | see note | 1.5 MB | Skill VFX, impacts |
-| 6 | UI Pack — Pixel Adventure | Kenney | CC0 | 312 KB | HUD frames, bars, buttons |
-| 7 | Kenney Fonts | Kenney | CC0 | 60 KB | HUD / counter typography |
-| 8 | game-icons.net (4180 SVG) | 36 artists | CC BY 3.0 | 4.0 MB | Trait + skill icons |
-| 9 | Impact / RPG / UI Audio | Kenney | CC0 | 2.1 MB | SFX |
-| 10 | Music Jingles | Kenney | CC0 | 1.2 MB | Event stingers |
-| 11 | Fantasy Ambience + Drum Loops | North Fantasy Music | CC BY 4.0 | 99 MB | Music |
+- `assets/sprites/backgrounds/volcano/bg_volcano_1.png` … `_6.png` — driving
+  `parallax_backdrop.gd`, referenced by `scenes/main/game.tscn`. **Scrapped**:
+  the team decided against a volcanic look in favor of the three eras below.
+  Nothing deletes these automatically — remove them once a replacement layer
+  set is wired in, so the scene doesn't dangle a missing-texture reference.
+- `assets/fonts/Kenney Pixel.ttf`, `assets/fonts/Kenney Mini Square Mono.ttf` —
+  independent copies, unaffected by anything below.
 
-Nine of eleven are CC0 or public domain — no attribution obligation at all. Only packs 8
-and 11 (and arguably 5) legally require credit.
+## Packs removed as not needed for this build
+
+Downloaded, evaluated, and deleted (2026-07-25): Kenney Pixel Platformer
+Industrial Expansion, the volcano platformer pack (superseded, see above),
+CodeManu's VFX pack, Kenney UI Pack, Kenney Fonts (already copied into
+`assets/fonts/` first, so no loss), and game-icons.net. None of these are
+referenced anywhere in `scripts/` or `scenes/`, so removing them was safe.
 
 ---
 
-## 1. `01_0x72_dungeon_tileset_ii/` — the single best fit here
+## The three time-period backgrounds (this run's actual scope)
+
+Picked 2026-07-25: **swamp → town → cyberpunk**, reading as the world
+advancing through history while the player's own body devolves — the
+"you devolve, the world evolves" contrast the design already leans on.
+All three are from **ansimuz**, all three verified **CC0** (checked each
+pack's own `public-license.pdf` directly — no attribution legally required,
+though crediting him costs one line and he's earned it many times over in
+the comments on every one of these pages).
+
+### 12. `12_ansimuz_gothicvania_swamp/` — era 1
+
+**Gothicvania Swamp files.zip** · 2.6 MB (6.1 MB unzipped) · CC0 ·
+<https://ansimuz.itch.io/gothicvania-swamp>
+
+```
+Evironment/background.png     96 x 256   (sic — "Evironment" is the folder name in the zip)
+Evironment/mid-layer-01.png  208 x 256
+Evironment/mid-layer-02.png  208 x 256
+Evironment/tileset.png       336 x 112
+Evironment/props.png         176 x 43
+Evironment/trees.png         288 x 208
+```
+
+Also ships a fully-animated hunter player character (stand/shoot/run/jump/
+hurt/idle/crouch), 3 enemies (Spider, Swamp Thing, Ghost), and death/bullet FX
+— usable later for enemy variety, not just backdrop.
+
+### 13. `13_ansimuz_gothicvania_town/` — era 2
+
+**GothicVania-town-files.zip** · 10.3 MB (25 MB unzipped) · CC0 ·
+<https://ansimuz.itch.io/gothicvania-town>
+
+```
+PNG/environment/layers/background.png       384 x 288
+PNG/environment/layers/middleground.png     384 x 288
+PNG/environment/layers/tileset.png          592 x 192   (+ sliced-tileset/ pieces, mostly 16-48px)
+PNG/environment/props/houses.png           1126 x 272
+PNG/environment/props/props.png             352 x 192
+```
+
+Also ships 4 animated NPCs (idle + walk: bearded, hat-man, oldman, woman) and a
+Phaser demo under `code/phaser-code/` (reference only — the game is Godot, the
+JS code doesn't port over).
+
+**Skipped as paid, not downloaded:** `GothicVania-Town-Plus_Files.zip` requires
+$5+; the free tier above is everything used here.
+
+### 14. `14_ansimuz_synth_cities_cyberpunk/` — era 3
+
+**cyberpunk-street-files.zip** · 16.7 MB (33 MB unzipped) · CC0 ·
+<https://ansimuz.itch.io/cyberpunk-street-environment>
+
+Two parallax versions plus a standalone skyline set — pick one, don't mix:
+
+```
+Assets/Version 1/PNG/cyberpunk-street.png            608 x 192  (composed preview)
+Assets/Version 1/PNG/layers/back-buildings.png       256 x 192
+Assets/Version 1/PNG/layers/far-buildings.png        256 x 192
+Assets/Version 1/PNG/layers/foreground.png           352 x 192
+
+Assets/Version 2/Layers/back.png                     112 x 272
+Assets/Version 2/Layers/middle.png                   256 x 272
+Assets/Version 2/Layers/foreground.png               688 x 272
+Assets/Version 2/Layers/foreground-empty.png         688 x 272  (no cars/props, if the busier one reads too noisy)
+
+Assets/city skyline/Layers/back.png                  288 x 192
+Assets/city skyline/Layers/buildings.png              288 x 192
+Assets/city skyline/Layers/front.png                 288 x 192
+```
+
+Version 2 is the tallest (272px) and closest to matching the town pack's
+288px, if visual weight across the three eras matters. Also includes a bonus
+Godot demo project (`SynthCitiesGodot.zip`, not downloaded here — free to
+grab from the same page if useful as a reference for wiring parallax in
+Godot specifically, since everything else in this repo is hand-rolled GDScript).
+
+**Skipped as paid, not downloaded:** `Synth Cities Skycraper/Pink/Blue Sky -
+Background LITE` ($1.99 each) and the `Warped Synth Cities Backgrounds ADDON`
+($5+) — the free `Synth Cities Environment` pack above covers the need.
+
+---
+
+## Implementing these backgrounds — the actual steps
+
+This is the part that isn't just "drop in a PNG." Read `parallax_backdrop.gd`
+before starting:
+
+**The blocker:** `parallax_backdrop.gd` was built entirely around the volcano
+pack's shape — one 1280×720 painting sliced into layers, each hung at a fixed
+`layer_offset_y` recovered by matching it against that pack's own composed
+`bg_volcano.png`. It positions each layer once and scrolls it horizontally;
+it does **not** tile.
+
+Every layer in packs 12–14 (and pack 2's `night-town-background-files`,
+already on disk) is the opposite shape: a small **seamless-loop strip** (as
+narrow as 96px, as wide as 688px) meant to repeat edge-to-edge across
+whatever width the camera sweeps, not one fixed composition. Dropping these
+into `layer_textures` as-is will leave gaps the moment the camera moves past
+one copy's width — most of these are narrower than the 640px viewport itself.
+
+**Steps, in order:**
+
+- [ ] **Decide which era ships first.** Given the deadline, treat this as
+      one background swap at a time, not three at once.
+- [ ] **Give `parallax_backdrop.gd` a tiling mode.** Simplest version: for
+      layers under a size threshold, instance N copies of the `Sprite2D`
+      side by side (width × N ≥ camera sweep + one screen), and re-tile them
+      in `_update_layers()` as the camera crosses each copy's edge — same
+      pattern as an infinite scroller background. This is new code, not a
+      config change; budget real time for it before touching the art.
+- [ ] **Copy the chosen layer PNGs** into a new folder, matching the existing
+      convention: `assets/sprites/backgrounds/<era_name>/`.
+- [ ] **Reimport with pixel-art settings**: Godot import tab → **Filter:
+      Off**, **Mipmaps: Off** (matches every other sprite in this project;
+      skipping this is the #1 way new art shows up blurry against everything
+      else).
+- [ ] **Wire the new textures into `game.tscn`**, either by swapping
+      `parallax_backdrop.gd`'s exported `layer_textures` directly for a single
+      hardcoded era, or — if era-switching is actually in scope for the jam
+      build — by giving `stage_manager.gd` (currently an empty stub) the job
+      of swapping `layer_textures`/`layer_scroll`/`horizon_y` on era
+      boundaries. Don't build the second option unless the first one is
+      already working and there's time left; it's strictly more code.
+- [ ] **Re-tune `horizon_y` and `base_x` per era.** These were solved
+      specifically for the volcano pack's 720-tall canvas and camera sweep
+      (see the comments in `parallax_backdrop.gd` — the math is: a layer
+      must cover the 640px viewport at both ends of the camera's ~-30..1110
+      sweep). A 288px-tall town layer or a 192px cyberpunk layer needs this
+      re-derived, not copied — the volcano numbers will place them wrong.
+- [ ] **Delete or replace `assets/sprites/backgrounds/volcano/`** once a real
+      replacement is wired in, so nothing in the scene points at art the team
+      already decided against.
+- [ ] **Credit ansimuz** in the README's credits table (see below) — not
+      legally required under CC0, but costs one line.
+
+None of this is done yet. The packs are on disk and Godot has already
+`.import`-cached them (they sit inside the project directory), but the game
+still only renders the volcano layers until the steps above happen.
+
+---
+
+## Other packs already on disk (unaffected by the above)
+
+### 1. `01_0x72_dungeon_tileset_ii/` — enemies, boss, player fallback
 
 **0x72_DungeonTilesetII_v1.7.zip** · 408 KB · 754 files · CC0 ·
 <https://0x72.itch.io/dungeontileset-ii>
 
-The strongest match in this whole set. 16×16 side-view characters, every one with **idle and
-run animations already split into individual frames** (`frames/` directory) *and* packed into
-one atlas with a `tile_list_v1.7` coordinate file — so you can either load loose frames into
-`AnimatedSprite2D` or slice the atlas programmatically.
+16×16 side-view characters, every one with **idle and run animations already
+split into individual frames** (`frames/` directory) *and* packed into one
+atlas with a `tile_list_v1.7` coordinate file. Playable/humanoid bodies:
+knight, elf, wizard, lizard, dwarf (each m/f, each with a **hit** frame).
+Monsters: goblin, imp, chort, skeleton, orc warrior, orc shaman, masked orc,
+necromancer, wogol, swampy, muddy, zombie (tiny/normal/big/ice), slug, tiny
+slug, angel, pumpkin dude, plus **ogre** and **big demon** (32×36 vs the
+16×16 minions — already the stage boss size, no scaling required). Currently
+the source for `assets/sprites/player/knight`, `enemies/{walker,lunger,
+hopper}`, and `bosses/big_demon`.
 
-Playable/humanoid bodies: knight, elf, wizard, lizard, dwarf (each m/f, each with a **hit**
-frame as well as idle/run). Monsters: goblin, imp, chort, skeleton, orc warrior, orc shaman,
-masked orc, necromancer, wogol, swampy, muddy, zombie (tiny/normal/big/ice), slug, tiny slug,
-angel, pumpkin dude. Plus **ogre** and **big demon**.
+### 2. `02_ansimuz_gothicvania_collection/` — the volume pick
 
-Why it lines up with your systems:
+**gothicvania_patreon_collection.zip** · 3.9 MB · 421 files · public domain,
+credit appreciated · <https://opengameart.org/content/gothicvania-patreons-collection>
 
-- **`big_demon` is 32×36 against the 16×16 minions** — the README's "stage boss: twice the
-  size" is satisfiable without scaling a sprite up and blurring it.
-- Three visually distinct silhouette classes map cleanly onto Walker / Lunger / Hopper —
-  e.g. orc warrior walks, chort lunges, imp/slug hops.
-- Separate `hit` frames exist for the humanoids, useful for the damage flash.
-- Also ships weapons, chests, coins, floor spikes, and full floor/wall atlases
-  (`atlas_floor-16x16.png`, `atlas_walls_low-16x16.png`, `atlas_walls_high-16x32.png`).
+Thirteen of Luis Zuno's 2016–17 packs in one archive: `Gothic-hero-Files`,
+`Gothic-hero-p2-Files`, `demon-Files`, `Hell-Beast-Files`, `Hell-Hound-Files`,
+`Ghost-Files`, `Fire-Skull-Files`, `Nightmare-Files`, `wolf-runing-cycle`,
+`Gothic-Horror-Files`, `Gothic-Castle-Files`, `Old-dark-Castle-tileset-Files`,
+`night-town-background-files` (seamless parallax layers — same tiling shape
+as packs 12–14, see the implementation blocker above). Not currently wired
+into anything; a candidate for enemy variety in the town/swamp eras.
 
-The one caveat: it is a *dungeon* set, so the palette reads stone-and-torch rather than
-primordial. Pack 4's volcanic background and Godot's `CanvasModulate` (which you already use
-for the Eyes trait dimming) go a long way toward re-tinting it.
+### 9. `09_kenney_audio/` — SFX
 
-## 2. `02_ansimuz_gothicvania_collection/` — the volume pick
+Three CC0 packs, 246 files total, OGG + WAV: `kenney_impact-sounds.zip`
+(784 KB, 134 files), `kenney_rpg-audio.zip` (944 KB, 56 files),
+`kenney_ui-audio.zip` (404 KB, 56 files). Not wired into `assets/audio/`
+yet — that directory is still empty.
 
-**gothicvania_patreon_collection.zip** · 3.9 MB · 421 files · public domain, credit
-appreciated · <https://opengameart.org/content/gothicvania-patreons-collection>
+### 10. `10_kenney_music_jingles/` — event stingers
 
-Thirteen of Luis Zuno's 2016–17 packs in one archive, each with PNG spritesheets, individual
-PNG frames, animated GIF previews (handy for judging timing before you import), and layered
-PSDs:
+**kenney_music-jingles.zip** · 1.2 MB · 95 files · CC0. Short stings for
+devolution steps, skill unlocks, boss spawn, death.
 
-`Gothic-hero-Files` · `Gothic-hero-p2-Files` (adds climb, crouch, crouch-slash, hurt and
-**jump-attack** sprite folders — jump-attack is close to your Wing Slam) · `demon-Files` ·
-`Hell-Beast-Files` (with and without outline stroke) · `Hell-Hound-Files` · `Ghost-Files` ·
-`Fire-Skull-Files` · `Nightmare-Files` · `wolf-runing-cycle` · `Gothic-Horror-Files` ·
-`Gothic-Castle-Files` · `Old-dark-Castle-tileset-Files` · `night-town-background-files`
-(seamless parallax layers).
+### 11. `11_fantasy_ambience_music/` — background music
 
-These are larger and more detailed than 16×16 — a hero of roughly 32–48 px. At 640×360 that
-is still a sensible player size, but **do not mix these with pack 1 at the same on-screen
-scale**; pick one as your character language. The wolf run cycle and hell hound are excellent
-Walker/Lunger candidates; the fire skull and ghost float, which suits a Hopper variant.
-
-Licence text bundled as `public-license.txt`: *"Public domain and free to use on whatever you
-want, personal or commercial. Credit is not required but appreciated."*
-
-## 3. `03_kenney_pixel_platformer_industrial/` — the safe, style-matched tiles
-
-**kenney_pixel-platformer-industrial-expansion.zip** · 164 KB · 125 files · CC0 ·
-<https://kenney.nl/assets/pixel-platformer-industrial-expansion>
-
-A direct expansion of the **Pixel Platformer pack the project already uses**, so it drops in
-with zero style clash — same 18×18 grid, same palette. Ships loose `Tiles/`, a packed
-`Tilemap/` sheet, `Tilesheet.txt`, and a preview. This is the lowest-risk way to give
-`arena_renderer.gd` more tile variety (pipes, girders, machinery, hazard stripes) without
-re-arting the arena.
-
-Kenney's sibling expansions (farm, blocks) use the same URL pattern if you want more later.
-
-## 4. `04_volcano_platformer_tioaimar/` — the thematic one
-
-**2D Platformer Volcano Pack 1.1.zip** · 820 KB · 70 files · CC0, credit optional ·
-<https://opengameart.org/content/2d-platformer-volcano-pack-11>
-
-The closest thing here to *primordial*: molten ground, ash, lava. Contains
-`PNG/bg_volcano.png` plus **six separated parallax layers** in `bg_volcano_layers/`
-(`bg_volcano_1..6.png`) and ~30 ground/prop tiles. Version 1.1 added a grey-ash ground
-variant specifically so walkable surfaces read differently from decorative lava — exactly the
-readability problem a platformer arena has.
-
-Six discrete layers is more than enough for a convincing depth effect behind the arena, and a
-lava-lit backdrop gives the Eyes-trait dimming something dramatic to dim.
-
-## 5. `05_vfx_extras/` — skill VFX
-
-**codemanu_free_pixel_effects_pack.zip** · 1.5 MB · 20 spritesheets ·
-<https://codemanu.itch.io/pixelart-effect-pack>
-**pixel_art_sword_slash_sprites.png** · 4 KB · CC0 · by tbbk ·
-<https://opengameart.org/content/pixel-art-sword-slash-effect>
-
-Twenty 100×100 px effect spritesheets made with Pixel FX Designer, and the names map
-remarkably well onto your skill list:
-
-| Sheet | Suggested use |
-| --- | --- |
-| `10_weaponhit` | normal melee impact, Lunge Strike arrival |
-| `6_flamelash`, `11_fire`, `9_brightfire` | Thornskin, Adrenal Surge |
-| `13_vortex`, `7_firespin` | Echo Sense pulse, Wing Slam landing |
-| `8_protectioncircle` | Curl, Hide damage reduction |
-| `19_freezing`, `18_midnight` | Blind Fury, Apex Instinct |
-| `4_casting`, `1_magicspell`, `17_felspell` | generic skill cast tell |
-| `3_bluefire`, `12_nebula`, `14_phantom` | buff auras |
-
-The separate 64×47 sword-slash sheet is the cheapest possible win for the basic attack arc.
-
-**Licence note, read this one:** the itch.io page tags the pack **CC BY 4.0**, but the
-bundled `README.txt` says *"This is a public domain asset… No credit required."* The two
-disagree. Crediting CodeManu satisfies both readings, costs one line, and removes the
-question — do that.
-
-## 6. `06_kenney_ui_pack_pixel_adventure/` — HUD
-
-**kenney_ui-pack-pixel-adventure.zip** · 312 KB · 533 files · CC0 ·
-<https://kenney.nl/assets/ui-pack-pixel-adventure>
-
-Pixel-native UI, which matters: Kenney's better-known vector UI packs look wrong at 640×360.
-508 individual tiles in four variants — small/large tiles × thin/thick outline — plus packed
-tilesheets for each. Panels, 9-slice frames, bars, buttons, checkboxes, sliders, cursors.
-
-Directly useful for the character screen (`C`), the devolution choice popup, the accept/decline
-evolved-trait prompt, the boss health bar, and the death screen — all of which are real
-screens in the game today. Godot's `NinePatchRect` handles the frame tiles natively.
-
-## 7. `07_kenney_fonts/` — typography
-
-**kenney_kenney-fonts.zip** · 60 KB · 12 TTFs · CC0 ·
-<https://kenney.nl/assets/kenney-fonts>
-
-`Kenney Pixel`, `Kenney Pixel Square`, `Kenney Mini`, `Kenney Mini Square`,
-`Kenney Mini Square Mono`, `Kenney Blocks`, `Kenney High`, `Kenney High Square`,
-`Kenney Future`, `Kenney Future Narrow`, `Kenney Rocket`, `Kenney Rocket Square`.
-
-**Kenney Mini Square Mono is the one to reach for on the year counter.** A monospaced font
-stops the countdown from jittering horizontally as digits change — with a 2000→0 number
-ticking down constantly on screen, a proportional font visibly wobbles. It also makes the
-Head-trait states (`~25`, `??`) occupy stable width.
-
-Set these to **Antialiased: Disabled** in the Godot import tab and use whole-number font
-sizes or they will blur against your pixel art.
-
-## 8. `08_game_icons_net/` — trait & skill icons
-
-**game-icons.net.svg.zip** · 4.0 MB · **4180 SVGs** by 36 artists · **CC BY 3.0** ·
-<https://game-icons.net/>
-
-The standard answer for ability iconography, and this game needs a *lot* of it: 18-plus
-skills, seven traits at three stages each, plus two evolved traits. Hand-drawing that is days
-of work; this covers essentially all of it. There are direct hits for every trait — lungs,
-eye, skin, stomach, arm, leg, brain — and for the skills (wing, thorns, fangs, dash, pounce,
-kick, echo/sonar, adrenaline).
-
-Downloaded as white-on-black 1×1 SVGs, organised `icons/<colour>/<colour>/1x1/<artist>/<name>.svg`.
-Being vector, they rasterise crisply to whatever HUD size you want — export at your target
-px size rather than scaling at runtime.
-
-**This pack does require attribution**, per artist where practical. `icons/license.txt` is
-included in the archive; the required form is *"Icons made by [author]. Available on
-https://game-icons.net"*.
-
-## 9. `09_kenney_audio/` — SFX
-
-Three CC0 packs, 246 files total, all OGG + WAV:
-
-- **kenney_impact-sounds.zip** (784 KB, 134 files) — the core combat layer. Impacts across
-  materials and weights; the heavy variants suit the boss ground slam.
-- **kenney_rpg-audio.zip** (944 KB, 56 files) — swings, hits, foot steps, creature noises,
-  handle/inventory sounds.
-- **kenney_ui-audio.zip** (404 KB, 56 files) — clicks, confirms, cancels, toggles for the
-  character screen and devolution choices.
-
-<https://kenney.nl/assets/impact-sounds> · <https://kenney.nl/assets/rpg-audio> ·
-<https://kenney.nl/assets/ui-audio>
-
-## 10. `10_kenney_music_jingles/` — event stingers
-
-**kenney_music-jingles.zip** · 1.2 MB · 95 files · CC0 ·
-<https://kenney.nl/assets/music-jingles>
-
-Short musical stings, not loops. This game is unusually well suited to them because it has
-so many discrete, time-freezing events: each of the 14 devolution steps, every skill unlock,
-each evolved-trait offer, boss spawn, death. A distinct sting per event category makes the
-fall legible by ear.
-
-## 11. `11_fantasy_ambience_music/` — background music
-
-**CC BY 4.0** · North Fantasy Music ·
-<https://opengameart.org/content/fantasy-music-and-drum-loops-pack>
-
-- `fantasyambience.zip` (69 MB, 7 tracks): `Dark_and_Mysterious`, `Nightwatch`,
-  `Storm_Incoming`, `Sacred_Guardians`, `New_Dawn`, `Temple_of_Light`,
-  `Soft_Strings_and_Flutes`.
-- `fantasyambience_drumloops.zip` (30 MB, 5 loops): `Aggressive_Drum_Loop`, `Fast_Drum_Loop`,
-  `Ominous_Drumbeat_Loop`, `Aftermath_Drumbeat_Loop`, `Dark…`.
-
-44.1 kHz 16-bit stereo WAV, mostly dark and mysterious in tone. The **drum loops are the
-interesting part for this game**: they are designed to layer independently over the ambience,
-so you can raise the drums as the year counter falls and have the soundtrack itself devolve
-toward percussion. `Dark_and_Mysterious` under `Ominous_Drumbeat_Loop` is a plausible default
-bed; `Aggressive_Drum_Loop` for boss waves.
-
-**These are raw WAV and account for 99 MB of this folder's 112 MB.** Convert whatever you keep
-to OGG Vorbis before it goes anywhere near `assets/audio/music/` — expect roughly a 10× drop.
-A third archive, `fantasyambience_extended.zip` (69 MB), exists at the same page; not
-downloaded, since the base set plus loops already exceeds what one game needs.
+**CC BY 4.0** · North Fantasy Music — this one *does* need attribution.
+`fantasyambience.zip` (69 MB, 7 tracks) + `fantasyambience_drumloops.zip`
+(30 MB, 5 loops), 44.1kHz 16-bit stereo WAV. **Convert to OGG before import**
+— Godot will otherwise embed the raw WAV size, and this is 99 MB uncompressed.
 
 ---
 
-## Recommended combination
-
-Two coherent directions rather than a mix:
-
-**A — tight and pixel-pure (recommended).** Pack 1 for every character and the boss, pack 3
-for arena tiles, pack 4 for the parallax backdrop, 5 for VFX, 6/7/8 for UI. One 16×16
-language throughout, reads perfectly at 640×360, and `big_demon` gives you the 2× boss for
-free. Fastest route to a game that looks deliberate.
-
-**B — larger, moodier characters.** Pack 2's hero and beasts as the character layer, still on
-pack 3/4 environments. More frames per animation and a stronger silhouette, but the hero is
-~3× the height of a pack-1 character, so the arena's 27 px steps and 68 px jump arc — both
-tuned in `arena_renderer.gd` against the current sprite scale — would need revisiting. Worth
-it only if you want the game to look like Gothicvania.
-
-Either way, keep pack 8 for icons and packs 9–11 for audio; those are orthogonal to the
-character choice.
-
 ## Godot 4 import notes
 
-- Pixel art: import tab → **Filter: Off**, **Mipmaps: Off**. The project already renders at a
-  fixed 640×360 with `canvas_items` stretch, so any filtering shows up immediately as mush.
+- Pixel art: import tab → **Filter: Off**, **Mipmaps: Off**. The project
+  renders at a fixed 640×360 with `canvas_items` stretch, so any filtering
+  shows up immediately as mush.
 - Fonts: **Antialiased: Disabled**, integer font sizes only.
-- Pack 1's `frames/` folder loads straight into `SpriteFrames`; alternatively slice the atlas
-  using the bundled `tile_list_v1.7` (name, x, y, w, h per line) if you prefer one texture.
-- Pack 2's PSDs are for editing only — import the PNGs, not the PSDs, or Godot will choke.
-- Convert pack 11's WAVs to OGG before import; Godot will happily embed 69 MB of WAV otherwise.
-- `.import` files are generated per asset, so add assets in batches and let Godot settle
-  between them.
+- Pack 1's `frames/` folder loads straight into `SpriteFrames`; alternatively
+  slice the atlas using the bundled `tile_list_v1.7`.
+- Pack 2's PSDs are for editing only — import the PNGs, not the PSDs.
+- Packs 12–14 ship PSDs too (`PSD/concepts.psd` etc.) — same rule, PNGs only.
+- Convert pack 11's WAVs to OGG before import.
+- `.import` files are generated per asset automatically once a file sits
+  inside the project directory — this already happened to everything in
+  `art-resources/`, which is expected and harmless; it doesn't mean the art
+  is "in" the game until it's copied into `assets/` and referenced by a scene.
 
 ## Attribution
 
-Nine packs need nothing. For the ones that do, this is ready to paste into the README's
-existing Credits table:
+Credit isn't legally required for any CC0 pack (that's everything from
+ansimuz and Kenney, packs 1, 2, 9, 10, 12, 13, 14), but here's what's ready
+to paste into the README's Credits table regardless:
 
 ```markdown
 | 16x16 DungeonTileset II | 0x72 | CC0 1.0 | https://0x72.itch.io/dungeontileset-ii |
 | Gothicvania Collection | Luis Zuno (ansimuz) | Public domain | https://opengameart.org/content/gothicvania-patreons-collection |
-| Pixel Platformer Industrial | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer-industrial-expansion |
-| 2D Platformer Volcano Pack | Tio Aimar | CC0 1.0 | https://opengameart.org/content/2d-platformer-volcano-pack-11 |
-| Free Pixel Effects Pack | CodeManu | CC BY 4.0 | https://codemanu.itch.io/pixelart-effect-pack |
-| Pixel art sword slash | tbbk | CC0 1.0 | https://opengameart.org/content/pixel-art-sword-slash-effect |
-| UI Pack: Pixel Adventure | Kenney | CC0 1.0 | https://kenney.nl/assets/ui-pack-pixel-adventure |
-| Kenney Fonts | Kenney | CC0 1.0 | https://kenney.nl/assets/kenney-fonts |
-| Game icons | game-icons.net contributors | CC BY 3.0 | https://game-icons.net/ |
+| Gothicvania Swamp | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/gothicvania-swamp |
+| GothicVania Town | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/gothicvania-town |
+| Synth Cities Environment | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/cyberpunk-street-environment |
 | Impact / RPG / UI Audio | Kenney | CC0 1.0 | https://kenney.nl/assets/impact-sounds |
 | Fantasy Ambience & Drum Loops | North Fantasy Music | CC BY 4.0 | https://opengameart.org/content/fantasy-music-and-drum-loops-pack |
 ```
 
-For pack 8, credit the individual artists of the icons you actually ship — the artist name is
-the folder each SVG sits in, and `icons/license.txt` inside the archive has the full terms.
+Only pack 11 (and pack 2, loosely — "credit appreciated" not required)
+actually asks for it.
 
 ## Version control
 
-`.gitignore` already keeps downloaded packs out of the repo
-(`kenney_pixel-platformer.zip`, `kenney_pixel-platformer_extracted/`). This folder is 112 MB
-of archives and follows the same pattern, so it wants the same treatment — adding
-
-```
-/art-resources/
-```
-
-to `.gitignore` keeps the originals local while the extracted, converted assets you actually
-use go into `assets/` and get committed normally. I have not edited `.gitignore`, since
-another session is working in this project.
+`.gitignore` does not currently exclude `/art-resources/` — another session
+was mid-work here previously and this pass didn't touch that decision either.
+Worth revisiting before the jam submission: the extracted, converted assets
+actually used belong in `assets/` and get committed normally; the raw
+archives in this folder don't need to ship.

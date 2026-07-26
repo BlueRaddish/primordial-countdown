@@ -10,8 +10,10 @@ The north star: **the run should read as a body coming apart and improvising aro
 the wreckage, against a clock that never stops.** Devolution is loss; the only power
 you gain is power that grows out of loss.
 
-**Next up: Tier 2.** Tiers 0 and 1 are shipped. The devolution *systems* are now
-complete — what is still missing is making the countdown itself a decision.
+**Next up: clear the known issues below, then Tier 2.** Tiers 0 and 1 are shipped. The
+devolution *systems* are now complete — what is still missing is making the countdown
+itself a decision. But three bugs and one open fiction question turned up in a pass over
+the shipped systems, and they should be settled first rather than built on top of.
 
 ---
 
@@ -74,6 +76,92 @@ Shipped as **Hindbrain** — renamed from "Instinct" because "Apex Instinct" alr
 existed and two near-identical names in one list is a UI problem. For 8s every enemy
 about to hit you lights up and you take 25% less damage. Every trait now has a full-loss
 skill, closing the last gap PLANNING1 left undecided.
+
+---
+
+## Known issues — fix before Tier 2
+
+Found while reviewing the shipped systems. Not new features — bugs and rough edges in
+what already exists. Listed most-important first; worth clearing before Tier 2 builds
+more on top of the same code.
+
+### 2.0.1 Double jump doesn't work on certain platforms
+The one-way platforms (`arena_renderer.gd`'s `one_way_platforms` list — the shelves with
+the teal top-line, meant to be jumped up through from below) can be fallen straight
+through instead of landed on, most often right after a double jump arcs back down onto
+one. **Likely cause:** their collider is deliberately thin (`ONE_WAY_THICKNESS = 8`) with
+a small margin (`ONE_WAY_MARGIN = 6`) meant to stop fast falls tunnelling through — but
+the player's fall speed can reach `max_fall_speed = 400` px/s, which at the project's 60
+physics-ticks/second default covers ~6.7 px in a single frame. That's already past the 6
+px margin, so any fall at or near terminal velocity onto one of these platforms is likely
+to tunnel through rather than land. The risk is even flagged in `arena_renderer.gd`'s own
+comment — the margin just isn't large enough for the numbers actually in play. **Possible
+fix:** raise `ONE_WAY_MARGIN` past the worst-case per-frame fall distance (something like
+12–16, with headroom for a dropped frame) so a landing is caught reliably no matter how
+the platform was reached.
+
+### 2.0.2 Boss ground slam hits softer than just touching the boss
+`BossEnemy.slam_damage` is 22, but the boss inherits `BaseEnemy`'s plain contact damage
+(30 — already double a normal enemy's 15, per the "twice the contact damage" design) and
+a connecting lunge hits for 45 (contact damage × the lunger behavior's 1.5 multiplier).
+So the one attack that is telegraphed and dodgeable currently deals the *least* damage of
+the three ways the boss can hurt you — backwards from the usual telegraph/dodge contract,
+where the big obvious attack should be the one that punishes hardest for eating it.
+**Possible fix:** raise `slam_damage` above both contact and lunge damage (or give it its
+own multiplier the way lunges get one), so dodging the slam is worth visibly more than
+dodging a bump.
+
+### 2.0.3 Devolution ("degrade") screen needs individual cards, not a stacked list
+Each offered trait in the devolution popup (`devolution_popup.gd`, shown from
+`devolution_screen.tscn`) is currently one full-width `Button` in a plain vertical stack —
+same background, same border, nothing separating one option from the next but its text.
+Functionally fine, but it reads like a settings list rather than a moment where the
+player is choosing what to lose. **Possible fix:** give each option its own bordered
+panel/card — its own background, a color accent per trait, the "X → Y — consequence"
+text laid out inside instead of squeezed into one button label — so the choice reads as
+picking between distinct things, not clicking down a menu.
+
+---
+
+## Rethink the aging fiction (open design question)
+
+The devolution system's current framing: a run starts at "2000 years old"
+(`starting_years` in `devolution_system.gd`), every normal attack subtracts exactly 1
+year, skills subtract their own cost, and hitting 0 means fully devolved. Mechanically
+this works — it's a clean, tunable countdown, and `README.md`'s "The year counter"
+section explains why it's one number instead of a hidden bar. But the fiction under it
+doesn't hold up: a 2000-year-old body doesn't lose a whole calendar year of pre-existing
+life every time it throws a punch, and "years" as a unit implies a chronology that a
+single melee swing doesn't plausibly represent. Worth settling before Tier 2 leans on it
+further — 2.1's "spend years to change the fight" beats only feel earned if what a "year"
+means survives contact with the idea.
+
+Two draft alternatives. The *mechanics* don't need to change — one countdown number,
+spent through `spend_years()`, ending the run at zero — only what it represents:
+
+**A. Aging debt, not banked years.** Reframe the number as accumulated biological
+stress rather than a stockpile being spent down. The character starts at a normal age;
+every attack, skill, and hit taken adds "wear" that compounds toward a hard cap — the run
+ends when the body hits a terminal age, not when a bank of years empties. This is the
+more biologically honest version of what's already happening (exertion and injury really
+do accelerate aging — cortisol, oxidative stress, telomere attrition), and it flips the
+HUD from "counting down a stockpile" to "counting up toward how old the fight has made
+you," which reads better than "swinging a sword makes you younger." Numerically this can
+be the *same* countdown inverted (years_remaining becomes years_aged, counting up to
+starting_years instead of down from it) — closer to a display and copy change than a
+systems one.
+
+**B. Drop "years" as the unit entirely.** Keep the number and the countdown exactly as
+built, but stop calling it years — something like "vitality" or "spark" sidesteps the
+realism complaint outright, since the objection is specifically that *years* implies a
+literal chronology attacks can't plausibly consume. Cheaper to ship than A, but loses the
+geological-era contrast the HUD already draws between "your countdown" and "the world's
+age" (3.5B → 1000) — that contrast depends on both readouts being time in some sense.
+
+Leaning toward A: it keeps the years-vs-eras contrast intact, and "the fight itself is
+aging you" is a stronger version of the loss theme than a mysterious pre-existing
+stockpile. Needs a decision before Tier 2.1 is built, since that tier's shrines/doors are
+priced in whatever unit this becomes.
 
 ---
 

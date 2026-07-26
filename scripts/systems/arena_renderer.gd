@@ -237,6 +237,10 @@ func _make_body(
 	body.collision_layer = 0
 	body.collision_mask = 0
 	body.set_collision_layer_value(TERRAIN_LAYER, true)
+	if one_way:
+		# Lets the player identify what it is standing on, so pressing down can drop
+		# through a shelf without also dropping through the ground.
+		body.add_to_group("one_way_platform")
 
 	var shape_node: CollisionShape2D = CollisionShape2D.new()
 	var rect_shape: RectangleShape2D = RectangleShape2D.new()

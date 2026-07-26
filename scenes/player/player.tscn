@@ -1,7 +1,7 @@
 [gd_scene load_steps=12 format=3 uid="uid://player_scene"]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
-[ext_resource type="SpriteFrames" path="res://resources/sprite_frames/player_knight.tres" id="2_frames"]
+[ext_resource type="SpriteFrames" path="res://resources/sprite_frames/player_hero.tres" id="2_frames"]
 [ext_resource type="Script" path="res://scripts/player/slash_effect.gd" id="3_slash"]
 [ext_resource type="Script" path="res://scripts/player/trait_manager.gd" id="4_trait_mgr"]
 [ext_resource type="Script" path="res://scripts/player/ability_manager.gd" id="5_ability_mgr"]
@@ -10,7 +10,7 @@
 [ext_resource type="Script" path="res://scripts/player/body_marks.gd" id="8_body_marks"]
 
 [sub_resource type="RectangleShape2D" id="shape_player_col"]
-size = Vector2(14, 20)
+size = Vector2(14, 22)
 
 [sub_resource type="RectangleShape2D" id="shape_attack"]
 size = Vector2(40, 28)
@@ -25,13 +25,15 @@ script = ExtResource("1_player")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 texture_filter = 0
-position = Vector2(0, -14)
+position = Vector2(0, 0)
+centered = false
+scale = Vector2(0.6, 0.6)
 sprite_frames = ExtResource("2_frames")
 animation = &"idle"
 autoplay = "idle"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -10)
+position = Vector2(0, -11)
 shape = SubResource("shape_player_col")
 
 [node name="AttackHitbox" type="Area2D" parent="."]

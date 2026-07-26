@@ -881,7 +881,10 @@ func _start_attack() -> void:
 		box.set("rect_size", _melee_rect_size())
 		box.set("angle", _aim_angle)
 		box.set("lifetime", attack_duration + 0.06)
-	Vfx.slash(get_parent(), swing_center, _aim_angle, _melee_reach(), melee_aoe_color)
+	# Rides the player so the swing stays attached to the body that threw it.
+	Vfx.slash(
+		get_parent(), swing_center, _aim_angle, _melee_reach(), melee_aoe_color, self
+	)
 
 	# This is the devolution clock's driver: every swing counts, landed or not.
 	EventBus.attack_made.emit()
@@ -1068,11 +1071,52 @@ func _update_animation() -> void:
 	else:
 		_sprite.flip_h = true
 
+	_play_anim(_pick_animation())
+
+
+# Frame size per animation, used to bottom-centre every frame on the player's feet.
+# The sheets have different frame heights (48, 77, 80, 32), so a centred sprite would
+# make the character sink or float whenever the animation changed.
+const ANIM_FRAMES: Dictionary = {
+	"idle": Vector2(38, 48),
+	"walk": Vector2(66, 48),
+	"jump": Vector2(61, 77),
+	"attack": Vector2(96, 48),
+	"jump_attack": Vector2(84, 80),
+	"hurt": Vector2(48, 48),
+	"crouch": Vector2(48, 48),
+	"crouch_slash": Vector2(80, 32),
+}
+
+
+func _pick_animation() -> String:
+	"""Which animation the current body can actually perform.
+
+	This is how the form changes stay ANIMATED rather than becoming a static pose. The
+	sprite sheet cannot have an arm removed from it without redrawing every frame, so
+	instead the *set of animations* changes with the body: legs gone means the hero can
+	no longer stand, so it uses the crouch set and keeps moving. The trait is expressed
+	by which animation plays, not by editing the art."""
+	var legs_lost: bool = _trait_manager != null and _trait_manager.is_lost("legs")
+
+	if _invincibility_timer > invincibility_duration * 0.72:
+		return "hurt" # Only the first moments of the i-frame window.
 	if _is_attacking:
-		_sprite.play("attack")
-	elif not is_on_floor():
-		_sprite.play("jump")
-	elif absf(velocity.x) > 10.0:
-		_sprite.play("walk")
-	else:
-		_sprite.play("idle")
+		if legs_lost:
+			return "crouch_slash"
+		return "attack" if is_on_floor() else "jump_attack"
+	if legs_lost:
+		return "crouch"
+	if not is_on_floor():
+		return "jump"
+	if absf(velocity.x) > 10.0:
+		return "walk"
+	return "idle"
+
+
+func _play_anim(name: String) -> void:
+	if _sprite.animation != name:
+		# Bottom-centre this animation's frames on the feet.
+		var size: Vector2 = ANIM_FRAMES.get(name, Vector2(48, 48))
+		_sprite.offset = Vector2(-size.x * 0.5, -size.y)
+	_sprite.play(name)

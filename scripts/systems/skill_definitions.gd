@@ -71,6 +71,7 @@ static func get_all_skills() -> Array[SkillData]:
 	gorge.status_bleed_dps = 5.0
 	gorge.status_bleed_time = 6.0
 	gorge.status_radius = 60.0
+	gorge.vfx_id = "brightfire"
 	gorge.unlock_conditions = {"gut": [LOST, LOST]}
 	skills.append(gorge)
 
@@ -94,6 +95,7 @@ static func get_all_skills() -> Array[SkillData]:
 	thornskin.status_mire_mult = 0.6
 	thornskin.status_mire_time = 3.0
 	thornskin.status_radius = 46.0
+	thornskin.vfx_id = "protection"
 	thornskin.unlock_conditions = {"skin": [LOST, LOST]}
 	skills.append(thornskin)
 
@@ -115,6 +117,7 @@ static func get_all_skills() -> Array[SkillData]:
 	surge.aoe_radius = 40.0
 	surge.buff_duration = 5.0
 	surge.buff_damage_mult = 2.0
+	surge.vfx_id = "sunburn"
 	surge.unlock_conditions = {"arms": [LOST, LOST]}
 	skills.append(surge)
 
@@ -140,6 +143,7 @@ static func get_all_skills() -> Array[SkillData]:
 	echo.status_reel_mult = 1.35
 	echo.status_reel_time = 2.5
 	echo.status_radius = 72.0
+	echo.vfx_id = "magicspell"
 	echo.unlock_conditions = {"eyes": [LOST, LOST]}
 	skills.append(echo)
 
@@ -161,6 +165,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# speed usable instead of something you stand still and waste.
 	wind.impulse_speed = 240.0
 	wind.impulse_upward_bias = 110.0
+	wind.vfx_id = "vortex"
 	wind.unlock_conditions = {"lungs": [LOST, LOST]}
 	skills.append(wind)
 
@@ -186,6 +191,7 @@ static func get_all_skills() -> Array[SkillData]:
 	pounce.status_bleed_dps = 6.0
 	pounce.status_bleed_time = 4.0
 	pounce.status_radius = 32.0
+	pounce.vfx_id = "flamelash"
 	pounce.unlock_conditions = {"legs": [LOST, LOST]}
 	skills.append(pounce)
 
@@ -215,6 +221,7 @@ static func get_all_skills() -> Array[SkillData]:
 	instinct.status_reel_mult = 1.25
 	instinct.status_reel_time = 4.0
 	instinct.status_radius = 80.0
+	instinct.vfx_id = "midnight"
 	instinct.unlock_conditions = {"head": [LOST, LOST]}
 	skills.append(instinct)
 
@@ -234,6 +241,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# A kick that lands takes the legs out from under them.
 	kick.status_mire_mult = 0.5
 	kick.status_mire_time = 2.5
+	kick.vfx_id = "weaponhit"
 	kick.unlock_conditions = {"arms": [LOST, LOST], "legs": [INTACT, PARTIAL]}
 	skills.append(kick)
 
@@ -256,6 +264,7 @@ static func get_all_skills() -> Array[SkillData]:
 	apex.status_bleed_dps = 8.0
 	apex.status_bleed_time = 7.0
 	apex.status_radius = 60.0
+	apex.vfx_id = "sunburn"
 	apex.unlock_conditions = {"gut": [LOST, LOST], "skin": [LOST, LOST]}
 	skills.append(apex)
 
@@ -274,6 +283,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# A flurry that wild leaves everything it clipped rattled and open.
 	fury.status_reel_mult = 1.4
 	fury.status_reel_time = 3.0
+	fury.vfx_id = "firespin"
 	fury.unlock_conditions = {"eyes": [PARTIAL, LOST], "arms": [INTACT, PARTIAL]}
 	skills.append(fury)
 
@@ -303,6 +313,7 @@ static func get_all_skills() -> Array[SkillData]:
 	scramble.status_mire_mult = 0.7
 	scramble.status_mire_time = 1.5
 	scramble.status_radius = 36.0
+	scramble.vfx_id = "vortex"
 	scramble.unlock_conditions = {"legs": [PARTIAL, PARTIAL]}
 	skills.append(scramble)
 
@@ -324,6 +335,7 @@ static func get_all_skills() -> Array[SkillData]:
 	wing_dash.impulse_upward_bias = 40.0
 	wing_dash.buff_duration = 0.35
 	wing_dash.buff_damage_taken_mult = 0.0
+	wing_dash.vfx_id = "vortex"
 	wing_dash.unlock_conditions = {"wings": [1, 1]}
 	skills.append(wing_dash)
 
@@ -346,6 +358,7 @@ static func get_all_skills() -> Array[SkillData]:
 	updraft.impulse_upward_bias = 340.0 # Almost all of the push is upward.
 	updraft.buff_duration = 0.3
 	updraft.buff_damage_taken_mult = 0.0
+	updraft.vfx_id = "vortex"
 	updraft.unlock_conditions = {"wings": [1, 1]}
 	skills.append(updraft)
 
@@ -376,6 +389,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# it closes the distance and sets up the hit in the same button.
 	lunge.status_reel_mult = 1.4
 	lunge.status_reel_time = 3.0
+	lunge.vfx_id = "flamelash"
 	lunge.unlock_conditions = {"arms": [INTACT, PARTIAL], "legs": [PARTIAL, LOST]}
 	skills.append(lunge)
 
@@ -401,6 +415,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# they open it and let the bleed do the rest.
 	backstep.status_bleed_dps = 7.0
 	backstep.status_bleed_time = 4.0
+	backstep.vfx_id = "slash"
 	backstep.unlock_conditions = {"arms": [PARTIAL, PARTIAL]}
 	skills.append(backstep)
 
@@ -425,6 +440,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# into a follow-up instead of just trading a big hit and leaving.
 	slam.status_mire_mult = 0.45
 	slam.status_mire_time = 3.0
+	slam.vfx_id = "sunburn"
 	slam.unlock_conditions = {"wings": [1, 1]}
 	skills.append(slam)
 
@@ -451,6 +467,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# omnivamp window, so Rend heals you off the wound Rend opened.
 	rend.status_bleed_dps = 12.0
 	rend.status_bleed_time = 5.0
+	rend.vfx_id = "brightfire"
 	rend.unlock_conditions = {"claws": [1, 1]}
 	skills.append(rend)
 
@@ -471,6 +488,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# excuse for it.
 	whip.status_mire_mult = 0.55
 	whip.status_mire_time = 3.0
+	whip.vfx_id = "firespin"
 	whip.unlock_conditions = {"tail": [1, 1]}
 	skills.append(whip)
 
@@ -495,6 +513,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# reeling in the game, on the skill that has to walk into the crowd to use it.
 	ram.status_reel_mult = 1.5
 	ram.status_reel_time = 3.0
+	ram.vfx_id = "weaponhit"
 	ram.unlock_conditions = {"plates": [1, 1]}
 	skills.append(ram)
 
@@ -517,6 +536,7 @@ static func get_all_skills() -> Array[SkillData]:
 	curl.status_mire_mult = 0.5
 	curl.status_mire_time = 3.0
 	curl.status_radius = 40.0
+	curl.vfx_id = "protection"
 	curl.unlock_conditions = {"hide": [1, 1]}
 	skills.append(curl)
 

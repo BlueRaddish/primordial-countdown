@@ -23,6 +23,74 @@ extends RefCounted
 const VfxSprite := preload("res://scripts/vfx/vfx_sprite.gd")
 const VfxHitbox := preload("res://scripts/vfx/vfx_hitbox.gd")
 const VfxTelegraph := preload("res://scripts/vfx/vfx_telegraph.gd")
+const VfxAnim := preload("res://scripts/vfx/vfx_anim.gd")
+
+# --- Frame animations (CodeManu Free Pixel Effects Pack + tbbk sword slash, both CC0)
+#
+# These are the actual animations. Everything else in this file scales and fades a
+# single texture, which reads as a flash; these have frames of their own, which is what
+# makes a skill look animated rather than lit up.
+#
+# `frames` is the count of NON-BLANK cells — the sheets pad their grids with empty
+# cells, and playing those would leave the effect hanging invisibly on screen.
+const ANIMS: Dictionary = {
+	"slash": {
+		"tex": preload("res://assets/sprites/vfx/pixel/slash_sword.png"),
+		"fw": 64, "fh": 47, "frames": 9, "fps": 34.0,
+	},
+	"weaponhit": {
+		"tex": preload("res://assets/sprites/vfx/pixel/weaponhit.png"),
+		"fw": 100, "fh": 100, "frames": 31, "fps": 60.0,
+	},
+	"magickahit": {
+		"tex": preload("res://assets/sprites/vfx/pixel/magickahit.png"),
+		"fw": 100, "fh": 100, "frames": 41, "fps": 60.0,
+	},
+	"casting": {
+		"tex": preload("res://assets/sprites/vfx/pixel/casting.png"),
+		"fw": 100, "fh": 100, "frames": 73, "fps": 75.0,
+	},
+	"magicspell": {
+		"tex": preload("res://assets/sprites/vfx/pixel/magicspell.png"),
+		"fw": 100, "fh": 100, "frames": 75, "fps": 75.0,
+	},
+	"protection": {
+		"tex": preload("res://assets/sprites/vfx/pixel/protectioncircle.png"),
+		"fw": 100, "fh": 100, "frames": 61, "fps": 60.0,
+	},
+	"firespin": {
+		"tex": preload("res://assets/sprites/vfx/pixel/firespin.png"),
+		"fw": 100, "fh": 100, "frames": 61, "fps": 70.0,
+	},
+	"sunburn": {
+		"tex": preload("res://assets/sprites/vfx/pixel/sunburn.png"),
+		"fw": 100, "fh": 100, "frames": 61, "fps": 60.0,
+	},
+	"freezing": {
+		"tex": preload("res://assets/sprites/vfx/pixel/freezing.png"),
+		"fw": 100, "fh": 100, "frames": 86, "fps": 80.0,
+	},
+	"flamelash": {
+		"tex": preload("res://assets/sprites/vfx/pixel/flamelash.png"),
+		"fw": 100, "fh": 100, "frames": 46, "fps": 65.0,
+	},
+	"vortex": {
+		"tex": preload("res://assets/sprites/vfx/pixel/vortex.png"),
+		"fw": 100, "fh": 100, "frames": 61, "fps": 65.0,
+	},
+	"phantom": {
+		"tex": preload("res://assets/sprites/vfx/pixel/phantom.png"),
+		"fw": 100, "fh": 100, "frames": 61, "fps": 65.0,
+	},
+	"midnight": {
+		"tex": preload("res://assets/sprites/vfx/pixel/midnight.png"),
+		"fw": 100, "fh": 100, "frames": 61, "fps": 65.0,
+	},
+	"brightfire": {
+		"tex": preload("res://assets/sprites/vfx/pixel/brightfire.png"),
+		"fw": 100, "fh": 100, "frames": 61, "fps": 65.0,
+	},
+}
 
 const TEX_SLASH: Texture2D = preload("res://assets/sprites/vfx/slash_01.png")
 const TEX_SLASH_WIDE: Texture2D = preload("res://assets/sprites/vfx/slash_03.png")
@@ -61,8 +129,37 @@ static func sprite(parent: Node, pos: Vector2, tex: Texture2D) -> Node2D:
 	return fx
 
 
+static func anim(
+	parent: Node,
+	pos: Vector2,
+	id: String,
+	width: float,
+	tint: Color = Color.WHITE,
+	rotation: float = 0.0
+) -> Node2D:
+	"""Play a frame animation by name. Unknown ids are a no-op rather than a crash, so
+	a mistyped effect never takes gameplay down with it."""
+	if parent == null or not ANIMS.has(id):
+		return null
+	var d: Dictionary = ANIMS[id]
+	var fx: Node2D = VfxAnim.new()
+	fx.set("sheet", d["tex"])
+	fx.set("frame_size", Vector2i(d["fw"], d["fh"]))
+	fx.set("frames", d["frames"])
+	fx.set("fps", d["fps"])
+	fx.set("draw_width", width)
+	fx.set("color", tint)
+	fx.set("angle", rotation)
+	parent.add_child(fx)
+	fx.global_position = pos
+	return fx
+
+
 static func hitbox(parent: Node, pos: Vector2) -> Node2D:
-	if parent == null:
+	"""The true hit shape, drawn solid. A debugging view — off unless the player asks
+	for it in Settings, since with the effects animated the shapes are clutter. Callers
+	must tolerate null, which they already do."""
+	if parent == null or not GameState.show_hitboxes:
 		return null
 	var hb: Node2D = VfxHitbox.new()
 	parent.add_child(hb)
@@ -74,6 +171,9 @@ static func hitbox(parent: Node, pos: Vector2) -> Node2D:
 
 static func impact(parent: Node, pos: Vector2, dir: Vector2, tint: Color) -> void:
 	"""Something connected. Sharp, brief, thrown along the direction of the blow."""
+	# The animated hit sits on top; the shards below give it direction.
+	anim(parent, pos, "weaponhit", 34.0, tint, dir.angle())
+
 	var flash: Node2D = sprite(parent, pos, TEX_SPARK_STAR)
 	if flash:
 		flash.set("color", Color(1.0, 1.0, 1.0))
@@ -95,17 +195,25 @@ static func impact(parent: Node, pos: Vector2, dir: Vector2, tint: Color) -> voi
 		shard.set("velocity", spread * randf_range(90.0, 170.0))
 
 
-static func slash(parent: Node, pos: Vector2, angle: float, reach: float, tint: Color) -> void:
-	"""A melee swing. Oriented along the aim so the arc reads as the swing's path."""
-	var arc: Node2D = sprite(parent, pos, TEX_SLASH)
-	if arc:
-		arc.set("color", tint)
-		arc.set("start_size", reach * 1.5)
-		arc.set("end_size", reach * 2.1)
-		arc.set("lifetime", 0.2)
-		arc.set("start_angle", angle)
-		arc.set("spin", 0.5)
-		arc.set("fade_curve", 1.3)
+static func slash(
+	parent: Node,
+	pos: Vector2,
+	angle: float,
+	reach: float,
+	tint: Color,
+	rider: Node2D = null
+) -> void:
+	"""A melee swing: a real frame-animated slash, laid over the character.
+
+	Passing `rider` makes it FOLLOW that node, which is the point — a swing stamped on
+	the world where it started detaches from the body the moment the player moves, and
+	at 120px/s that is immediately. Riding the character keeps the swing attached to
+	the thing swinging it."""
+	var arc: Node2D = anim(parent, pos, "slash", reach * 2.0, tint, angle)
+	if arc and rider:
+		arc.set("follow", rider)
+		# Held out along the aim so the blade reads as leaving the body, not bisecting it.
+		arc.set("follow_offset", Vector2(0.0, -10.0) + Vector2.RIGHT.rotated(angle) * reach * 0.45)
 
 
 static func cast(parent: Node, pos: Vector2, tint: Color, reach: float) -> void:
@@ -187,6 +295,9 @@ static func dust(parent: Node, pos: Vector2, amount: float) -> void:
 
 static func slam(parent: Node, pos: Vector2, reach: float, tint: Color) -> void:
 	"""The boss's ground slam: a scorch on the floor, then the shock going outward."""
+	# Drawn at the true blast radius, so the animation and the danger agree.
+	anim(parent, pos, "sunburn", reach * 2.0, tint)
+
 	var mark: Node2D = sprite(parent, pos, TEX_SCORCH)
 	if mark:
 		mark.set("additive", false)
@@ -218,6 +329,8 @@ static func slam(parent: Node, pos: Vector2, reach: float, tint: Color) -> void:
 
 
 static func death(parent: Node, pos: Vector2, tint: Color) -> void:
+	anim(parent, pos, "phantom", 44.0, tint)
+
 	var pop: Node2D = sprite(parent, pos, TEX_STAR)
 	if pop:
 		pop.set("color", tint)
@@ -261,13 +374,9 @@ static func enemy_strike(parent: Node, pos: Vector2, reach: float, aim: Vector2)
 		hb.set("radius", reach)
 		hb.set("lifetime", 0.18)
 
-	var swipe: Node2D = sprite(parent, pos, TEX_SLASH_WIDE)
-	if swipe:
-		swipe.set("color", Color("ff8a7a"))
-		swipe.set("start_size", reach * 1.4)
-		swipe.set("end_size", reach * 1.9)
-		swipe.set("lifetime", 0.18)
-		swipe.set("start_angle", aim.angle())
+	# The enemy's swing gets the same animated slash the player's does, tinted red so
+	# "incoming" never reads as "mine" in a crowded frame.
+	anim(parent, pos + aim * reach * 0.4, "slash", reach * 1.8, Color("ff8a7a"), aim.angle())
 
 
 static func heal(parent: Node, pos: Vector2) -> void:

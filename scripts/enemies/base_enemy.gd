@@ -524,24 +524,44 @@ func apply_bleed(dps: float, duration: float) -> void:
 	"""Damage over time. Stacks by taking the stronger source, never by adding."""
 	if dps <= 0.0 or duration <= 0.0:
 		return
+	var fresh: bool = _bleed_timer <= 0.0
 	_bleed_dps = maxf(_bleed_dps, dps)
 	_bleed_timer = maxf(_bleed_timer, duration)
+	# Only on application, not on every refresh — a status that re-announces itself
+	# constantly becomes noise and stops meaning anything.
+	if fresh:
+		Vfx.anim(
+			get_parent(), global_position + Vector2(0.0, -10.0),
+			"brightfire", 22.0, BLEED_TINT
+		)
 
 
 func apply_mire(mult: float, duration: float) -> void:
 	"""Slow. mult below 1.0 is slower; the strongest slow wins."""
 	if duration <= 0.0:
 		return
+	var fresh: bool = _mire_timer <= 0.0
 	_mire_mult = minf(_mire_mult, clampf(mult, 0.05, 1.0))
 	_mire_timer = maxf(_mire_timer, duration)
+	if fresh:
+		Vfx.anim(
+			get_parent(), global_position + Vector2(0.0, -10.0),
+			"freezing", 26.0, MIRE_TINT
+		)
 
 
 func apply_reeling(mult: float, duration: float) -> void:
 	"""Vulnerability. mult above 1.0 means this enemy takes more damage."""
 	if duration <= 0.0:
 		return
+	var fresh: bool = _reel_timer <= 0.0
 	_reel_mult = maxf(_reel_mult, maxf(mult, 1.0))
 	_reel_timer = maxf(_reel_timer, duration)
+	if fresh:
+		Vfx.anim(
+			get_parent(), global_position + Vector2(0.0, -10.0),
+			"midnight", 26.0, REEL_TINT
+		)
 
 
 func is_bleeding() -> bool:

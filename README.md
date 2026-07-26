@@ -79,7 +79,7 @@ The scope is what a small 2D action roguelike actually needs:
 | **Display** | Fullscreen, VSync |
 | **Audio** | Master, Music, Sound effects |
 | **Accessibility** | Reduce flashing, Screen shake |
-| **Advanced** | Developer tools |
+| **Advanced** | Developer tools, Show hitboxes |
 
 **Reduce flashing** is not decorative here. Every telegraph in this game is a rapidly
 pulsing sprite colour — enemy windups, the boss slam, the invincibility flicker — which
@@ -126,6 +126,39 @@ machine gun.
 
 ---
 
+## The player character
+
+The player is ansimuz's **Gothic hero** (`resources/sprite_frames/player_hero.tres`),
+which carries a far fuller rig than the 0x72 knight it replaced — that had a *one-frame*
+"attack" which was actually its hit-reaction pose, and a one-frame jump reusing a run
+frame.
+
+| Animation | Frames | Frame size |
+| --- | --- | --- |
+| idle / walk | 4 / 12 | 38x48, 66x48 |
+| jump / attack | 5 / 6 | 61x77, 96x48 |
+| jump_attack | 6 | 84x80 |
+| hurt / crouch / crouch_slash | 3 / 3 / 4 | 48x48, 48x48, 80x32 |
+
+Built as `AtlasTexture` regions over the original sheets, so no frames were cut into new
+files.
+
+**Forms stay animated by switching animation SETS, not by editing frames.** A sprite
+sheet cannot have an arm removed from it without redrawing every frame, so the trait is
+expressed by *which animation plays*: legs lost means the hero can no longer stand, so it
+uses `crouch` and `crouch_slash` and keeps moving. Add the `body_marks.gd` overlays
+(wings, tail, claws, plating) and the decay tint on top, and the body reads as changing
+without a single edited frame. What this cannot do is literally delete a limb from the
+art — see the open question in `ideate.md`.
+
+Frame heights differ per animation (48, 77, 80, 32), so the sprite is bottom-anchored:
+`centered = false` with a per-animation `offset` of `(-w/2, -h)`. A centred sprite would
+make the character sink or float every time the animation changed. It is scaled to 0.6
+because the hero is ~41px tall against the knight's ~28, and the arena's platform
+clearances are tuned to a 22px body.
+
+---
+
 ## Visual effects
 
 Every effect goes through `scripts/vfx/vfx.gd`, one named call each — `impact`,
@@ -138,10 +171,25 @@ about to happen", that is a real problem, not a polish gap.
 
 | Kind | Used for | Why |
 | --- | --- | --- |
-| **Sprites** (Kenney Particle Pack, CC0) | sparks, slashes, smoke, scorch, flares | Real texture reads far better than drawn shapes against pixel art |
+| **Frame animations** (`vfx_anim.gd`) | every skill, the melee slash, hits, statuses, death, the boss slam | Hand-drawn pixel animation. A scaled-and-faded texture reads as a *flash*; frames read as an *effect* |
+| **Particles** (`vfx_sprite.gd`) | sparks, smoke, dust, scorch, flares | Adds direction and weight underneath the animation |
 | **Procedural** (`vfx_hitbox.gd`, `vfx_telegraph.gd`, `sweep_indicator.gd`) | the true hitbox shape, an enemy's real strike radius | A texture cannot follow a number that gets retuned; a drawn shape can |
 
-**The hitbox is drawn under the animation.** An animation is a lie by design — it
+**Every skill has its own animation.** `SkillData.vfx_id` names one of 14 sheets, and
+`get_vfx_id()` falls back on what the skill actually does (directional attack → a lash,
+AoE → a spin, movement → a vortex, otherwise a spell) so a new skill is never invisible
+for want of a field. Twenty abilities previously drew the same flare in twenty colours,
+which is why they read as one ability with a palette.
+
+**The melee slash rides the character.** A swing stamped on the world detaches from the
+body the moment the player moves, and at 120px/s that is immediately — so the slash
+follows the player and is held out along the aim.
+
+**Show hitboxes** (Settings → Advanced, **default off**) draws the true hit shape under
+every attack animation. It is a debugging view: once the effects are properly animated
+the shapes read as clutter, but turned on they answer "did that actually reach?" exactly.
+
+**When on, the hitbox is drawn under the animation.** An animation is a lie by design — it
 flourishes past its own reach for feel. Every attack therefore draws its *real* shape
 (the melee `RectangleShape2D` at its live size and offset, a skill's `aoe_radius`, an
 enemy's `strike_radius`) as a solid translucent form at `z_index 4`, with the sprite
@@ -736,7 +784,10 @@ readouts (`~25`, `??`) the same width as the real thing.
 | Pixel Platformer Industrial Expansion — ground tile | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer-industrial-expansion |
 | Kenney Fonts — Kenney Pixel, Kenney Mini Square Mono | Kenney | CC0 1.0 | https://kenney.nl/assets/kenney-fonts |
 | Gothicvania Patreon Collection — skill/attack animation reference | Luis Zuno (ansimuz) | Public domain, credit appreciated | https://opengameart.org/content/gothicvania-patreons-collection |
-| Particle Pack — all combat VFX (sparks, slashes, smoke, scorch, flares) | Kenney | CC0 1.0 | https://kenney.nl/assets/particle-pack |
+| Particle Pack — spark/smoke/scorch/flare particles | Kenney | CC0 1.0 | https://kenney.nl/assets/particle-pack |
+| Free Pixel Effects Pack — the 13 frame-animated skill/impact effects | CodeManu | CC0 1.0 | https://opengameart.org/content/free-pixel-effects-pack |
+| Pixel Art Sword Slash Effect — the melee/enemy slash animation | tbbk | CC0 1.0 | https://opengameart.org/content/pixel-art-sword-slash-effect |
+| Gothicvania Patreon Collection — the player character (Gothic hero) | Luis Zuno (ansimuz) | Public domain, credit appreciated | https://opengameart.org/content/gothicvania-patreons-collection |
 | Impact Sounds — hit/impact SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/impact-sounds |
 | RPG Audio — blade slice SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/rpg-audio |
 | Music Jingles — devolution/skill/death stingers | Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles |

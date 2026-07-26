@@ -35,6 +35,11 @@ var screen_shake: bool = true
 # playtesting shows a character sheet rather than a debug console.
 var show_dev_tools: bool = false
 
+# Draw the solid true-hitbox shape underneath every attack animation. Off by default:
+# it is a debugging view, and once the effects are actually animated the shapes read as
+# clutter rather than as information. On, it answers "did that reach?" exactly.
+var show_hitboxes: bool = false
+
 # ---- Dev / testing ----
 var god_mode: bool = false
 var no_skill_cooldown: bool = false

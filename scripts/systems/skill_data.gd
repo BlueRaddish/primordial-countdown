@@ -77,9 +77,30 @@ enum Kind { OFFENSIVE, BUFF, MOVEMENT }
 # within this radius of the player. 0 means "only what the attack actually hit".
 @export var status_radius: float = 0.0
 
+# --- Visuals ---
+# Which frame animation plays when this skill fires (a key in Vfx.ANIMS). Every skill
+# used to draw the same scaled-and-faded flare differing only in colour, which made
+# twenty distinct abilities read as one ability with a palette. Naming the animation
+# per skill is what separates them.
+#
+# Empty falls back to a sensible default chosen from the skill's components, so a new
+# skill is never invisible just because this was forgotten.
+@export var vfx_id: String = ""
+
 # Unlock conditions: trait_name -> Array[int] of size 2: [min_stage, max_stage].
 # All conditions must be met simultaneously.
 @export var unlock_conditions: Dictionary = {}
+
+
+func get_vfx_id() -> String:
+	"""The animation to play, falling back on what the skill actually does."""
+	if not vfx_id.is_empty():
+		return vfx_id
+	if aoe_damage > 0.0:
+		return "flamelash" if is_directional else "firespin"
+	if impulse_speed > 0.0:
+		return "vortex"
+	return "magicspell"
 
 
 func has_status() -> bool:

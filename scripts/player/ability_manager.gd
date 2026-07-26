@@ -373,19 +373,38 @@ func _execute_offensive(skill: SkillData, aim_dir: Vector2) -> void:
 
 	# Note: offensive skills do NOT also emit attack_made. They already paid their
 	# own year_cost in activate_skill, and charging both would double-bill them.
-	_show_aoe(center, skill.aoe_radius, skill.aoe_color, skill.is_directional, aim_dir)
+	_show_aoe(
+		center, skill.aoe_radius, skill.aoe_color, skill.is_directional,
+		aim_dir, skill.get_vfx_id()
+	)
 
 
 func _show_cast(skill: SkillData) -> void:
 	"""Punctuation on the player when a skill fires. Buffs get rising motes, so a
 	self-buff never reads the same as an attack going off."""
 	var at: Vector2 = _player.global_position + Vector2(0.0, -10.0)
+	# The skill's own animation, riding the player so it stays on the body that cast
+	# it. This is what stops twenty abilities reading as one ability in twenty colours.
+	var fx: Node2D = Vfx.anim(
+		_player.get_parent(), at, skill.get_vfx_id(),
+		maxf(skill.aoe_radius, 24.0) * 2.0, skill.aoe_color
+	)
+	if fx:
+		fx.set("follow", _player)
+		fx.set("follow_offset", Vector2(0.0, -10.0))
 	Vfx.cast(_player.get_parent(), at, skill.aoe_color, maxf(skill.aoe_radius, 20.0))
 	if skill.buff_duration >= 1.0:
 		Vfx.buff(_player.get_parent(), at, skill.aoe_color)
 
 
-func _show_aoe(center: Vector2, radius: float, color: Color, directional: bool, aim_dir: Vector2) -> void:
+func _show_aoe(
+	center: Vector2,
+	radius: float,
+	color: Color,
+	directional: bool,
+	aim_dir: Vector2,
+	vfx_id: String = ""
+) -> void:
 	if not _player:
 		return
 	# The true hit area drawn solid, with the flourish over it — so a skill's real
@@ -399,6 +418,11 @@ func _show_aoe(center: Vector2, radius: float, color: Color, directional: bool, 
 			hb.set("shape", 2) # VfxHitbox.Shape.ARC
 			hb.set("angle", aim_dir.angle())
 	Vfx.aoe(_player.get_parent(), center, color, radius)
+	if not vfx_id.is_empty():
+		Vfx.anim(
+			_player.get_parent(), center, vfx_id,
+			radius * 2.2, color, aim_dir.angle() if directional else 0.0
+		)
 
 
 func get_skill_in_slot(slot_index: int) -> SkillData:

@@ -38,7 +38,7 @@ const ONE_WAY_THICKNESS: float = 8.0
 const ONE_WAY_MARGIN: float = 12.0
 # Height of a player/enemy collider. The blocking band must not reach down into the
 # space a body needs in order to walk underneath a shelf.
-const BODY_HEIGHT: float = 20.0
+const BODY_HEIGHT: float = 22.0
 # Below this the margin stops being useful, so a platform with no room simply gets a
 # small one and accepts the occasional fall-through.
 const ONE_WAY_MARGIN_MIN: float = 6.0
@@ -93,11 +93,12 @@ const ONE_WAY_MARGIN_MIN: float = 6.0
 	                           #     so intact legs only — a shortcut, not a route.
 	Rect2(792, 126, 45, 18),   # 13: perch above the right-hand descent, same rule
 
-	# OUTBOARD (14-15) — beyond the arena floor, over open air. Only reachable now the
-	# side walls are gone, and standing on one means a fall kills you rather than a wall
-	# catching you. This is the risk half of removing the walls.
-	Rect2(-90, 207, 54, 18),   # 14: left, past the edge of the ground
-	Rect2(1116, 216, 54, 18),  # 15: right, past the edge of the ground
+	# REMOVED: the two outboard islands that sat past the ends of the ground, over open
+	# air. They asked for a committed jump out over a lethal drop, which partial legs
+	# (44px peak, no double jump) could not make reliably — so in practice they were a
+	# death sentence exactly when the run had already taken something from you. An
+	# optional route that is only available while you are healthy is not much of a
+	# route; one that kills you for trying it while degraded is worse.
 ]
 
 # Indices into `platforms` that the player can jump up through from below.
@@ -117,7 +118,7 @@ const ONE_WAY_MARGIN_MIN: float = 6.0
 # out — but the default is "all of them", and a solid floating platform should be a
 # deliberate decision with a reason next to it.
 @export var one_way_platforms: Array[int] = [
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 ]
 
 

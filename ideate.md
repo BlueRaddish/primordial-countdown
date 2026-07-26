@@ -328,6 +328,31 @@ picking between distinct things, not clicking down a menu.
 
 ---
 
+## Open: wings art, and the limits of form-swapping
+
+**Wings still have no sourced art.** Searched OpenGameArt and itch.io for a CC0 pack of
+*attachable, side-facing* wings and found none — every candidate (birds, bats, angels) is
+a whole creature with the wings welded to a body, including the 0x72 angel this project
+already staged as "the one EXTRACTABLE asset". At 16x16 with the wings fused to a torso,
+cropping it would mean editing art, and the result would not match the 0.6-scaled Gothic
+hero anyway. Wings currently remain the procedural pair in `body_marks.gd`, which do beat
+faster airborne and mirror with facing (so they are already directional).
+
+Three ways forward, in order of cost:
+1. Keep procedural and tune them — free, already directional, but plainly drawn shapes.
+2. Commission or hand-author a small 2-frame wing pair — cheapest real art fix.
+3. Adopt a full winged character set and swap the whole rig when Wings grow.
+
+**The limit of animation-set swapping.** Losing legs now switches the hero to `crouch` /
+`crouch_slash`, which is a genuine visual read for a lost trait with no edited frames.
+The same trick does NOT work for arms: there is no "one-armed" animation in the set, and
+producing one means redrawing every frame. Currently arms-lost is expressed only through
+gameplay (no attack) plus the decay tint. Options are a shader that masks an arm region
+(crude on overlapping pixel art), an overlay that hides it, or accepting that some traits
+read mechanically rather than visually.
+
+---
+
 ## Playtest pass ✅ shipped (not previously in this doc)
 
 Everything here came out of actually playing the build, and all of it is verified by

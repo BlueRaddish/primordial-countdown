@@ -26,7 +26,7 @@ const UILayout := preload("res://scripts/ui/ui_layout.gd")
 const PAUSE_ID: String = "settings"
 
 const PANEL_W: float = 460.0
-const PANEL_H: float = 330.0
+const PANEL_H: float = 350.0
 const ROW_H: float = 20.0
 const LABEL_X: float = 16.0
 const CTRL_X: float = 210.0
@@ -41,6 +41,7 @@ var _vsync_btn: Button
 var _flash_btn: Button
 var _shake_btn: Button
 var _dev_btn: Button
+var _hitbox_btn: Button
 var _master_slider: HSlider
 var _music_slider: HSlider
 var _sfx_slider: HSlider
@@ -116,6 +117,7 @@ func _build_ui() -> void:
 
 	_section("ADVANCED")
 	_dev_btn = _toggle_row("Developer tools", _on_dev)
+	_hitbox_btn = _toggle_row("Show hitboxes", _on_hitboxes)
 
 	# Controls reference, in the space to the right of nothing — put at the bottom.
 	var controls: Label = Label.new()
@@ -230,6 +232,7 @@ func _refresh() -> void:
 	_set_toggle(_flash_btn, GameState.reduce_flashing)
 	_set_toggle(_shake_btn, GameState.screen_shake)
 	_set_toggle(_dev_btn, GameState.show_dev_tools)
+	_set_toggle(_hitbox_btn, GameState.show_hitboxes)
 	if _master_slider:
 		_master_slider.set_value_no_signal(GameState.master_volume)
 	if _music_slider:
@@ -283,6 +286,11 @@ func _on_shake() -> void:
 
 func _on_dev() -> void:
 	GameState.show_dev_tools = not GameState.show_dev_tools
+	_refresh()
+
+
+func _on_hitboxes() -> void:
+	GameState.show_hitboxes = not GameState.show_hitboxes
 	_refresh()
 
 

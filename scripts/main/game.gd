@@ -7,6 +7,16 @@
 extends Node2D
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	# Esc opens settings, which freezes the run while it is up. The panel closes
+	# itself on Esc, so this only ever has to handle opening it.
+	if event.is_action_pressed("pause"):
+		var panel: Node = get_tree().get_first_node_in_group("settings_panel")
+		if panel and panel.has_method("toggle"):
+			panel.call("toggle")
+			get_viewport().set_input_as_handled()
+
+
 func _ready() -> void:
 	if GameState.is_run_active:
 		return

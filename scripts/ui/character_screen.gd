@@ -7,7 +7,20 @@
 # Bottom:      dev toggles (take no damage, player-chosen devolution)
 extends Control
 
+const UILayout := preload("res://scripts/ui/ui_layout.gd")
+
 const PAUSE_ID: String = "character_screen"
+
+# The viewport is a fixed 640x360 (project.godot), so every centred panel has to fit
+# inside it with a margin. These are the budget the layout below is built against —
+# change them here rather than nudging individual y positions.
+const PANEL_W: float = 560.0
+const PANEL_H: float = 344.0
+
+# Column origins.
+const COL_L: float = 10.0
+const COL_R: float = 262.0
+const COL_R_W: float = 288.0
 
 var _is_open: bool = false
 
@@ -22,6 +35,12 @@ var _freeze_years_btn: Button
 var _choice_mode_btn: Button
 var _skill_detail_label: Label
 var _evolved_container: VBoxContainer
+# Every testing-only control, hidden as a group unless dev tools are enabled.
+var _dev_nodes: Array[Node] = []
+var _dev_header_hint: Label
+# Shown in place of the assign buttons when reassignment is locked.
+var _assign_lock_label: Label
+var _assign_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -76,13 +95,13 @@ func _build_ui() -> void:
 	add_child(overlay)
 
 	# Main panel.
+	#
+	# HARD CONSTRAINT: the game renders at a fixed 640x360 viewport, so a centred
+	# panel can never exceed that or it hangs off both edges and cannot be read. This
+	# was 540x400 — 40px taller than the screen — which is what pushed the EVOLVED
+	# section off the bottom. Everything below is laid out to fit inside PANEL_H.
 	_panel = Panel.new()
-	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	# Tall enough for the full evolved roster (six forms, four slots) listed below the
-	# skills. Every child is positioned from the panel's top-left, so growing it only
-	# ever adds room at the bottom.
-	_panel.size = Vector2(540, 400)
-	_panel.position = Vector2(-270, -200)
+	UILayout.center(_panel, PANEL_W, PANEL_H)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.06, 0.06, 0.1, 0.95)
 	style.border_color = Color("4ecdc4")
@@ -115,7 +134,7 @@ func _build_ui() -> void:
 	# Close hint.
 	var close_hint: Label = Label.new()
 	close_hint.text = "[C] Close"
-	close_hint.position = Vector2(470, 8)
+	close_hint.position = Vector2(PANEL_W - 70.0, 8)
 	close_hint.add_theme_font_size_override("font_size", 8)
 	close_hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	_panel.add_child(close_hint)
@@ -134,16 +153,18 @@ func _build_trait_panel() -> void:
 	traits_header.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(traits_header)
 
-	var dev_header: Label = Label.new()
-	dev_header.text = "(DEV)"
-	dev_header.position = Vector2(190, 29)
-	dev_header.add_theme_font_size_override("font_size", 8)
-	dev_header.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
-	_panel.add_child(dev_header)
+	_dev_header_hint = Label.new()
+	_dev_header_hint.text = "(DEV)"
+	_dev_header_hint.position = Vector2(190, 29)
+	_dev_header_hint.add_theme_font_size_override("font_size", 8)
+	_dev_header_hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+	_panel.add_child(_dev_header_hint)
 
 	var trait_names: Array[String] = TraitManager.ALL_TRAITS
 	for i: int in range(trait_names.size()):
-		var y: float = 46.0 + float(i) * 22.0
+		# 20px per row rather than 22: seven traits plus the testing panel below have
+		# to share one 344px column.
+		var y: float = 44.0 + float(i) * 20.0
 		var tname: String = trait_names[i]
 
 		var name_lbl: Label = Label.new()
@@ -196,7 +217,7 @@ func _build_trait_panel() -> void:
 func _build_skill_panel() -> void:
 	var skills_header: Label = Label.new()
 	skills_header.text = "SKILL SLOTS"
-	skills_header.position = Vector2(250, 28)
+	skills_header.position = Vector2(COL_R, 28)
 	skills_header.add_theme_font_size_override("font_size", 10)
 	skills_header.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	_panel.add_child(skills_header)
@@ -205,7 +226,7 @@ func _build_skill_panel() -> void:
 	for i: int in range(3):
 		var slot_lbl: Label = Label.new()
 		slot_lbl.text = "[%s] ---" % keys[i]
-		slot_lbl.position = Vector2(250.0 + float(i) * 96.0, 46.0)
+		slot_lbl.position = Vector2(COL_R + float(i) * 96.0, 44.0)
 		slot_lbl.add_theme_font_size_override("font_size", 9)
 		slot_lbl.add_theme_color_override("font_color", Color.WHITE)
 		_panel.add_child(slot_lbl)
@@ -213,29 +234,37 @@ func _build_skill_panel() -> void:
 
 	var avail_header: Label = Label.new()
 	avail_header.text = "AVAILABLE SKILLS"
-	avail_header.position = Vector2(250, 68)
+	avail_header.position = Vector2(COL_R, 64)
 	avail_header.add_theme_font_size_override("font_size", 9)
 	avail_header.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
 	_panel.add_child(avail_header)
 
 	var avail_hint: Label = Label.new()
 	avail_hint.text = "(granted by lost traits)"
-	avail_hint.position = Vector2(360, 69)
+	avail_hint.position = Vector2(COL_R + 110.0, 65)
 	avail_hint.add_theme_font_size_override("font_size", 7)
 	avail_hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	_panel.add_child(avail_hint)
 
+	# Scrolls, because the roster is now 20 skills and a late run can have most of
+	# them unlocked at once — a plain VBox just ran off the bottom of the panel.
+	var skills_scroll: ScrollContainer = ScrollContainer.new()
+	skills_scroll.position = Vector2(COL_R, 78)
+	skills_scroll.size = Vector2(COL_R_W, 120)
+	skills_scroll.custom_minimum_size = Vector2(COL_R_W, 120)
+	skills_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_panel.add_child(skills_scroll)
+
 	_available_skills_container = VBoxContainer.new()
-	_available_skills_container.position = Vector2(250, 84)
-	_available_skills_container.size = Vector2(280, 160)
+	_available_skills_container.custom_minimum_size = Vector2(COL_R_W - 10.0, 0)
 	_available_skills_container.add_theme_constant_override("separation", 1)
-	_panel.add_child(_available_skills_container)
+	skills_scroll.add_child(_available_skills_container)
 
 	_skill_detail_label = Label.new()
 	_skill_detail_label.text = ""
-	_skill_detail_label.position = Vector2(250, 248)
-	_skill_detail_label.size = Vector2(280, 24)
-	_skill_detail_label.custom_minimum_size = Vector2(280, 24)
+	_skill_detail_label.position = Vector2(COL_R, 200)
+	_skill_detail_label.size = Vector2(COL_R_W, 22)
+	_skill_detail_label.custom_minimum_size = Vector2(COL_R_W, 22)
 	_skill_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_skill_detail_label.add_theme_font_size_override("font_size", 7)
 	_skill_detail_label.add_theme_color_override("font_color", Color(0.65, 0.65, 0.75))
@@ -245,68 +274,80 @@ func _build_skill_panel() -> void:
 func _build_evolved_panel() -> void:
 	var header: Label = Label.new()
 	header.text = "EVOLVED"
-	header.position = Vector2(250, 272)
+	header.position = Vector2(COL_R, 228)
 	header.add_theme_font_size_override("font_size", 9)
 	header.add_theme_color_override("font_color", Color("aed6f1"))
 	_panel.add_child(header)
 
 	var hint: Label = Label.new()
 	hint.text = "(grow back over a lost trait)"
-	hint.position = Vector2(310, 273)
+	hint.position = Vector2(COL_R + 60.0, 229)
 	hint.add_theme_font_size_override("font_size", 7)
 	hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	_panel.add_child(hint)
 
+	# Also scrolls: six evolved forms can be listed at once (grown, claimable, and
+	# closed-off all appear), which is more than the column has room for.
+	var evolved_scroll: ScrollContainer = ScrollContainer.new()
+	evolved_scroll.position = Vector2(COL_R, 242)
+	evolved_scroll.size = Vector2(COL_R_W, 94)
+	evolved_scroll.custom_minimum_size = Vector2(COL_R_W, 94)
+	evolved_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_panel.add_child(evolved_scroll)
+
 	_evolved_container = VBoxContainer.new()
-	_evolved_container.position = Vector2(250, 286)
-	_evolved_container.size = Vector2(280, 106)
+	_evolved_container.custom_minimum_size = Vector2(COL_R_W - 10.0, 0)
 	_evolved_container.add_theme_constant_override("separation", 1)
-	_panel.add_child(_evolved_container)
+	evolved_scroll.add_child(_evolved_container)
 
 
 func _build_dev_panel() -> void:
+	"""Testing controls, hidden unless Settings → Developer tools is on.
+
+	Someone playtesting normally should see their character, not a god-mode switch —
+	and the trait +/- buttons in particular make it trivial to accidentally invalidate
+	whatever you were trying to feel out."""
+	_dev_nodes.clear()
+
 	var dev_header: Label = Label.new()
 	dev_header.text = "TESTING"
-	dev_header.position = Vector2(10, 208)
+	dev_header.position = Vector2(COL_L, 188)
 	dev_header.add_theme_font_size_override("font_size", 9)
 	dev_header.add_theme_color_override("font_color", Color("f1c40f"))
 	_panel.add_child(dev_header)
+	_dev_nodes.append(dev_header)
 
-	_god_mode_btn = Button.new()
-	_god_mode_btn.position = Vector2(10, 224)
-	_god_mode_btn.custom_minimum_size = Vector2(220, 20)
-	_god_mode_btn.add_theme_font_size_override("font_size", 8)
-	_god_mode_btn.pressed.connect(_on_god_mode_pressed)
-	_panel.add_child(_god_mode_btn)
+	_god_mode_btn = _make_dev_button(202, _on_god_mode_pressed)
+	_no_cooldown_btn = _make_dev_button(221, _on_no_cooldown_pressed)
+	_freeze_years_btn = _make_dev_button(240, _on_freeze_years_pressed)
+	_choice_mode_btn = _make_dev_button(259, _on_choice_mode_pressed)
 
-	_no_cooldown_btn = Button.new()
-	_no_cooldown_btn.position = Vector2(10, 246)
-	_no_cooldown_btn.custom_minimum_size = Vector2(220, 20)
-	_no_cooldown_btn.add_theme_font_size_override("font_size", 8)
-	_no_cooldown_btn.pressed.connect(_on_no_cooldown_pressed)
-	_panel.add_child(_no_cooldown_btn)
-
-	_freeze_years_btn = Button.new()
-	_freeze_years_btn.position = Vector2(10, 268)
-	_freeze_years_btn.custom_minimum_size = Vector2(220, 20)
-	_freeze_years_btn.add_theme_font_size_override("font_size", 8)
-	_freeze_years_btn.pressed.connect(_on_freeze_years_pressed)
-	_panel.add_child(_freeze_years_btn)
-
-	_choice_mode_btn = Button.new()
-	_choice_mode_btn.position = Vector2(10, 290)
-	_choice_mode_btn.custom_minimum_size = Vector2(220, 20)
-	_choice_mode_btn.add_theme_font_size_override("font_size", 8)
-	_choice_mode_btn.pressed.connect(_on_choice_mode_pressed)
-	_panel.add_child(_choice_mode_btn)
-
-	var reset_btn: Button = Button.new()
+	var reset_btn: Button = _make_dev_button(278, _on_reset_traits)
 	reset_btn.text = "Reset all traits to intact"
-	reset_btn.position = Vector2(10, 312)
-	reset_btn.custom_minimum_size = Vector2(220, 20)
-	reset_btn.add_theme_font_size_override("font_size", 8)
-	reset_btn.pressed.connect(_on_reset_traits)
-	_panel.add_child(reset_btn)
+
+
+func _make_dev_button(y: float, handler: Callable) -> Button:
+	var btn: Button = Button.new()
+	btn.position = Vector2(COL_L, y)
+	btn.custom_minimum_size = Vector2(230, 17)
+	btn.size = Vector2(230, 17)
+	btn.add_theme_font_size_override("font_size", 8)
+	btn.pressed.connect(handler)
+	_panel.add_child(btn)
+	_dev_nodes.append(btn)
+	return btn
+
+
+func _apply_dev_visibility() -> void:
+	"""Show or hide every testing-only control, including the trait +/- buttons."""
+	var show: bool = GameState.show_dev_tools
+	for node: Node in _dev_nodes:
+		(node as CanvasItem).visible = show
+	for row: Dictionary in _trait_rows:
+		(row["inc_btn"] as Button).visible = show
+		(row["dec_btn"] as Button).visible = show
+	if _dev_header_hint:
+		_dev_header_hint.visible = show
 
 
 func _refresh_all() -> void:
@@ -314,6 +355,7 @@ func _refresh_all() -> void:
 	_refresh_skills()
 	_refresh_evolved()
 	_refresh_dev_toggles()
+	_apply_dev_visibility()
 
 
 func _refresh_evolved() -> void:
@@ -431,6 +473,9 @@ func _refresh_skills() -> void:
 
 	for child: Node in _available_skills_container.get_children():
 		child.queue_free()
+	_assign_buttons.clear()
+
+	var can_assign: bool = ability_mgr.can_reassign()
 
 	if ability_mgr.available_skills.is_empty():
 		var empty_lbl: Label = Label.new()
@@ -484,11 +529,21 @@ func _refresh_skills() -> void:
 			btn.add_theme_font_size_override("font_size", 7)
 			btn.pressed.connect(_on_assign_skill.bind(i, skill))
 			btn.mouse_entered.connect(_on_skill_hovered.bind(skill))
+			# Reassignment is only open right after learning something new — see
+			# AbilityManager.can_reassign(). Otherwise the character screen would be a
+			# free mid-fight loadout swap, which trivialises every hard moment.
+			btn.disabled = not can_assign
 			hbox.add_child(btn)
+			_assign_buttons.append(btn)
 
 		_available_skills_container.add_child(hbox)
 
-	_skill_detail_label.text = "* = multi-trait. Costs are years off the countdown; a normal attack costs 1."
+	if can_assign:
+		_skill_detail_label.text = "NEW SKILL — assign it to Q, E or R now. Loadout locks again after this."
+		_skill_detail_label.add_theme_color_override("font_color", Color("f1c40f"))
+	else:
+		_skill_detail_label.text = "* = multi-trait. Costs are years off the countdown; a normal attack costs 1. Loadout is locked until you learn a new skill."
+		_skill_detail_label.add_theme_color_override("font_color", Color(0.65, 0.65, 0.75))
 
 
 func _refresh_dev_toggles() -> void:

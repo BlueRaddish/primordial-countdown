@@ -8,10 +8,21 @@
 # 0 = intact, 1 = partial, 2 = fully lost. A skill naming more than one trait is a
 # multi-trait skill: it reads a *combination* of capability, not a single loss.
 #
-# Every skill can carry up to three components and applies whichever are non-zero:
-#   1. Offensive  — instant AoE damage       (aoe_damage > 0)
-#   2. Buff       — timed self modifiers     (buff_duration > 0)
-#   3. Impulse    — alternative movement     (impulse_speed > 0)
+# Every skill can carry up to four components and applies whichever are non-zero:
+#   1. Offensive  — instant AoE damage        (aoe_damage > 0)
+#   2. Buff       — timed self modifiers      (buff_duration > 0)
+#   3. Impulse    — alternative movement      (impulse_speed > 0)
+#   4. Status     — what it leaves on enemies (status_* fields)
+#
+# The status component is what stops a skill from being *only* an attack, *only* a
+# buff, or *only* a dash. A skill that bleeds what it hits, or slows what it passes
+# through, or leaves a target reeling for the next thing you do, reaches into the
+# rest of the kit instead of resolving on its own. Two of them chain by design:
+#
+#   * Reeling raises all incoming damage on that enemy, so anything that applies it
+#     is a setup for whatever you fire next (BaseEnemy.take_damage reads it).
+#   * Bleed is routed through the player's damage report, so it feeds omnivamp —
+#     Gorge or Rend running alongside a bleed heals you off the bleed itself.
 class_name SkillData
 extends Resource
 
@@ -55,9 +66,39 @@ enum Kind { OFFENSIVE, BUFF, MOVEMENT }
 # toward it — a back-step strike. When false the impulse follows the aim.
 @export var impulse_reverse: bool = false
 
+# --- Status component (left on the enemies this skill touches) ---
+@export var status_bleed_dps: float = 0.0
+@export var status_bleed_time: float = 0.0
+@export var status_mire_mult: float = 1.0   # below 1.0 = slower
+@export var status_mire_time: float = 0.0
+@export var status_reel_mult: float = 1.0   # above 1.0 = takes more damage
+@export var status_reel_time: float = 0.0
+# Lets a skill with no damage component still land its statuses, on everything
+# within this radius of the player. 0 means "only what the attack actually hit".
+@export var status_radius: float = 0.0
+
 # Unlock conditions: trait_name -> Array[int] of size 2: [min_stage, max_stage].
 # All conditions must be met simultaneously.
 @export var unlock_conditions: Dictionary = {}
+
+
+func has_status() -> bool:
+	return (
+		(status_bleed_dps > 0.0 and status_bleed_time > 0.0)
+		or (status_mire_mult < 1.0 and status_mire_time > 0.0)
+		or (status_reel_mult > 1.0 and status_reel_time > 0.0)
+	)
+
+
+func apply_status_to(enemy: Node) -> void:
+	"""Put this skill's statuses on one enemy. Safe to call on anything — a node that
+	is not a BaseEnemy simply has none of these methods."""
+	if status_bleed_dps > 0.0 and status_bleed_time > 0.0 and enemy.has_method("apply_bleed"):
+		enemy.call("apply_bleed", status_bleed_dps, status_bleed_time)
+	if status_mire_mult < 1.0 and status_mire_time > 0.0 and enemy.has_method("apply_mire"):
+		enemy.call("apply_mire", status_mire_mult, status_mire_time)
+	if status_reel_mult > 1.0 and status_reel_time > 0.0 and enemy.has_method("apply_reeling"):
+		enemy.call("apply_reeling", status_reel_mult, status_reel_time)
 
 
 func is_unlocked(trait_states: Dictionary) -> bool:
@@ -95,13 +136,49 @@ func get_cost_label() -> String:
 
 
 func get_kind_label() -> String:
-	match kind:
-		Kind.BUFF:
-			return "BUFF"
-		Kind.MOVEMENT:
-			return "MOVE"
-		_:
-			return "ATTACK"
+	"""What this skill actually does, built from its components rather than from the
+	single `kind` tag. Most skills carry more than one now, and labelling a dash that
+	bleeds and slows as merely "MOVE" undersold the whole kit."""
+	var parts: PackedStringArray = PackedStringArray()
+	if aoe_damage > 0.0:
+		parts.append("ATK")
+	if impulse_speed > 0.0:
+		parts.append("MOVE")
+	if _has_self_buff():
+		parts.append("BUFF")
+	if has_status():
+		parts.append("HEX")
+
+	if parts.is_empty():
+		# Fall back to the declared kind for anything that carries no component at all.
+		match kind:
+			Kind.BUFF:
+				return "BUFF"
+			Kind.MOVEMENT:
+				return "MOVE"
+			_:
+				return "ATK"
+
+	# Two tags is all the HUD's slot has room for; the first two are the ones that
+	# describe how the skill is used rather than what it leaves behind.
+	if parts.size() > 2:
+		parts = PackedStringArray([parts[0], parts[1]])
+	return "+".join(parts)
+
+
+func _has_self_buff() -> bool:
+	"""True when the skill grants a self-buff worth naming.
+
+	A sub-second damage-taken change is the i-frame window on a dash, not a buff in
+	its own right, so it is deliberately not counted — otherwise every movement skill
+	would advertise itself as a buff."""
+	if buff_duration <= 0.0:
+		return false
+	if buff_damage_mult != 1.0 or buff_omnivamp > 0.0 or buff_contact_retaliation > 0.0:
+		return true
+	if buff_attack_cooldown_mult != 1.0 or buff_pulse_damage > 0.0 or buff_danger_sense:
+		return true
+	return buff_damage_taken_mult != 1.0 and buff_duration >= 1.0
 
 
 func get_requirement_text() -> String:

@@ -10,10 +10,9 @@ The north star: **the run should read as a body coming apart and improvising aro
 the wreckage, against a clock that never stops.** Devolution is loss; the only power
 you gain is power that grows out of loss.
 
-**Next up: clear the known issues below, then Tier 2.** Tiers 0 and 1 are shipped. The
-devolution *systems* are now complete — what is still missing is making the countdown
-itself a decision. But three bugs and one open fiction question turned up in a pass over
-the shipped systems, and they should be settled first rather than built on top of.
+**Next up: Tier 2.3, then Tier 3.** Tiers 0, 1 and the known issues are shipped, as are
+2.1 and 2.2. The one Tier 2 item left is 2.3, which is blocked on 3.2 by its own
+dependency — so the real front of the queue is Tier 3.
 
 ---
 
@@ -79,13 +78,14 @@ skill, closing the last gap PLANNING1 left undecided.
 
 ---
 
-## Known issues — fix before Tier 2
+## Known issues ✅ all fixed
 
 Found while reviewing the shipped systems. Not new features — bugs and rough edges in
-what already exists. Listed most-important first; worth clearing before Tier 2 builds
-more on top of the same code.
+what already exists. All three are cleared; the diagnoses are kept because each one
+explains a number that now looks arbitrary.
 
-### 2.0.1 Double jump doesn't work on certain platforms
+### 2.0.1 Double jump doesn't work on certain platforms ✅
+**Fixed:** `ONE_WAY_MARGIN` 6.0 → **16.0**. The diagnosis below was exactly right.
 The one-way platforms (`arena_renderer.gd`'s `one_way_platforms` list — the shelves with
 the teal top-line, meant to be jumped up through from below) can be fallen straight
 through instead of landed on, most often right after a double jump arcs back down onto
@@ -100,7 +100,10 @@ fix:** raise `ONE_WAY_MARGIN` past the worst-case per-frame fall distance (somet
 12–16, with headroom for a dropped frame) so a landing is caught reliably no matter how
 the platform was reached.
 
-### 2.0.2 Boss ground slam hits softer than just touching the boss
+### 2.0.2 Boss ground slam hits softer than just touching the boss ✅
+**Fixed:** slam 22 → **58**, plus its own knockback multiplier. The whole damage order was
+rebuilt in the same pass, since the combat rework changed what a "bump" even is:
+**slam 58 > strike 40 > contact 12**.
 `BossEnemy.slam_damage` is 22, but the boss inherits `BaseEnemy`'s plain contact damage
 (30 — already double a normal enemy's 15, per the "twice the contact damage" design) and
 a connecting lunge hits for 45 (contact damage × the lunger behavior's 1.5 multiplier).
@@ -111,7 +114,12 @@ where the big obvious attack should be the one that punishes hardest for eating 
 own multiplier the way lunges get one), so dodging the slam is worth visibly more than
 dodging a bump.
 
-### 2.0.3 Devolution ("degrade") screen needs individual cards, not a stacked list
+### 2.0.3 Devolution ("degrade") screen needs individual cards, not a stacked list ✅
+**Fixed:** each option is now a bordered card accented in that trait's colour, with the
+name, the `INTACT → PARTIAL` transition and the consequence laid out inside it. Full-loss
+cards burn hotter (tinted background, red transition text). The panel resizes to the
+option count, and drops to a compact row layout above 4 options so the dev "reveal all"
+toggle still fits inside the 360px viewport.
 Each offered trait in the devolution popup (`devolution_popup.gd`, shown from
 `devolution_screen.tscn`) is currently one full-width `Button` in a plain vertical stack —
 same background, same border, nothing separating one option from the next but its text.
@@ -123,9 +131,101 @@ picking between distinct things, not clicking down a menu.
 
 ---
 
-## Rethink the aging fiction (open design question)
+## UI pass ✅ shipped (not previously in this doc)
 
-The devolution system's current framing: a run starts at "2000 years old"
+Raised in play: "the UI and scaling are all off, and I still can't fullscreen it."
+Both were real, and both were mine:
+
+- **Fullscreen never worked.** `toggle_fullscreen` was bound to physical keycode
+  `4194343`, which is **F12**, not F11. Both are bound now.
+- **The character screen was 540x400 inside a 640x360 viewport** — 40px taller than the
+  screen, which pushed the EVOLVED section off the bottom. Introduced when the panel was
+  grown for the evolved roster in Tier 1. Re-laid out at 560x344.
+- **The devolution popup did not centre at all**, resolving to global `(-245,-134)` and
+  hanging off the top-left corner. `set_anchors_preset(PRESET_CENTER)` only resolves if
+  the size is assigned in the same pass, and that popup sizes itself to its option count
+  later. Now centred through `UILayout.center()`, which sets all four anchors and
+  offsets explicitly and has no ordering dependency.
+- **The HUD's year counter overlapped the wave/kills row** — 16px type at y20 running
+  into a block that started at y34.
+- Devolution options are now **tall cards in a horizontal row**, wrapping to a second
+  row past four so the seven-option dev case stays readable (at seven-per-row each card
+  is ~76px, narrower than its own consequence text, which then bled across neighbours).
+- **Settings** built out properly: display, audio, accessibility, advanced. Reachable
+  with `Esc`.
+- Skill and evolved lists **scroll**, since a late run can unlock most of 20 skills.
+- Skill **reassignment is locked** except right after learning something new.
+
+`tests/ui_smoke_test.tscn` now opens every screen, asserts each panel fits *and* sits
+inside the viewport, and saves screenshots. It found all of the above; none of it was
+visible from reading the code.
+
+**This was also the project's first runtime testing** — Godot turned out to be at
+`~/Downloads/Godot_v4.7.1-stable_win64.exe`. Everything before this was hand-reviewed.
+
+---
+
+## Combat rework ✅ shipped (not previously in this doc)
+
+Two problems raised in play, neither of which was on the backlog:
+
+**"It's hard to do damage without being damaged."** The cause was that *proximity itself*
+was the threat: enemies dealt full contact damage just by touching you, on their own
+cooldown, even while being knocked back — so there was no safe window to attack into and
+trading hits was the only way to deal damage. Rebuilt around a telegraph contract
+borrowed from Dead Cells: **CHASE → WINDUP → STRIKE → RECOVER**, where hitting an enemy
+during its windup interrupts the strike outright and staggers it 2.6× longer. Contact is
+now chip damage (6), staggered and recovering enemies cannot touch you at all, and player
+reach (44px) deliberately outranges the walker's strike (30px). On the player's side,
+melee damage is checked every frame the swing is open rather than only on its final
+frame. The three patterns were also given distinct profiles so they punish different
+mistakes — standing still, standing in a line, backing away.
+
+**"Skills are simply either buff, movement, or attack."** Correct, and the architecture
+already supported combining them — what was missing was anything that landed on the
+*enemy*. Added three statuses (Bleed, Mire, Reeling) modelled on how Hades layers a status
+onto a core action and keys the rest of the kit off it. Every skill now carries at least
+two of {damage, self-buff, movement, status}, and the HUD tag is built from the components
+a skill actually has. Two deliberate chains: Bleed routes through the player's damage
+report so it feeds omnivamp, and Reeling raises all incoming damage but lands *after* the
+applying skill's own hit, so it is always a setup and never a self-buff.
+
+**Boss phases** were added in the same pass — thresholds at 66% and 33% that shorten its
+tells, add a delayed outer shockwave, then a double slam.
+
+**Still open:** none of this is runtime-tested (see the standing constraint), and the
+numbers are first-pass. The interrupt window, the 30px walker reach, and the status
+durations are the three most likely to need feel-tuning.
+
+---
+
+## Devolution pacing ✅ fixed — and the aging fiction (still open, no longer blocking)
+
+**The pacing problem, which was the real one:** the early devolution thresholds were far
+too high. At 2000 starting years on a linear curve the first devolution needed **~71
+attacks**, and every step after that was further out still — minutes of play before the
+game's central mechanic did anything.
+
+**Fixed** by making the curve *geometric* rather than linear (`devolution_step_ratio`,
+last step = 10× the first) and lowering `starting_years` to 1000. A linear ramp cannot
+solve this on its own: its first step is always within a small factor of its last. The
+schedule now opens at **18 attacks**, with three devolutions inside the first ~64:
+
+```
+step cost:   18  21  25  30  36  43  51  61  73  87 104 124 148 177   = 1000
+cumulative:  18  39  64  94 130 173 225 286 359 446 550 674 823 1000
+```
+
+Everything downstream still lines up — the costs are normalised to sum to exactly
+`starting_years`, so spending the last year still lands on the 14th devolution.
+
+**The fiction question below is separate and stays open.** It is no longer a blocker:
+2.1 shipped priced in years, and whatever the unit is eventually called, the shrines are
+one string change away. Recorded as-is for whenever it is worth settling.
+
+---
+
+The devolution system's original framing: a run started at "2000 years old"
 (`starting_years` in `devolution_system.gd`), every normal attack subtracts exactly 1
 year, skills subtract their own cost, and hitting 0 means fully devolved. Mechanically
 this works — it's a clean, tunable countdown, and `README.md`'s "The year counter"
@@ -160,27 +260,36 @@ age" (3.5B → 1000) — that contrast depends on both readouts being time in so
 
 Leaning toward A: it keeps the years-vs-eras contrast intact, and "the fight itself is
 aging you" is a stronger version of the loss theme than a mysterious pre-existing
-stockpile. Needs a decision before Tier 2.1 is built, since that tier's shrines/doors are
-priced in whatever unit this becomes.
+stockpile. No longer urgent — 2.1 shipped priced in years, and switching the unit later is
+a display-and-copy change rather than a systems one.
 
 ---
 
-## Tier 2 — make the countdown a decision, not a meter
+## Tier 2 — make the countdown a decision, not a meter — 2.1 and 2.2 ✅
 
-The year counter is currently something that happens *to* you. Make spending it a
-live tactical choice.
+The year counter used to be something that happened *to* you. 2.1 and 2.2 are shipped;
+2.3 is blocked on 3.2 by its own dependency.
 
-### 2.1 Countdown-priced risk/reward moments
-Occasional "spend years to change the fight" beats: a shrine that heals for 40 years,
-a door that skips a wave for 60. **Why:** the clock is the game's central currency;
-let players *choose* to burn it, not just watch it drain. **Depends on:** nothing.
+### 2.1 Countdown-priced risk/reward moments ✅
+Shipped as **shrines** (`scripts/systems/year_shrine.gd`), spawned between waves and gone
+when the next one starts. **Rest** heals 45 for 40 years; **Passage** skips the next wave
+for 60. Interact with `F`.
 
-### 2.2 Balance the devolution fork *(the fork itself shipped — see Tier 0)*
-Choice-of-3 is live, so the remaining work is tuning, not building: make sure no
-degradation order is strictly best, and that the 3 offered options are rarely all
-equally painless. Candidate levers — weight the roll toward traits you've been
-protecting, or make a *refused* trait cheaper to degrade next time. **Why:** a fork
-where one branch always wins is a menu, not a decision. **Depends on:** playtesting.
+Passage turned out to be the better of the two: skipping a wave saves every attack that
+wave would have cost, so it is *cheaper than fighting* whenever clearing would have run
+you past 60 years — a real calculation rather than a straight tax. The wave number still
+advances so the boss cycle keeps its rhythm. A shrine refuses to sell you your last year;
+paying it would end the run on a shrine, which is a miserable way to lose.
+
+### 2.2 Balance the devolution fork ✅
+Shipped as a **weighted roll**: an intact trait is 1.5× as likely to be offered as a
+partial one (`PROTECTION_BIAS`). The flat shuffle too often produced three options that
+were all already half gone — an easy step with nothing at stake, which is exactly the
+"menu, not a decision" failure. Deliberately a bias and never a rule, so protecting one
+trait on purpose stays possible and the evolved combos remain reachable by intent.
+
+**Still open:** the *refused-trait-gets-cheaper* lever from the original sketch was not
+built. Worth revisiting only if playtesting shows the weighting alone is not enough.
 
 ### 2.3 Milestone bosses tied to era readout
 The HUD already shows a geological era (3.50B → 1000). Have bosses/enemies reskin as the

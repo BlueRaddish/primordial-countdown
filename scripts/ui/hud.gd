@@ -142,7 +142,8 @@ func _build_year_counter() -> void:
 
 	_year_tag_label = Label.new()
 	_year_tag_label.text = "YEARS LEFT"
-	_year_tag_label.position = Vector2(58, 25)
+	# Clear of the counter itself, which is 16px type and reaches ~x58 at four digits.
+	_year_tag_label.position = Vector2(64, 25)
 	_year_tag_label.add_theme_font_size_override("font_size", 7)
 	_year_tag_label.add_theme_color_override("font_color", Color(0.65, 0.5, 0.5))
 	control.add_child(_year_tag_label)
@@ -151,7 +152,7 @@ func _build_year_counter() -> void:
 	# display layer over the same counter, never a second source of truth.
 	_countdown_label = Label.new()
 	_countdown_label.text = "--"
-	_countdown_label.position = Vector2(120, 25)
+	_countdown_label.position = Vector2(130, 25)
 	_countdown_label.add_theme_font_override("font", COUNTER_FONT)
 	_countdown_label.add_theme_font_size_override("font_size", 8)
 	_countdown_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.85))
@@ -163,28 +164,30 @@ func _build_run_info() -> void:
 
 	_wave_label = Label.new()
 	_wave_label.text = "Wave: --"
-	_wave_label.position = Vector2(8, 34)
+	# The year counter above is 16px type sitting at y20, so it occupies down to ~y40.
+	# This block used to start at y34 and collide with it.
+	_wave_label.position = Vector2(8, 42)
 	_wave_label.add_theme_font_size_override("font_size", 8)
 	_wave_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
 	control.add_child(_wave_label)
 
 	_kill_label = Label.new()
 	_kill_label.text = "Kills: 0   Atk: 0"
-	_kill_label.position = Vector2(60, 34)
+	_kill_label.position = Vector2(60, 42)
 	_kill_label.add_theme_font_size_override("font_size", 8)
 	_kill_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	control.add_child(_kill_label)
 
 	_time_label = Label.new()
 	_time_label.text = "0:00"
-	_time_label.position = Vector2(8, 44)
+	_time_label.position = Vector2(8, 52)
 	_time_label.add_theme_font_size_override("font_size", 8)
 	_time_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	control.add_child(_time_label)
 
 	_buff_label = Label.new()
 	_buff_label.text = ""
-	_buff_label.position = Vector2(8, 54)
+	_buff_label.position = Vector2(8, 62)
 	_buff_label.add_theme_font_size_override("font_size", 8)
 	_buff_label.add_theme_color_override("font_color", Color("f1c40f"))
 	control.add_child(_buff_label)

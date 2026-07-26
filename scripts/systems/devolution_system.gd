@@ -35,17 +35,39 @@ extends Node
 # --- Run length ---
 # The single knob for how long a run is. Every devolution step is derived from it,
 # so raising this lengthens the run without desynchronising anything.
-@export var starting_years: float = 2000.0
+@export var starting_years: float = 1000.0
 
-# Shape of the devolution schedule. 0.0 spaces every step evenly; 2.0 makes the
-# last step cost 3x the first, so devolution starts slow and accelerates.
-@export var devolution_curve_growth: float = 2.0
+# Shape of the devolution schedule: how many times more expensive the LAST step is
+# than the first. The steps follow a geometric curve between those two ends, so the
+# opening is cheap and the cost compounds.
+#
+# This is the pacing knob that matters most. The old linear curve put the first
+# devolution ~71 attacks into a run, which meant several minutes of play before the
+# game's central mechanic did anything at all — and the run's whole shape is
+# supposed to be "your body starts failing immediately, then failure accelerates."
+# At 1000 years and a 10x ratio the schedule opens like this (in years spent, which
+# is attacks, since a normal attack costs 1):
+#
+#   step  1 ->   18      step  5 ->   130     step 10 ->   446
+#   step  2 ->   39      step  6 ->   173     step 12 ->   674
+#   step  3 ->   64      step  7 ->   225     step 14 ->  1000 (fully devolved)
+#
+# So three devolutions land inside the first ~64 attacks instead of the first ~250,
+# and the late steps still cost enough to feel like the body is running out.
+@export var devolution_step_ratio: float = 10.0
 
 # Each devolution offers a randomized choice of this many traits to degrade; the
 # player picks one. (PLANNING1 section 6's "player chosen degradation" — promoted
 # from a dev toggle to the standard flow, so runs are shaped by choice, not a fixed
 # script, and evolved-trait combos can be steered toward on purpose.)
 @export var devolution_choice_count: int = 3
+
+# How strongly the offer roll leans toward traits the player has kept whole.
+# Weight is 1.0 + BIAS * (stages still to lose), and only intact (2 left) and partial
+# (1 left) traits are ever candidates — so at 1.0 an intact trait carries weight 3
+# against a partial trait's 2, making it 1.5x as likely to be offered. Enough to keep
+# the roll asking about what you are protecting, not enough to stop you refusing.
+const PROTECTION_BIAS: float = 1.0
 
 # Retained only to size the countdown schedule: total_steps = size * MAX_STAGE = 14
 # degradations, whatever order they are chosen in. The order of the entries no
@@ -110,11 +132,16 @@ func _build_step_costs() -> void:
 	if steps <= 0:
 		return
 
+	# Geometric rather than linear: each step costs a fixed *multiple* of the one
+	# before, so the opening steps stay genuinely cheap instead of sitting near the
+	# average. A linear ramp cannot do this — its first step is always within a small
+	# factor of its last, which is exactly what made early devolution so slow.
+	var ratio: float = maxf(devolution_step_ratio, 1.0)
 	var weights: Array[float] = []
 	var weight_sum: float = 0.0
 	for i: int in range(steps):
 		var t: float = 0.0 if steps <= 1 else float(i) / float(steps - 1)
-		var w: float = 1.0 + devolution_curve_growth * t
+		var w: float = pow(ratio, t)
 		weights.append(w)
 		weight_sum += w
 
@@ -235,10 +262,47 @@ func get_devolution_options(trait_mgr: TraitManager, count: int) -> Array[String
 	if GameState.devolution_player_choice:
 		return candidates
 
-	candidates.shuffle()
-	if candidates.size() > count:
-		candidates = candidates.slice(0, count)
-	return candidates
+	return _weighted_sample(candidates, count, trait_mgr)
+
+
+func _weighted_sample(
+	candidates: Array[String], count: int, trait_mgr: TraitManager
+) -> Array[String]:
+	"""Draw `count` options, biased toward the traits the player has kept whole.
+
+	A flat shuffle made it common for all three offers to be things already half
+	gone — an easy step with nothing at stake, which turns the fork into a menu.
+	Weighting by how intact a trait still is means the run keeps asking about the
+	things you are protecting, which is where the tension lives.
+
+	Crucially this is a bias, not a rule: an intact trait is more likely to be
+	*offered*, never forced. As long as three candidates exist you can always refuse
+	one, which is what keeps the evolved-trait combos (Wings needs intact lungs, Hide
+	needs intact skin) reachable on purpose."""
+	var pool: Array[String] = candidates.duplicate()
+	var picked: Array[String] = []
+
+	while picked.size() < count and not pool.is_empty():
+		var total: float = 0.0
+		var weights: Array[float] = []
+		for trait_name: String in pool:
+			var intactness: int = TraitManager.MAX_STAGE - trait_mgr.get_trait_stage(trait_name)
+			var w: float = 1.0 + PROTECTION_BIAS * float(intactness)
+			weights.append(w)
+			total += w
+
+		var roll: float = randf() * total
+		var chosen: int = pool.size() - 1
+		for i: int in range(pool.size()):
+			roll -= weights[i]
+			if roll <= 0.0:
+				chosen = i
+				break
+
+		picked.append(pool[chosen])
+		pool.remove_at(chosen)
+
+	return picked
 
 
 func apply_devolution(trait_name: String, trait_mgr: TraitManager) -> void:

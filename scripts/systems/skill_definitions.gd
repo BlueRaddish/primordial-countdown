@@ -21,6 +21,24 @@
 # means "unlocked once wings have grown". Gills are deliberately skill-less: their
 # payoff is lifting the lungs' swing penalty outright, and the rest of them waits
 # on water terrain (ideate 3.3).
+#
+# STATUSES — why no skill here does only one thing
+# Every skill carries at least two of {damage, self-buff, movement, status}. A kit
+# where each entry is purely an attack, purely a dash, or purely a buff gives the
+# player nothing to combine; the interesting decision is which skill sets up which.
+# The three statuses are the connective tissue, and they are shared by design:
+#
+#   BLEED   damage over time, routed through the player's damage report — so it
+#           feeds omnivamp. Gorge, Rend and Apex Instinct all heal off a bleed
+#           somebody else applied.
+#   MIRE    a slow. Buys the spacing that the telegraph-based enemies punish you
+#           for not having.
+#   REELING raises ALL incoming damage on that enemy. Anything that applies it is a
+#           setup, never a finisher — statuses land after the applying skill's own
+#           damage, so a skill can never amplify its own hit.
+#
+# The intended shape is: open with a REELING skill, spend the window on your
+# heaviest hit, and keep a BLEED running underneath if you have any omnivamp.
 class_name SkillDefinitions
 extends RefCounted
 
@@ -38,7 +56,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# strike instead. Temporary omnivamp: the loss of regen is softened, not undone.
 	var gorge: SkillData = SkillData.new()
 	gorge.skill_name = "Gorge"
-	gorge.description = "For 6s, 45% of all damage you deal returns to you as health."
+	gorge.description = "For 6s, 45% of damage dealt returns as health — and everything nearby starts bleeding."
 	gorge.flavor = "Nothing digests any more. It feeds on the blow itself."
 	gorge.kind = SkillData.Kind.BUFF
 	gorge.cooldown = 14.0
@@ -48,6 +66,11 @@ static func get_all_skills() -> Array[SkillData]:
 	gorge.aoe_radius = 34.0
 	gorge.buff_duration = 6.0
 	gorge.buff_omnivamp = 0.45
+	# The bleed it opens with feeds its own omnivamp — the skill heals you off a
+	# wound it inflicted, which is exactly what a gut that cannot digest would do.
+	gorge.status_bleed_dps = 5.0
+	gorge.status_bleed_time = 6.0
+	gorge.status_radius = 60.0
 	gorge.unlock_conditions = {"gut": [LOST, LOST]}
 	skills.append(gorge)
 
@@ -67,6 +90,10 @@ static func get_all_skills() -> Array[SkillData]:
 	thornskin.buff_duration = 8.0
 	thornskin.buff_damage_taken_mult = 0.55
 	thornskin.buff_contact_retaliation = 16.0
+	# Whatever closes on you gets caught on the raw flesh and comes away slower.
+	thornskin.status_mire_mult = 0.6
+	thornskin.status_mire_time = 3.0
+	thornskin.status_radius = 46.0
 	thornskin.unlock_conditions = {"skin": [LOST, LOST]}
 	skills.append(thornskin)
 
@@ -75,14 +102,17 @@ static func get_all_skills() -> Array[SkillData]:
 	# everything now, so the hits that remain hit far harder.
 	var surge: SkillData = SkillData.new()
 	surge.skill_name = "Adrenal Surge"
-	surge.description = "For 5s, everything you do deals double damage."
+	surge.description = "Throw your whole weight outward, then deal double damage for 5s."
 	surge.flavor = "No hands to aim with. Only weight, and the will to throw it."
 	surge.kind = SkillData.Kind.BUFF
 	surge.cooldown = 15.0
 	surge.year_cost = 10.0
 	surge.aoe_color = Color("e74c3c") # Red
 	surge.is_directional = false
-	surge.aoe_radius = 30.0
+	# The surge itself is a shove, so casting it also buys you space rather than
+	# leaving you standing still in a crowd for the whole animation.
+	surge.aoe_damage = 20.0
+	surge.aoe_radius = 40.0
 	surge.buff_duration = 5.0
 	surge.buff_damage_mult = 2.0
 	surge.unlock_conditions = {"arms": [LOST, LOST]}
@@ -92,7 +122,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# Vibration sense. Blind, but the ground reports back: a pulse every 0.7s.
 	var echo: SkillData = SkillData.new()
 	echo.skill_name = "Echo Sense"
-	echo.description = "For 6s, pulse every 0.7s, damaging everything within a wide radius."
+	echo.description = "For 6s, pulse every 0.7s for damage in a wide radius. The first pulse finds every soft spot."
 	echo.flavor = "It stopped looking. The floor tells it everything it needs."
 	echo.kind = SkillData.Kind.BUFF
 	echo.cooldown = 13.0
@@ -104,6 +134,12 @@ static func get_all_skills() -> Array[SkillData]:
 	echo.buff_pulse_damage = 12.0
 	echo.buff_pulse_radius = 72.0
 	echo.buff_pulse_interval = 0.7
+	# Vibration sense reads structure, not just position: everything it finds is
+	# briefly easier to hurt. The widest reeling application in the game, which makes
+	# blindness the best opener for somebody else's heavy hit.
+	echo.status_reel_mult = 1.35
+	echo.status_reel_time = 2.5
+	echo.status_radius = 72.0
 	echo.unlock_conditions = {"eyes": [LOST, LOST]}
 	skills.append(echo)
 
@@ -111,7 +147,7 @@ static func get_all_skills() -> Array[SkillData]:
 	# No breath left to budget, so there is nothing left to pace. Free burst attacks.
 	var wind: SkillData = SkillData.new()
 	wind.skill_name = "Second Wind"
-	wind.description = "For 5s, attack cooldown drops to a quarter."
+	wind.description = "Surge forward on the last of your breath, then swing at quadruple speed for 5s."
 	wind.flavor = "It has stopped budgeting its breath. There is none left to budget."
 	wind.kind = SkillData.Kind.BUFF
 	wind.cooldown = 14.0
@@ -121,6 +157,10 @@ static func get_all_skills() -> Array[SkillData]:
 	wind.aoe_radius = 28.0
 	wind.buff_duration = 5.0
 	wind.buff_attack_cooldown_mult = 0.25
+	# The breath goes somewhere. Carrying you into range is what makes the swing
+	# speed usable instead of something you stand still and waste.
+	wind.impulse_speed = 240.0
+	wind.impulse_upward_bias = 110.0
 	wind.unlock_conditions = {"lungs": [LOST, LOST]}
 	skills.append(wind)
 
@@ -141,6 +181,11 @@ static func get_all_skills() -> Array[SkillData]:
 	pounce.buff_duration = 0.45
 	pounce.buff_damage_taken_mult = 0.0 # Untouchable for the leap
 	pounce.buff_contact_retaliation = 30.0
+	# You land on them teeth first. The bleed is what turns free movement into
+	# pressure, so the legs' replacement is not purely defensive.
+	pounce.status_bleed_dps = 6.0
+	pounce.status_bleed_time = 4.0
+	pounce.status_radius = 32.0
 	pounce.unlock_conditions = {"legs": [LOST, LOST]}
 	skills.append(pounce)
 
@@ -165,6 +210,11 @@ static func get_all_skills() -> Array[SkillData]:
 	instinct.buff_duration = 8.0
 	instinct.buff_damage_taken_mult = 0.75
 	instinct.buff_danger_sense = true
+	# Noticing where something is about to come from is also noticing where it is
+	# open. Pairs with itself: the highlight tells you who to spend the window on.
+	instinct.status_reel_mult = 1.25
+	instinct.status_reel_time = 4.0
+	instinct.status_radius = 80.0
 	instinct.unlock_conditions = {"head": [LOST, LOST]}
 	skills.append(instinct)
 
@@ -181,6 +231,9 @@ static func get_all_skills() -> Array[SkillData]:
 	kick.aoe_radius = 32.0
 	kick.aoe_color = Color("e67e22") # Dark orange
 	kick.is_directional = true
+	# A kick that lands takes the legs out from under them.
+	kick.status_mire_mult = 0.5
+	kick.status_mire_time = 2.5
 	kick.unlock_conditions = {"arms": [LOST, LOST], "legs": [INTACT, PARTIAL]}
 	skills.append(kick)
 
@@ -199,6 +252,10 @@ static func get_all_skills() -> Array[SkillData]:
 	apex.buff_damage_mult = 1.5
 	apex.buff_damage_taken_mult = 0.65
 	apex.buff_omnivamp = 0.3
+	# Opens every body around you at once, and its own omnivamp drinks from them.
+	apex.status_bleed_dps = 8.0
+	apex.status_bleed_time = 7.0
+	apex.status_radius = 60.0
 	apex.unlock_conditions = {"gut": [LOST, LOST], "skin": [LOST, LOST]}
 	skills.append(apex)
 
@@ -214,6 +271,9 @@ static func get_all_skills() -> Array[SkillData]:
 	fury.aoe_radius = 44.0
 	fury.aoe_color = Color("8e44ad") # Deep purple
 	fury.is_directional = true
+	# A flurry that wild leaves everything it clipped rattled and open.
+	fury.status_reel_mult = 1.4
+	fury.status_reel_time = 3.0
 	fury.unlock_conditions = {"eyes": [PARTIAL, LOST], "arms": [INTACT, PARTIAL]}
 	skills.append(fury)
 
@@ -238,20 +298,28 @@ static func get_all_skills() -> Array[SkillData]:
 	scramble.impulse_upward_bias = 20.0
 	scramble.buff_duration = 0.25
 	scramble.buff_damage_taken_mult = 0.0 # i-frames for the dash
+	# Scrabbling away throws up enough debris to foul whatever was chasing you, so
+	# the escape also buys the spacing that makes it worth escaping to.
+	scramble.status_mire_mult = 0.7
+	scramble.status_mire_time = 1.5
+	scramble.status_radius = 36.0
 	scramble.unlock_conditions = {"legs": [PARTIAL, PARTIAL]}
 	skills.append(scramble)
 
 	# Wings grown: a long horizontal air-dash. The signature wing traversal tool.
 	var wing_dash: SkillData = SkillData.new()
 	wing_dash.skill_name = "Wing Dash"
-	wing_dash.description = "Beat your wings for a long dash toward the cursor. Untouchable during it."
+	wing_dash.description = "A long dash toward the cursor, cutting anything you pass through. Untouchable during it."
 	wing_dash.flavor = "The arms are gone. What is left of them carries you further than they ever did."
 	wing_dash.kind = SkillData.Kind.MOVEMENT
 	wing_dash.cooldown = 2.5
 	wing_dash.year_cost = 0.0 # Free — with the arms gone this is core mobility, like Pounce.
 	wing_dash.aoe_color = Color("aed6f1") # Pale sky
 	wing_dash.is_directional = true
-	wing_dash.aoe_radius = 24.0
+	# Passing through something at that speed costs it something. Keeps the free
+	# core-mobility skill from being a pure disengage button.
+	wing_dash.aoe_damage = 22.0
+	wing_dash.aoe_radius = 26.0
 	wing_dash.impulse_speed = 420.0
 	wing_dash.impulse_upward_bias = 40.0
 	wing_dash.buff_duration = 0.35
@@ -263,14 +331,17 @@ static func get_all_skills() -> Array[SkillData]:
 	# a fight from above. Pairs with the glide (hold jump after) to stay up there.
 	var updraft: SkillData = SkillData.new()
 	updraft.skill_name = "Updraft"
-	updraft.description = "Launch straight up on a burst of air. Hold jump after to glide."
+	updraft.description = "Launch straight up on a burst of air, throwing everything around you off its feet."
 	updraft.flavor = "It catches a column of rising air the way it once caught a handhold."
 	updraft.kind = SkillData.Kind.MOVEMENT
 	updraft.cooldown = 5.0
 	updraft.year_cost = 1.0
 	updraft.aoe_color = Color("d2f0f5")
 	updraft.is_directional = false
-	updraft.aoe_radius = 26.0
+	# The same column of air that lifts you scatters what was closing on you — the
+	# escape and the reset are one action instead of two.
+	updraft.aoe_damage = 18.0
+	updraft.aoe_radius = 42.0
 	updraft.impulse_speed = 60.0
 	updraft.impulse_upward_bias = 340.0 # Almost all of the push is upward.
 	updraft.buff_duration = 0.3
@@ -301,6 +372,10 @@ static func get_all_skills() -> Array[SkillData]:
 	lunge.impulse_upward_bias = 40.0
 	lunge.buff_duration = 0.3
 	lunge.buff_damage_taken_mult = 0.0 # i-frames for the lunge
+	# Arriving that hard leaves them open — this is the game's cleanest opener, since
+	# it closes the distance and sets up the hit in the same button.
+	lunge.status_reel_mult = 1.4
+	lunge.status_reel_time = 3.0
 	lunge.unlock_conditions = {"arms": [INTACT, PARTIAL], "legs": [PARTIAL, LOST]}
 	skills.append(lunge)
 
@@ -322,6 +397,10 @@ static func get_all_skills() -> Array[SkillData]:
 	backstep.impulse_reverse = true # attack forward, leap backward
 	backstep.buff_duration = 0.3
 	backstep.buff_damage_taken_mult = 0.0
+	# You leave the wound behind you as you go. Weak arms cannot finish anything, so
+	# they open it and let the bleed do the rest.
+	backstep.status_bleed_dps = 7.0
+	backstep.status_bleed_time = 4.0
 	backstep.unlock_conditions = {"arms": [PARTIAL, PARTIAL]}
 	skills.append(backstep)
 
@@ -342,6 +421,10 @@ static func get_all_skills() -> Array[SkillData]:
 	slam.impulse_upward_bias = -50.0 # negative = extra downward drive for the dive
 	slam.buff_duration = 0.3
 	slam.buff_damage_taken_mult = 0.0
+	# Everything under it gets pinned. The slow is what lets you convert the dive
+	# into a follow-up instead of just trading a big hit and leaving.
+	slam.status_mire_mult = 0.45
+	slam.status_mire_time = 3.0
 	slam.unlock_conditions = {"wings": [1, 1]}
 	skills.append(slam)
 
@@ -364,6 +447,10 @@ static func get_all_skills() -> Array[SkillData]:
 	rend.is_directional = true
 	rend.buff_duration = 3.0
 	rend.buff_omnivamp = 0.35
+	# The signature combo in the game: the heaviest bleed, running underneath its own
+	# omnivamp window, so Rend heals you off the wound Rend opened.
+	rend.status_bleed_dps = 12.0
+	rend.status_bleed_time = 5.0
 	rend.unlock_conditions = {"claws": [1, 1]}
 	skills.append(rend)
 
@@ -380,6 +467,10 @@ static func get_all_skills() -> Array[SkillData]:
 	whip.aoe_radius = 48.0 # Wide, but weak per target — this is spacing, not damage.
 	whip.aoe_color = Color("bb8fce")
 	whip.is_directional = false
+	# Spacing, not damage — so the slow is the actual payload and the damage is the
+	# excuse for it.
+	whip.status_mire_mult = 0.55
+	whip.status_mire_time = 3.0
 	whip.unlock_conditions = {"tail": [1, 1]}
 	skills.append(whip)
 
@@ -400,6 +491,10 @@ static func get_all_skills() -> Array[SkillData]:
 	ram.impulse_upward_bias = 20.0
 	ram.buff_duration = 0.4
 	ram.buff_damage_taken_mult = 0.35 # Heavily armored through it, not untouchable.
+	# Being hit by something that heavy rattles whatever it caught. The strongest
+	# reeling in the game, on the skill that has to walk into the crowd to use it.
+	ram.status_reel_mult = 1.5
+	ram.status_reel_time = 3.0
 	ram.unlock_conditions = {"plates": [1, 1]}
 	skills.append(ram)
 
@@ -418,6 +513,10 @@ static func get_all_skills() -> Array[SkillData]:
 	curl.buff_duration = 4.0
 	curl.buff_damage_taken_mult = 0.15
 	curl.buff_contact_retaliation = 22.0
+	# Anything grinding against the hide comes away worse for it, and slower.
+	curl.status_mire_mult = 0.5
+	curl.status_mire_time = 3.0
+	curl.status_radius = 40.0
 	curl.unlock_conditions = {"hide": [1, 1]}
 	skills.append(curl)
 

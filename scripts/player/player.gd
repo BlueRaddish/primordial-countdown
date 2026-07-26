@@ -42,6 +42,22 @@ const BASE_COYOTE_TIME: float = 0.08
 @export var knockback_up: float = -80.0
 @export var invincibility_duration: float = 0.6
 @export var hit_knockback_force: float = 150.0
+
+# --- Dash / roll ---
+# The game's baseline evade, and the reason the telegraph contract is fair: every
+# enemy commits to a windup before it can hurt you, so there has to be one answer
+# that always works and never depends on which traits you still have.
+#
+# Purely horizontal, toward whichever side the cursor is on. It grants i-frames for
+# its whole duration, so it beats a lunge, a slam and a shockwave alike. Free — like
+# Pounce, it is movement rather than a skill, and charging years for the only
+# universal defence would tax the player for being attacked.
+@export var dash_speed: float = 340.0
+@export var dash_duration: float = 0.18
+@export var dash_cooldown: float = 0.85
+# Degraded legs make it a scramble rather than a roll: shorter, but never removed.
+@export var dash_legs_partial_mult: float = 0.8
+@export var dash_legs_lost_mult: float = 0.55
 @export var melee_aoe_color: Color = Color("4ecdc4")
 
 # --- Capability gates (set by TraitManager) ---
@@ -81,6 +97,10 @@ var _is_attacking: bool = false
 var _hit_this_swing: Array[Node2D] = []
 var _invincibility_timer: float = 0.0
 var _impulse_timer: float = 0.0
+# Dash state. _dash_timer > 0 means the roll is active AND untouchable.
+var _dash_timer: float = 0.0
+var _dash_cooldown_timer: float = 0.0
+var _dash_dir: float = 1.0
 var _facing_right: bool = true
 var _aim_angle: float = 0.0
 var _aim_dir: Vector2 = Vector2.RIGHT
@@ -134,6 +154,13 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_handle_timers(delta)
+	# The dash owns velocity outright while it runs, so it is resolved before
+	# gravity and movement rather than fighting them.
+	if _handle_dash(delta):
+		move_and_slide()
+		_update_animation()
+		_was_on_floor = is_on_floor()
+		return
 	_apply_gravity(delta)
 	_handle_jump()
 	_handle_horizontal_movement(delta)
@@ -433,6 +460,76 @@ func _handle_jump() -> void:
 		velocity.y *= 0.4
 
 
+# ---- Dash / roll ----
+
+func _handle_dash(delta: float) -> bool:
+	"""Run the dash. Returns true while it owns movement this frame.
+
+	Horizontal only and aimed by the cursor, not by which way you happen to face —
+	so it is a deliberate direction rather than a commitment to your current facing.
+	Gravity is suspended for the duration, which is what makes it reliable as an
+	answer to a ground slam."""
+	_dash_cooldown_timer = maxf(_dash_cooldown_timer - delta, 0.0)
+
+	if _dash_timer > 0.0:
+		_dash_timer -= delta
+		velocity.x = _dash_dir * dash_speed * _dash_distance_mult()
+		velocity.y = 0.0
+		return true
+
+	if not Input.is_action_just_pressed("dash"):
+		return false
+	if _dash_cooldown_timer > 0.0 or _is_attacking:
+		return false
+
+	# Toward the cursor's side. Dead centre falls back to current facing.
+	var to_mouse: float = get_global_mouse_position().x - global_position.x
+	if absf(to_mouse) < 1.0:
+		_dash_dir = 1.0 if _facing_right else -1.0
+	else:
+		_dash_dir = signf(to_mouse)
+	_facing_right = _dash_dir > 0.0
+
+	_dash_timer = dash_duration
+	_dash_cooldown_timer = dash_cooldown
+	velocity.y = 0.0
+	_spawn_dash_trail()
+	return true
+
+
+func _dash_distance_mult() -> float:
+	"""Degraded legs shorten the roll but never take it away — losing your evade
+	entirely would make late-run devolution unplayable rather than harder."""
+	if not _trait_manager:
+		return 1.0
+	match _trait_manager.get_trait_stage("legs"):
+		TraitManager.STAGE_PARTIAL:
+			return dash_legs_partial_mult
+		TraitManager.STAGE_LOST:
+			return dash_legs_lost_mult
+	return 1.0
+
+
+func is_dashing() -> bool:
+	return _dash_timer > 0.0
+
+
+func get_dash_cooldown_fraction() -> float:
+	"""1.0 just used, 0.0 ready — for the HUD."""
+	if dash_cooldown <= 0.0:
+		return 0.0
+	return _dash_cooldown_timer / dash_cooldown
+
+
+func _spawn_dash_trail() -> void:
+	var trail: AoEIndicator = AoEIndicator.new()
+	trail.aoe_center = global_position + Vector2(0.0, -10.0)
+	trail.aoe_radius = 16.0
+	trail.aoe_color = Color(0.75, 0.9, 1.0)
+	trail.is_directional = false
+	get_parent().add_child(trail)
+
+
 func _spawn_air_jump_puff() -> void:
 	"""Small burst under the player so the second jump reads visually."""
 	var puff: AoEIndicator = AoEIndicator.new()
@@ -601,7 +698,10 @@ func _on_skill_used(_skill: Resource) -> void:
 # ---- Damage / Health ----
 
 func take_damage(amount: float, knockback_dir: Vector2 = Vector2.ZERO) -> void:
-	if _is_dead or _invincibility_timer > 0.0:
+	# A dash is untouchable for its whole duration. This is the one defence that
+	# works regardless of trait state, so it deliberately beats everything —
+	# contact, strikes, the boss slam and its shockwave alike.
+	if _is_dead or _invincibility_timer > 0.0 or _dash_timer > 0.0:
 		return
 
 	var incoming: float = amount
@@ -655,7 +755,11 @@ func _handle_regen(delta: float) -> void:
 # ---- Invincibility ----
 
 func _handle_invincibility(delta: float) -> void:
-	if _invincibility_timer > 0.0:
+	if _dash_timer > 0.0:
+		# Distinct look from the hit-flicker: a steady ghost, so "I am untouchable
+		# right now" reads differently from "I just got hit".
+		_sprite.modulate.a = 0.5
+	elif _invincibility_timer > 0.0:
 		_invincibility_timer -= delta
 		if GameState.reduce_flashing:
 			# Steady semi-transparency rather than a strobe: still obviously

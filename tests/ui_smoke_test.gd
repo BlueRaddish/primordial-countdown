@@ -71,10 +71,38 @@ func _run() -> void:
 	await _wait(8)
 	await _shot("06_devolution_7")
 	_check_bounds("devolution 7-option")
+
+	# Dismiss the devolution popup — it sits on a higher CanvasLayer and would cover
+	# the editor in the screenshot.
+	var devo_ui: Node = get_tree().root.find_child("DevoControl", true, false)
+	if devo_ui:
+		devo_ui.call("_close")
+	await _wait(5)
+
+	# The loadout editor. Give the player a few unlocked skills first so the list and
+	# the slot rows have something in them.
+	var mgr: Node = _find_ability_manager()
+	if mgr:
+		mgr.call("refresh_available_skills")
+	var skills: Array = SkillDefinitions.get_all_skills()
+	if skills.size() > 0:
+		EventBus.skill_unlocked.emit(skills[0])
+	await _wait(10)
+	await _shot("07_skill_editor")
+	_check_bounds("skill editor")
+
+
 	_check_devolution_pacing()
 
 	print("[ui_smoke] FAILURES: %d" % _failures)
 	get_tree().quit(1 if _failures > 0 else 0)
+
+
+func _find_ability_manager() -> Node:
+	var players: Array[Node] = get_tree().get_nodes_in_group("player")
+	if players.size() > 0 and players[0].has_node("AbilityManager"):
+		return players[0].get_node("AbilityManager")
+	return null
 
 
 # ---- Checks ----

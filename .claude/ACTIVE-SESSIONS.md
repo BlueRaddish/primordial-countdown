@@ -42,8 +42,18 @@ Rules that matter more than the bookkeeping:
 
 ## Notes worth carrying between sessions
 
-- **Playtest command:** `godot --path . --resolution 1280x720 res://tests/ui_smoke_test.tscn`
-  (Godot 4.7.1 at `~/Downloads/Godot_v4.7.1-stable_win64_console.exe`).
+- **Test commands** (Godot 4.7.1 at `~/Downloads/Godot_v4.7.1-stable_win64_console.exe`):
+  - `godot --path . --resolution 1280x720 res://tests/ui_smoke_test.tscn` — every screen,
+    panel bounds, screenshots into `tests/_uishots/`.
+  - `godot --headless --path . res://tests/gameplay_smoke_test.tscn` — platform flags,
+    boss math, dash i-frames, enemy escape.
+  - Both exit non-zero on failure. Run them after touching UI, arena or combat.
+- **New assets need importing before a headless run can see them:**
+  `godot --headless --path . --import` (it will hang afterwards loading the editor — the
+  import itself completes, just kill it).
+- **One-way platform margin extends DOWNWARD from the collider bottom.** A large margin
+  on a low shelf traps anything walking under it. Sized per platform now — do not
+  replace it with a single constant.
 - **UI budget is 640x360.** Centre panels with `UILayout.center()`, never
   `set_anchors_preset(PRESET_CENTER)` plus a manual offset.
 - **Combat contract:** enemies only hurt you through a telegraphed strike. Do not

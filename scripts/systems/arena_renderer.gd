@@ -26,12 +26,22 @@ const TERRAIN_LAYER: int = 3 # project.godot: 2d_physics/layer_3 = "terrain"
 # up and pop out at the wrong edge, which is what made the platforms feel wrong.
 const ONE_WAY_THICKNESS: float = 8.0
 # Must exceed the worst-case distance the player can fall in a single physics frame,
-# or a fast fall passes straight through the thin collider between two frames.
-# At player.gd's max_fall_speed of 400 px/s and the project's 60 physics ticks/s
-# that is 400/60 = 6.67 px — the old margin of 6.0 was already below it, so any
-# landing at or near terminal velocity could tunnel. 16 clears it with enough
-# headroom to survive a dropped frame (two frames at terminal velocity = 13.3 px).
-const ONE_WAY_MARGIN: float = 16.0
+# or a fast fall passes straight through the thin collider between two frames. At
+# player.gd's max_fall_speed of 400 px/s and 60 physics ticks/s that is 6.67 px — the
+# original 6.0 was below it, so any landing near terminal velocity could tunnel.
+#
+# But the margin cuts both ways: it extends the blocking band this far BELOW the
+# surface, and anything whose head is inside that band gets caught on a platform it
+# is walking under. At 16 that band was 16px deep, which trapped enemies beneath the
+# lowest shelf. 12 keeps ~1.8x headroom over the tunnelling threshold while leaving
+# room to walk under the shelves — see the clearance note on platform 0 below.
+const ONE_WAY_MARGIN: float = 12.0
+# Height of a player/enemy collider. The blocking band must not reach down into the
+# space a body needs in order to walk underneath a shelf.
+const BODY_HEIGHT: float = 20.0
+# Below this the margin stops being useful, so a platform with no room simply gets a
+# small one and accepts the occasional fall-through.
+const ONE_WAY_MARGIN_MIN: float = 6.0
 
 @export var ground_top_texture: Texture2D
 @export var ground_fill_texture: Texture2D
@@ -46,7 +56,12 @@ const ONE_WAY_MARGIN: float = 16.0
 #
 # HIGH ROUTE (indices 8-10): 45 px steps above the summit. Intact legs only.
 @export var platforms: Array[Rect2] = [
-	Rect2(126, 261, 90, 18),   # 0: first step up off the ground
+	# 0: first step up off the ground. Raised from y=261 to clear the space beneath
+	# it: a body is 20px tall and the one-way margin blocks 12px below the surface,
+	# so the underside needs 32px of headroom over the ground at y=288 or anything
+	# walking under gets caught. 288-252 = 36px clears it, and a 36px step is still
+	# well inside partial legs' 44px jump.
+	Rect2(126, 252, 90, 18),   # 0: first step up off the ground
 	Rect2(234, 234, 90, 18),   # 1: one-way — drop through to restart the climb
 	Rect2(342, 207, 108, 18),  # 2: mid shelf
 	Rect2(468, 180, 90, 18),   # 3: one-way
@@ -60,7 +75,22 @@ const ONE_WAY_MARGIN: float = 16.0
 ]
 
 # Indices into `platforms` that the player can jump up through from below.
-@export var one_way_platforms: Array[int] = [1, 3, 6, 9]
+#
+# EVERY floating platform is one-way. Only the ground and the side walls are solid.
+# Two bugs came from having a mixed set:
+#
+#   * Solid platforms blocked jumps from underneath, so half the shelves could not be
+#     reached the way the other half could — the arena read as inconsistent rather
+#     than as a route.
+#   * Enemies got wedged under platform 0. Its underside sits at y=279 and the ground
+#     at y=288, a 9px gap; an enemy is 20px tall, so anything that walked in there was
+#     stuck against a solid box it could not pass. A one-way collider only stops a
+#     body falling onto it from above, so the same enemy now simply walks through.
+#
+# Kept as an export rather than hardcoded so a future arena can still opt a platform
+# out — but the default is "all of them", and a solid floating platform should be a
+# deliberate decision with a reason next to it.
+@export var one_way_platforms: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 
 func _ready() -> void:
@@ -137,7 +167,8 @@ func _build_colliders() -> void:
 					rect.position.y + ONE_WAY_THICKNESS * 0.5
 				),
 				Vector2(rect.size.x, ONE_WAY_THICKNESS),
-				true
+				true,
+				_one_way_margin_for(rect)
 			)
 		else:
 			_make_body(
@@ -148,7 +179,29 @@ func _build_colliders() -> void:
 			)
 
 
-func _make_body(node_name: String, center: Vector2, size: Vector2, one_way: bool) -> void:
+func _one_way_margin_for(rect: Rect2) -> float:
+	"""How deep this platform's blocking band may reach without trapping bodies that
+	walk beneath it.
+
+	`one_way_collision_margin` extends downward from the collider's BOTTOM edge, so a
+	generous margin on a low shelf swallows the gap underneath it — which is what
+	wedged enemies below platform 0 (27px of headroom, against a 20px body and a 16px
+	margin). Deep platforms keep the full margin; shallow ones get only what fits, and
+	take an occasional fall-through instead. That is the right trade: falling through
+	the lowest shelf drops you a few dozen pixels onto the ground, whereas a trapped
+	enemy or an unclimbable route is a broken arena."""
+	var clearance: float = GROUND_Y - (rect.position.y + ONE_WAY_THICKNESS)
+	var usable: float = clearance - BODY_HEIGHT - 2.0
+	return clampf(usable, ONE_WAY_MARGIN_MIN, ONE_WAY_MARGIN)
+
+
+func _make_body(
+	node_name: String,
+	center: Vector2,
+	size: Vector2,
+	one_way: bool,
+	one_way_margin: float = ONE_WAY_MARGIN
+) -> void:
 	var body: StaticBody2D = StaticBody2D.new()
 	body.name = node_name
 	body.position = center
@@ -163,8 +216,9 @@ func _make_body(node_name: String, center: Vector2, size: Vector2, one_way: bool
 	shape_node.one_way_collision = one_way
 	if one_way:
 		# Margin has to exceed the per-frame fall distance or fast falls tunnel
-		# straight through the thin collider.
-		shape_node.one_way_collision_margin = ONE_WAY_MARGIN
+		# straight through the thin collider — but not so deep that it blocks the
+		# space beneath. See _one_way_margin_for().
+		shape_node.one_way_collision_margin = one_way_margin
 	body.add_child(shape_node)
 
 	add_child(body)
@@ -199,12 +253,12 @@ func _draw() -> void:
 				var tex: Texture2D = ground_top_texture if cy == 0 else ground_fill_texture
 				draw_texture(tex, pos)
 
-		# Mark one-way platforms with a thin highlight so testers can see which
-		# ones they can jump up through.
-		if one_way_platforms.has(i):
+		# A solid floating platform is now the exception, so it is the one worth
+		# marking — a red underline means "this one will block your jump".
+		if not one_way_platforms.has(i):
 			draw_line(
-				rect.position + Vector2(0.0, -1.0),
-				rect.position + Vector2(rect.size.x, -1.0),
-				Color(0.4, 0.9, 0.85, 0.6),
+				rect.position + Vector2(0.0, rect.size.y + 1.0),
+				rect.position + Vector2(rect.size.x, rect.size.y + 1.0),
+				Color(0.9, 0.35, 0.3, 0.6),
 				1.0
 			)

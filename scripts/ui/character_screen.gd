@@ -649,9 +649,13 @@ func _on_choice_mode_pressed() -> void:
 
 
 func _on_assign_skill(slot_index: int, skill: SkillData) -> void:
+	"""One swap per unlock from here. The full editor is the skill-unlock screen; this
+	is the fallback when that window was left open, so it spends the window on a
+	single change rather than quietly becoming a second editor."""
 	var ability_mgr: AbilityManager = _find_ability_manager()
 	if ability_mgr:
 		ability_mgr.assign_skill(slot_index, skill)
+		ability_mgr.close_reassign_window()
 		_refresh_skills()
 
 

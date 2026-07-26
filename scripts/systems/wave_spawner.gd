@@ -18,6 +18,11 @@ extends Node2D
 # PLANNING1 section 7: one boss per stage. Every Nth wave is the boss wave.
 @export var boss_every_n_waves: int = 3
 
+# How much each successive boss grows over the first one. The first boss is tuned to
+# be winnable with nothing; these are what make the third one a real fight.
+@export var boss_health_growth: float = 0.45
+@export var boss_damage_growth: float = 0.18
+
 # Fraction of each wave that spawns on platforms rather than the ground.
 @export var platform_spawn_ratio: float = 0.4
 
@@ -33,6 +38,7 @@ var _wave_delay_timer: float = 0.0
 var _spawn_queue: int = 0
 var _spawn_timer: float = 0.0
 var _boss_queued: bool = false
+var _boss_count: int = 0
 var _started: bool = false
 # Set by a PASSAGE shrine: the next wave is counted but never fought.
 var _skip_next_wave: bool = false
@@ -141,6 +147,22 @@ func _spawn_boss() -> void:
 		return
 	var boss: Node2D = boss_scene.instantiate() as Node2D
 	boss.global_position = _pick_ground_position()
+
+	# The boss scene is tuned to be *beatable on wave 3* with no skills and no
+	# upgrades — see the math in boss_enemy.gd. That makes it the floor, not the
+	# curve, so every later boss is scaled up from it. Applied before add_child so
+	# _ready() reads the final numbers, same as `behavior`.
+	_boss_count += 1
+	var step: float = float(_boss_count - 1)
+	if step > 0.0 and boss is BossEnemy:
+		var b: BossEnemy = boss as BossEnemy
+		b.max_health *= 1.0 + boss_health_growth * step
+		var dmg: float = 1.0 + boss_damage_growth * step
+		b.strike_damage *= dmg
+		b.slam_damage *= dmg
+		b.shockwave_damage *= dmg
+		b.contact_damage *= dmg
+
 	get_parent().add_child(boss)
 	_alive_enemies.append(boss)
 

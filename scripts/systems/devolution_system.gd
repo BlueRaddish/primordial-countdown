@@ -35,26 +35,39 @@ extends Node
 # --- Run length ---
 # The single knob for how long a run is. Every devolution step is derived from it,
 # so raising this lengthens the run without desynchronising anything.
-@export var starting_years: float = 1000.0
+@export var starting_years: float = 700.0
 
 # Shape of the devolution schedule: how many times more expensive the LAST step is
 # than the first. The steps follow a geometric curve between those two ends, so the
 # opening is cheap and the cost compounds.
 #
-# This is the pacing knob that matters most. The old linear curve put the first
-# devolution ~71 attacks into a run, which meant several minutes of play before the
-# game's central mechanic did anything at all — and the run's whole shape is
-# supposed to be "your body starts failing immediately, then failure accelerates."
-# At 1000 years and a 10x ratio the schedule opens like this (in years spent, which
-# is attacks, since a normal attack costs 1):
+# This is the pacing knob that matters most, and it is set against a concrete
+# target: AT LEAST TWO DEVOLUTIONS BEFORE THE END OF STAGE 1.
 #
-#   step  1 ->   18      step  5 ->   130     step 10 ->   446
-#   step  2 ->   39      step  6 ->   173     step 12 ->   674
-#   step  3 ->   64      step  7 ->   225     step 14 ->  1000 (fully devolved)
+# What stage 1 actually costs, at 1 year per swing:
 #
-# So three devolutions land inside the first ~64 attacks instead of the first ~250,
-# and the late steps still cost enough to feel like the body is running out.
-@export var devolution_step_ratio: float = 10.0
+#   wave 1   5 mobs x 2 swings                        = 10
+#   wave 2   7 mobs x 2 swings                        = 14
+#   wave 3   4 mobs x 2 swings + boss (260/25 = 11)   = 19
+#                                             total   = 43 swings
+#
+# (Perfect accuracy with no skills — a real run spends more, since a whiff still
+# costs its year, so 43 is the floor rather than the estimate.)
+#
+# At 700 years and a 12x ratio the schedule opens:
+#
+#   step 1 ->  11      step 4 ->  59      step  8 -> 200
+#   step 2 ->  24      step 5 ->  81      step 11 -> 411
+#   step 3 ->  40      step 6 -> 109      step 14 -> 700 (fully devolved)
+#
+# So the first devolution lands mid-wave-1, and THREE are done before the first boss
+# dies — comfortably past the two-devolution target, with the last step still costing
+# 131 years so the late game keeps its weight.
+#
+# History: this began as a linear curve at 2000 years, which put the first devolution
+# ~71 swings in. A linear ramp cannot fix that on its own — its first step is always
+# within a small factor of its last. Geometric can.
+@export var devolution_step_ratio: float = 12.0
 
 # Each devolution offers a randomized choice of this many traits to degrade; the
 # player picks one. (PLANNING1 section 6's "player chosen degradation" — promoted

@@ -18,6 +18,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _ready() -> void:
+	AudioManager.start_run_music()
+
 	if GameState.is_run_active:
 		return
 

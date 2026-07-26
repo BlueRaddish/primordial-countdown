@@ -132,6 +132,40 @@ picking between distinct things, not clicking down a menu.
 
 ---
 
+## Playtest pass ✅ shipped (not previously in this doc)
+
+Everything here came out of actually playing the build, and all of it is verified by
+`tests/gameplay_smoke_test.tscn`.
+
+- **Solid floating platforms blocked jumps.** Only 4 of 11 were one-way, so half the
+  shelves could not be entered from below. All 11 are one-way now; only the ground and
+  walls are solid.
+- **Enemies wedged under the lowest shelf.** It has 27px of headroom against a 20px
+  body — and the one-way margin extends *downward from the collider's bottom*, so the
+  16px margin added for tunnelling swallowed the gap. The margin is now sized per
+  platform against the clearance it actually has.
+- **The first boss was unwinnable.** 420 HP (17 swings) with a 58-damage slam that
+  killed in three, every 4.5s, against a player with no skills. Now 260 HP / 11 swings,
+  slam 38 (survives 4), strike 24 (survives 6). Later bosses scale up from that floor
+  (+45% health, +18% damage each), so the fix does not flatten the curve.
+- **Added a dash/roll** — right mouse or L-Shift, horizontal, toward the cursor's side,
+  i-frames for its whole 0.18s, free. The telegraph contract needs one answer that always
+  works regardless of trait state; without it the game was fair but joyless.
+- **Devolution pacing, again.** Retuned against a measured target rather than a feel:
+  stage 1 costs ~43 swings (10 + 14 + 19), so at 700 years / ratio 12 the first
+  devolution lands at **11 swings** and three are done before the first boss dies.
+- **The skill-unlock screen is now a loadout editor**, not an overwrite prompt. It shows
+  the three slots *with what they hold*, plus every unlocked skill in a scrolling list.
+- **Audio exists.** `audio_manager.gd` drives everything off EventBus; the player's hurt
+  sound changes with their armour state; a tension layer fades in under 45% years
+  remaining. Wired to the settings sliders through real Master/Music/SFX buses.
+
+**Still open:** the music is 16-bit WAV (~30MB) — `ART_RESOURCES.md` wants OGG and there
+is no ffmpeg here. Control rebinding is still a static reference list, and settings are
+not persisted (`SaveManager` remains unused).
+
+---
+
 ## UI pass ✅ shipped (not previously in this doc)
 
 Raised in play: "the UI and scaling are all off, and I still can't fullscreen it."

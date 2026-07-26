@@ -302,7 +302,8 @@ func _on_sfx(value: float) -> void:
 
 
 func _apply_bus(bus_name: String, value: float) -> void:
-	"""Set a bus's volume, falling back to Master if the project has no such bus."""
+	"""Set a bus's volume. Master / Music / SFX come from default_bus_layout.tres; the
+	Master fallback keeps this working if that layout ever goes missing."""
 	var idx: int = AudioServer.get_bus_index(bus_name)
 	if idx < 0:
 		idx = AudioServer.get_bus_index("Master")

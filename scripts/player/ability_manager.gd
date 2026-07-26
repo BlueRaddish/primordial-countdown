@@ -107,14 +107,22 @@ func can_reassign() -> bool:
 	return _reassign_window_open
 
 
+func close_reassign_window() -> void:
+	"""Lock the loadout again. Called when the skill editor is dismissed."""
+	_reassign_window_open = false
+
+
 func assign_skill(slot_index: int, skill: SkillData) -> void:
 	if slot_index < 0 or slot_index > 2:
 		return
 	# Occupied slots are locked outside the post-unlock window. An empty slot can
 	# always be filled, so a newly learned skill is never stranded.
+	#
+	# The window is NOT closed here: the loadout editor needs to make several edits
+	# in one sitting, so closing it is an explicit call (close_reassign_window) made
+	# when that screen is dismissed.
 	if skill_slots[slot_index] != null and not _reassign_window_open:
 		return
-	_reassign_window_open = false
 	# Remove skill from other slots if already assigned.
 	for i: int in range(3):
 		if skill_slots[i] != null:

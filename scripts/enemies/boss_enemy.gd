@@ -13,18 +13,32 @@
 #   Phase 2  (66–33%)  faster, and every slam throws a delayed outer shockwave.
 #   Phase 3   (33–0%)  faster again, and the slam comes twice in a row.
 #
-# DAMAGE ORDER matters and is deliberate: the slam (58) hurts more than the strike
-# (40), which hurts more than a bump (12). The attack you are given the most warning
+# DAMAGE ORDER matters and is deliberate: the slam (38) hurts more than the strike
+# (24), which hurts more than a bump (8). The attack you are given the most warning
 # about is the one that punishes hardest for eating it. It used to be inverted — the
 # slam was the weakest of the three — which quietly taught the player to ignore the
 # one attack the fight actually telegraphs.
+#
+# TUNING THE FIRST BOSS (it lands on wave 3, and it was unwinnable)
+# What a player actually brings to it: 100 HP, intact skin (×0.8 damage taken), a
+# 25-damage swing on a 0.35s cooldown, and — this early — usually zero or one skill.
+#
+#   before:  420 HP = 17 swings to kill.  Slam 58 ×0.8 = 46 taken, so THREE slams
+#            killed you, against a boss that slams every 4.5s. You needed a near
+#            perfect ~25s to win with no dodge tool at all.
+#   after:   260 HP = 11 swings.  Slam 38 ×0.8 = 30 taken (4 slams), strike 24 ×0.8
+#            = 19 (6 strikes), bump 8 ×0.8 = 6. Roughly six mistakes of headroom,
+#            and the dash now exists to avoid them.
+#
+# Later bosses are NOT this soft: wave_spawner scales each successive boss up, so
+# this is the difficulty floor rather than the whole curve.
 class_name BossEnemy
 extends BaseEnemy
 
 @export var slam_interval: float = 4.5
 @export var slam_windup: float = 0.7
 @export var slam_radius: float = 84.0
-@export var slam_damage: float = 58.0
+@export var slam_damage: float = 38.0
 @export var slam_rise: float = -300.0
 # The slam also throws you, so being caught costs position as well as health.
 @export var slam_knockback: float = 1.6
@@ -34,7 +48,7 @@ extends BaseEnemy
 # slam is no longer automatically safe — you have to keep moving out.
 @export var shockwave_delay: float = 0.45
 @export var shockwave_radius_mult: float = 1.8
-@export var shockwave_damage: float = 26.0
+@export var shockwave_damage: float = 16.0
 
 # Health fractions at which the next phase begins.
 const PHASE_THRESHOLDS: Array[float] = [0.66, 0.33]

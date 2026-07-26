@@ -15,6 +15,7 @@ Current state: milestone 3 — *the loop exists*.
 | `A` / `D` or arrows | Move |
 | `Space` / `W` | Jump — press again in mid-air to double jump. With wings, hold while falling to glide. |
 | Left mouse / `J` | Melee attack, aimed at the cursor |
+| Right mouse / `L-Shift` | **Dash / roll** — horizontal, toward the cursor's side, untouchable throughout |
 | `Q` / `E` / `R` | Skill slots |
 | `F` | Interact (shrines) |
 | `C` | Character screen (freezes game time) |
@@ -24,6 +25,14 @@ Current state: milestone 3 — *the loop exists*.
 Firing **any skill while in mid-air refreshes your jump** (not a double jump — the
 ground jump itself is handed back), so weaving a skill into a jump keeps you
 airborne. Aerial skill chains are a real mobility option.
+
+The **dash** is the baseline evade and the thing that makes the telegraph contract
+fair: every enemy commits to a windup before it can hurt you, so there has to be one
+answer that always works and never depends on which traits you still have. It grants
+i-frames for its whole 0.18s, so it beats a strike, a boss slam and a shockwave alike;
+it is free, because charging years for the only universal defence would tax the player
+for being attacked. Degraded legs shorten it (×0.8 partial, ×0.55 lost) but never
+remove it.
 
 ## Display
 
@@ -73,6 +82,36 @@ a steady colour in the same hue: the information is preserved, the strobe is not
 **Developer tools** gates the testing controls out of the character screen. Someone
 playtesting normally should see a character sheet, not a god-mode switch and a row of
 trait +/- buttons that make it trivial to invalidate the thing they were testing.
+
+The three audio sliders drive real buses — `Master → {Music, SFX}` from
+`default_bus_layout.tres` — which is why those buses exist rather than every player
+node carrying its own volume.
+
+## Audio
+
+`scripts/autoload/audio_manager.gd` plays everything, and it is driven **entirely off
+EventBus**. No gameplay code calls it: if a thing is worth hearing it already emits a
+signal, so adding a sound never means editing a system.
+
+| Event | Sound |
+| --- | --- |
+| Every swing | `sfx_blade_slice` |
+| Enemy hit | `sfx_punch_flesh_hit` |
+| Player hit | **depends on your armour** — plate over a grown Hide/Plates, duller metal over intact skin, wet and soft once the skin is gone |
+| Boss slam | `sfx_boss_slam_impact` |
+| Devolution / skill unlock / evolved trait / death | the four jingle stingers |
+
+Music is layered rather than swapped: a base era track, a boss track while a boss is
+alive, and a **tension layer that fades in once the countdown drops below 45%** — the
+run getting late sounds like something added to the world, not a different song. A
+small voice pool with slight pitch scatter keeps repeated swings from turning into a
+machine gun.
+
+> **Known gap:** the music is still 16-bit WAV (~30MB). `ART_RESOURCES.md` asks for OGG
+> conversion before import and there is no ffmpeg on this machine. Converting is a
+> drop-in replacement — the `preload` paths in `audio_manager.gd` are the only thing
+> that changes. Music is North Fantasy Music under **CC BY 4.0** and needs attribution;
+> everything else is Kenney CC0.
 
 ---
 
@@ -198,6 +237,14 @@ loadout swap — pause, slot whatever counters the thing currently killing you, 
 which drains the tension out of every hard moment and makes the trait-driven kit
 meaningless.
 
+That window is a **loadout editor**, not an overwrite prompt
+(`scripts/ui/skill_unlock_popup.gd`). It shows the new skill in full, the three slots
+*with what they currently hold*, and every unlocked skill in a scrolling list — pick a
+skill, click a slot, rearrange as much as you like, then Done. The old version offered
+three "Assign Q/E/R" buttons with no indication of what was in those slots, so taking a
+new skill meant blindly destroying one you could not see. A skill that lands in a free
+slot is placed automatically, so the common case still needs no clicks.
+
 ### No skill does only one thing
 
 Each skill carries at least two of **{damage, self-buff, movement, status}**. A kit where
@@ -310,28 +357,39 @@ counting down, shown on the HUD.
 | Skill | the skill's own `year_cost` (see the tables above) |
 | Pounce | free |
 
-A run starts at **1000 years**. That figure is the single knob for run length:
+A run starts at **700 years**. That figure is the single knob for run length:
 `starting_years` on the DevolutionSystem node. The 14 devolution steps are *derived* from
 it, spread along a curve and normalised to sum to exactly `starting_years`, so raising or
 lowering it lengthens or shortens the run without desynchronising anything.
 
-The curve is **geometric**, controlled by `devolution_step_ratio` (10.0 — the last step
-costs 10× the first). Each step costs a fixed multiple of the one before, so the opening
-is genuinely cheap:
+The curve is **geometric**, controlled by `devolution_step_ratio` (12.0 — the last step
+costs 12× the first). Each step costs a fixed multiple of the one before, so the opening
+is genuinely cheap. The numbers are set against a concrete target: **at least two
+devolutions before the end of stage 1.**
+
+What stage 1 actually costs, at 1 year per swing:
 
 ```
-step cost:   18  21  25  30  36  43  51  61  73  87 104 124 148 177   = 1000
-cumulative:  18  39  64  94 130 173 225 286 359 446 550 674 823 1000
+wave 1   5 mobs x 2 swings                       = 10
+wave 2   7 mobs x 2 swings                       = 14
+wave 3   4 mobs x 2 swings + boss (260/25 = 11)  = 19
+                                          total  = 43 swings
 ```
 
-So the **first devolution lands after ~18 attacks** and three land inside the first ~64.
+(Perfect accuracy with no skills — a whiff still costs its year, so 43 is the floor.)
 
-> This replaced a linear curve at 2000 starting years, which put the first devolution
-> ~71 attacks in and every step after that further out still. That meant minutes of play
-> before the game's central mechanic did anything — the opposite of the intended shape,
-> where the body starts failing immediately and the failure then accelerates. A linear
-> ramp cannot fix this on its own: its first step is always within a small factor of its
-> last. A geometric one can.
+```
+step cost:   11  13  16  19  23  27  33  39  47  56  67  80  96 115  =  700
+cumulative:  11  24  40  59  81 109 142 181 228 284 351 431 527  700
+```
+
+So the **first devolution lands mid-wave-1 at 11 swings**, and three are done before the
+first boss dies — past the two-devolution target with room to spare, while the last step
+still costs 115 years so the late game keeps its weight.
+
+> This began as a linear curve at 2000 years, which put the first devolution ~71 swings
+> in. A linear ramp cannot fix that on its own: its first step is always within a small
+> factor of its last. Geometric can.
 
 Spending your last year lands exactly on your last devolution, so **reaching 0 means
 fully devolved**, which is `PLANNING1.md` section 4's end condition.
@@ -439,16 +497,26 @@ partial legs:  jump_force = -264  ->  peak rise 264² / (2 × 800) = 44 px
 - **High route** (P8–P10): 45px steps above the summit. Partial legs peak at 44px, so this
   is intact-legs-only by design.
 
+**Every floating platform is one-way** — only the ground and the side walls are solid.
+A mixed set meant half the shelves blocked jumps from underneath while the other half
+did not, which read as inconsistent rather than as a route.
+
 One-way platforms use a thin 8px collider pinned to the top surface rather than a
 full-height one. A thick one-way box lets the player end up *inside* it on the way up and
 pop out at the wrong edge — that was the source of the platforms feeling wrong.
 
-Their `one_way_collision_margin` is **16px**, which has to exceed the furthest the player
-can fall in one physics frame or a fast landing passes straight through between frames. At
-`max_fall_speed` 400 px/s and 60 physics ticks/s that distance is 6.67px, and the margin
-used to be 6.0 — already under it, so any landing near terminal velocity could tunnel,
-which is what made double jumps onto those shelves unreliable. 16 clears it with room for
-a dropped frame.
+Their `one_way_collision_margin` has to exceed the furthest the player can fall in one
+physics frame or a fast landing passes straight through between frames: at
+`max_fall_speed` 400 px/s and 60 ticks/s that is 6.67px, and it used to be 6.0 — under
+the threshold, which is what made double jumps onto those shelves unreliable.
+
+But the margin **extends downward from the collider's bottom edge**, so a generous one on
+a low shelf swallows the gap underneath it — that is what wedged enemies below the lowest
+platform, which has only 27px of headroom against a 20px-tall body. It is therefore sized
+per platform (`_one_way_margin_for`): deep platforms get the full 12px, shallow ones get
+only what fits and accept an occasional fall-through. That trade is deliberate — falling
+through the lowest shelf drops you a few dozen pixels onto the ground, whereas a trapped
+enemy or an unclimbable route is a broken arena.
 
 Layout lives in `scripts/systems/arena_renderer.gd`, which generates both the tiles and the
 colliders from one list.
@@ -502,8 +570,21 @@ Timings live in `BEHAVIOR_ATTACK_PROFILES`. Hand-tuned enemies (the boss) set
 
 ### Stage boss
 
-Every 3rd wave: twice the size, 420 health, and a ground slam on top of the normal strike
-loop. Boss waves spawn half the usual minions so the boss is the fight. A boss health bar
+Every 3rd wave: twice the size, 260 health, and a ground slam on top of the normal strike
+loop. The **first** boss is tuned to be beatable with nothing — no skills, no upgrades:
+
+```
+player brings   100 HP, intact skin (x0.8 taken), 25-damage swing
+boss  260 HP  = 11 swings to kill
+slam    38    = 30 taken -> survives 4
+strike  24    = 19 taken -> survives 6
+contact  8    =  6 taken
+```
+
+It was 420 HP with a 58-damage slam, which killed you in **three** slams against a boss
+that slams every 4.5s — an unwinnable opener. `wave_spawner` now scales every *later*
+boss up from this floor (+45% health, +18% damage per boss), so this is the difficulty
+floor rather than the whole curve. Boss waves spawn half the usual minions so the boss is the fight. A boss health bar
 appears at the top of the HUD.
 
 It fights in **phases**, because a boss that never changes is just a walker with a big
@@ -516,7 +597,7 @@ escalates so the phase is legible without UI:
 | 2 | 66–33% | Faster tells; every slam throws a delayed **outer shockwave**, so standing just past the slam is no longer safe. |
 | 3 | 33–0% | Faster again, and the slam comes **twice in a row**. |
 
-Its damage order is deliberate: **slam 58 > strike 40 > contact 12**. The attack you get
+Its damage order is deliberate: **slam 38 > strike 24 > contact 8**. The attack you get
 the most warning about is the one that punishes hardest for eating it. That used to be
 inverted — the slam was 22 against a 45-damage lunge — which quietly taught the player to
 ignore the one attack the fight actually telegraphs.

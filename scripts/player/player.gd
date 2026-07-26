@@ -31,6 +31,13 @@ const IMPULSE_TIME: float = 0.25
 # assuming one, so changing the character's size is a single edit here.
 const SPRITE_SCALE: float = 0.6
 
+# Drains the sprite's colour as traits are lost. See the shader's own header for why the
+# old modulate lerp could not do this.
+const DEVOLUTION_SHADER: Shader = preload("res://scripts/shaders/devolution.gdshader")
+# Exponent applied to the devolution fraction before it reaches the shader. Below 1.0 it
+# front-loads the drain so early losses are visible; 1.0 restores the old linear ramp.
+const DECAY_CURVE: float = 0.6
+
 # --- Live values (rebuilt from traits) ---
 @export var move_speed: float = 120.0
 @export var acceleration: float = 900.0
@@ -368,10 +375,16 @@ func _update_body_appearance(trait_mgr: TraitManager) -> void:
 	a body coming apart and improvising — was happening only in the HUD."""
 	var decay: float = _get_devolution_fraction(trait_mgr)
 	if _sprite:
-		var tint: Color = Color.WHITE.lerp(Color(0.58, 0.55, 0.62), decay)
-		# Alpha belongs to the invincibility flicker; only the colour is ours.
-		tint.a = _sprite.modulate.a
-		_sprite.modulate = tint
+		# Front-loaded so the first losses are the ones that read. Linear decay spends
+		# its whole visible range on the last few traits: a player three steps in saw a
+		# 21% shift and reported the system as broken. pow() at DECAY_CURVE turns those
+		# same three steps into roughly 40% drain while still landing exactly on 1.0.
+		var shown: float = pow(decay, DECAY_CURVE)
+		_devolution_material().set_shader_parameter("decay", shown)
+		# Colour is the shader's now; modulate keeps only the alpha the invincibility
+		# flicker writes. Leaving a tint here as well would multiply against the drain
+		# twice and darken the sprite past what the curve asks for.
+		_sprite.modulate = Color(1.0, 1.0, 1.0, _sprite.modulate.a)
 
 	if not _body_marks:
 		return
@@ -389,6 +402,21 @@ func _update_body_appearance(trait_mgr: TraitManager) -> void:
 					armor = data.color
 
 	_body_marks.set_marks(has_wings, has_tail, has_claws, has_gills, armor)
+
+
+func _devolution_material() -> ShaderMaterial:
+	"""The sprite's drain material, created on first use.
+
+	Built in code rather than saved onto the scene so the AnimatedSprite2D keeps working
+	unchanged if the shader is ever removed — and so this file stays the only place the
+	devolution look is configured."""
+	var existing: ShaderMaterial = _sprite.material as ShaderMaterial
+	if existing:
+		return existing
+	var mat: ShaderMaterial = ShaderMaterial.new()
+	mat.shader = DEVOLUTION_SHADER
+	_sprite.material = mat
+	return mat
 
 
 func _get_devolution_fraction(trait_mgr: TraitManager) -> float:

@@ -1,5 +1,5 @@
 # parallax_backdrop.gd
-# Scrolling backdrop behind the arena, built from the volcano pack's separated layers.
+# Scrolling backdrop behind the arena, tiled from a set of seamless-loop layer strips.
 #
 # This deliberately does NOT use ParallaxBackground. That node makes its own
 # CanvasLayer, and a CanvasModulate only tints the layer it belongs to — so the
@@ -7,13 +7,13 @@
 # left the sky at full brightness while everything else went dark. Living inside
 # Arena as a plain Node2D means these layers dim along with the rest of the world.
 #
-# The pack ships its layers as pieces of one 1280x720 painting rather than as
-# free-floating strips, so each has a fixed place on that canvas: five are
-# bottom-aligned but the cloud band is anchored to the top. `layer_offset_y`
-# carries those positions, recovered by matching each layer against the pack's
-# own composed bg_volcano.png. The canvas is then hung so its bottom edge sits at
-# `horizon_y`, and scrolls horizontally against the camera. Vertical position is
-# fixed in world space, so climbing to the summit reveals more sky.
+# TILING. Every era pack (swamp/town/cyberpunk, all ansimuz) ships each layer as a
+# small seamless-loop strip — as narrow as 96px — meant to repeat edge to edge, not
+# as one fixed painting the way the old volcano pack was. So each layer gets several
+# Sprite2D copies side by side, and every frame all copies are repositioned so the
+# leftmost one always starts at or before the camera's left edge: cheap (a handful of
+# extra Sprite2D nodes) and immune to camera direction changes, since there's no
+# recycling state to get out of sync — position is recomputed fresh every frame.
 extends Node2D
 
 # One texture per layer, ordered back to front.
@@ -23,7 +23,10 @@ extends Node2D
 # `layer_textures`. Layers missing an entry are bottom-aligned.
 @export var layer_offset_y: Array[float] = []
 
-# Height of the canvas those offsets are measured against.
+# Height of the canvas those offsets are measured against. For a pack whose layers
+# are each a complete, independent image (as opposed to slices of one shared
+# painting), set this to that image's own height — offset_y then defaults to 0 and
+# every layer's bottom edge lands on `horizon_y`.
 @export var canvas_height: float = 720.0
 
 # Parallax rate per layer, matched by index to `layer_textures`.
@@ -33,39 +36,48 @@ extends Node2D
 @export var layer_scroll: Array[float] = []
 @export var default_scroll: float = 0.25
 
-# Where the bottom edge of the source canvas sits in world space. This is well
-# below ArenaRenderer.GROUND_Y (288) on purpose: the painting puts its peaks in
-# the middle of a 720px frame, and the game only shows 360px at a time, so
-# hanging the canvas by its bottom edge at the ground line left everything
-# interesting above the top of the screen. Dropping it to 470 pushes the peaks
-# down into view and tucks the dark foreground ridge behind the ground tiles.
+# Where the bottom edge of the source canvas sits in world space.
 @export var horizon_y: float = 470.0
 
-# Horizontal anchor. The layers are 1280px wide and the camera sweeps roughly
-# -30..1110 across the arena, which is what bounds this and the scroll rates:
-# a layer must still cover the 640px-wide view at both ends of that sweep.
-# Solving  cam*(1-f) + base <= cam - 320  and  cam*(1-f) + base + 1280 >= cam + 320
-# for the full camera range gives f <= 0.56 and base in [-405, -335] at f = 0.5.
-@export var base_x: float = -370.0
+# Extra per-layer horizontal phase offset. With tiling there is no fixed-width
+# canvas to line up against a camera sweep, so this is just a nudge for variety —
+# 0.0 is a perfectly good default.
+@export var base_x: float = 0.0
 
-var _layers: Array[Sprite2D] = []
+# Half the base viewport width (project.godot is 640x360; canvas_items stretch keeps
+# 2D coordinates in that space regardless of window scaling). Used to size and place
+# enough tile copies to always cover the screen.
+const VIEWPORT_HALF_WIDTH: float = 320.0
+# Extra tile on each side so a fast camera pan never uncovers a gap before the next
+# _process call repositions everything.
+const TILE_MARGIN: int = 1
+
+var _layer_tiles: Array[Array] = [] # Array[Array[Sprite2D]], matched by layer index
+var _layer_tile_width: Array[float] = []
 
 
 func _ready() -> void:
 	for i: int in layer_textures.size():
 		var tex: Texture2D = layer_textures[i]
-		if tex == null:
-			continue
-		var layer: Sprite2D = Sprite2D.new()
-		layer.texture = tex
-		layer.centered = false
-		layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		var offset_y: float = canvas_height - float(tex.get_height())
-		if i < layer_offset_y.size():
-			offset_y = layer_offset_y[i]
-		layer.position = Vector2(base_x, horizon_y - canvas_height + offset_y)
-		add_child(layer)
-		_layers.append(layer)
+		var tiles: Array = []
+		var tile_width: float = 0.0
+		if tex != null:
+			tile_width = float(tex.get_width())
+			var offset_y: float = canvas_height - float(tex.get_height())
+			if i < layer_offset_y.size():
+				offset_y = layer_offset_y[i]
+			var y: float = horizon_y - canvas_height + offset_y
+			var needed: int = ceili(VIEWPORT_HALF_WIDTH * 2.0 / tile_width) + 1 + TILE_MARGIN * 2
+			for _j: int in needed:
+				var tile: Sprite2D = Sprite2D.new()
+				tile.texture = tex
+				tile.centered = false
+				tile.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				tile.position.y = y
+				add_child(tile)
+				tiles.append(tile)
+		_layer_tiles.append(tiles)
+		_layer_tile_width.append(tile_width)
 	_update_layers()
 
 
@@ -78,8 +90,20 @@ func _update_layers() -> void:
 	if not camera:
 		return
 	var camera_x: float = camera.global_position.x
-	for i: int in _layers.size():
+	for i: int in _layer_tiles.size():
+		var w: float = _layer_tile_width[i]
+		if w <= 0.0:
+			continue
 		var scroll: float = default_scroll
 		if i < layer_scroll.size():
 			scroll = layer_scroll[i]
-		_layers[i].position.x = camera_x * (1.0 - scroll) + base_x
+		# Same parallax formula the single-sprite version used: this is the world-x
+		# that this layer's local origin (tile index 0) maps to.
+		var parallax_x: float = camera_x * (1.0 - scroll) + base_x
+		# Leftmost tile index whose span can still reach the camera's left edge,
+		# with one extra tile of margin so nothing pops in at the screen edge.
+		var left_edge: float = camera_x - VIEWPORT_HALF_WIDTH
+		var base_index: int = floori((left_edge - parallax_x) / w) - TILE_MARGIN
+		var tiles: Array = _layer_tiles[i]
+		for j: int in tiles.size():
+			(tiles[j] as Sprite2D).position.x = parallax_x + float(base_index + j) * w

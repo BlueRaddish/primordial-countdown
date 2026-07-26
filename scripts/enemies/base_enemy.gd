@@ -47,8 +47,8 @@ enum Behavior { WALKER, LUNGER, HOPPER }
 
 # --- Appearance ---
 # Each movement pattern wears its own sprite, so the three read apart at a glance
-# instead of relying on the player noticing how they move: a heavy orc that walks,
-# a horned chort that lunges, a small imp that hops.
+# instead of relying on the player noticing how they move: a stocky biker that walks,
+# a lean punk that lunges, a compact cyborg that hops.
 # The boss supplies its own frames, so it turns this off in boss_enemy.tscn.
 @export var use_behavior_sprite: bool = true
 
@@ -63,13 +63,24 @@ const BEHAVIOR_SPRITE_FRAMES: Dictionary = {
 	Behavior.HOPPER: preload("res://resources/sprite_frames/enemy_hopper.tres"),
 }
 
-# The sprites are not all the same height (orc and chort are 16x23, the imp is
-# 16x16), so each needs its own offset to stand on the collider's base instead of
-# floating above it or sinking into the floor.
+# The cyberpunk-era sprites (CraftPix's Biker/Punk/Cyborg) are cropped to roughly
+# 33x34 / 27x34 / 32x35 px, much bigger than the 0x72 pack's 16x16-16x23 frames they
+# replaced — drawn at native size they would loom over the player. BEHAVIOR_SPRITE_SCALE
+# brings them down to roughly the same footprint the old sprites had, reusing the
+# player's own SPRITE_SCALE (0.6, see player.gd) rather than inventing a new constant.
+const BEHAVIOR_SPRITE_SCALE: Dictionary = {
+	Behavior.WALKER: Vector2(0.6, 0.6),
+	Behavior.LUNGER: Vector2(0.6, 0.6),
+	Behavior.HOPPER: Vector2(0.6, 0.6),
+}
+
+# Each frame is bottom-anchored (feet sit at the crop's bottom edge) but the crops are
+# not the same height, so each still needs its own offset — post-scale half-height —
+# to stand on the collider's base instead of floating above it or sinking into the floor.
 const BEHAVIOR_SPRITE_Y: Dictionary = {
-	Behavior.WALKER: -12.0,
-	Behavior.LUNGER: -12.0,
-	Behavior.HOPPER: -8.0,
+	Behavior.WALKER: -10.2,
+	Behavior.LUNGER: -10.2,
+	Behavior.HOPPER: -10.5,
 }
 
 # How each pattern fights. The three are meant to demand different answers:
@@ -199,6 +210,8 @@ func _apply_behavior_sprite() -> void:
 		_sprite.play(&"idle")
 	if BEHAVIOR_SPRITE_Y.has(behavior):
 		_sprite.position.y = BEHAVIOR_SPRITE_Y[behavior]
+	if BEHAVIOR_SPRITE_SCALE.has(behavior):
+		_sprite.scale = BEHAVIOR_SPRITE_SCALE[behavior]
 
 
 func _apply_behavior_profile() -> void:

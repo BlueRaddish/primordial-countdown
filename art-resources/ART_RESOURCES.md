@@ -61,11 +61,22 @@ This folder is a staging area — copy out only what you use.
   wings need no flip when the player turns around. Re-run the script to change any of
   this; nothing was hand-edited, and the pack is untouched.
 
-- `assets/sprites/backgrounds/volcano/bg_volcano_1.png` … `_6.png` — driving
-  `parallax_backdrop.gd`, referenced by `scenes/main/game.tscn`. **Scrapped**:
-  the team decided against a volcanic look in favor of the three eras below.
-  Nothing deletes these automatically — remove them once a replacement layer
-  set is wired in, so the scene doesn't dangle a missing-texture reference.
+- `assets/sprites/backgrounds/cyberpunk/cyberpunk_{back,middle,foreground}.png` —
+  the cyberpunk era backdrop, driving `parallax_backdrop.gd` (now a tiling parallax,
+  see below), referenced by `scenes/main/game.tscn`. Replaces the volcano layers
+  (deleted 2026-07-26, along with their `bg_volcano_1.png`…`_6.png` game-tscn
+  references — see "Implementing these backgrounds" below for what changed in the
+  script itself.
+- `assets/sprites/enemies/{walker,lunger,hopper}/*.png` — re-skinned for the
+  cyberpunk era from **Free 3 Cyberpunk Sprites Pixel Art** (a CraftPix.net freebie
+  reposted on itch.io), by `tools/build_cyberpunk_enemies.py`. Biker → Walker
+  (stockiest stance), Punk → Lunger (already leaning into the run in its idle pose),
+  Cyborg → Hopper (most compact/agile silhouette). Only idle and run were used —
+  `base_enemy.gd` only ever plays those two. Frames are cropped from the pack's
+  48px-tall sheets to each character's own tight bounding box (not resized/redrawn)
+  and rendered at 0.6x scale (reusing the player's own `SPRITE_SCALE`) so they read
+  at roughly the footprint the old 0x72 sprites had. **This pack is NOT CC0** — see
+  its own entry below for the actual license.
 - `assets/fonts/Kenney Pixel.ttf`, `assets/fonts/Kenney Mini Square Mono.ttf` —
   independent copies, unaffected by anything below.
 
@@ -162,62 +173,56 @@ Background LITE` ($1.99 each) and the `Warped Synth Cities Backgrounds ADDON`
 
 ---
 
-## Implementing these backgrounds — the actual steps
+## Implementing these backgrounds — done for the cyberpunk era (2026-07-26)
 
-This is the part that isn't just "drop in a PNG." Read `parallax_backdrop.gd`
-before starting:
+`parallax_backdrop.gd` was built entirely around the volcano pack's shape — one
+1280×720 painting sliced into layers, each hung at a fixed `layer_offset_y`
+recovered by matching it against that pack's own composed `bg_volcano.png`. It
+positioned each layer once and scrolled it horizontally; it did **not** tile.
 
-**The blocker:** `parallax_backdrop.gd` was built entirely around the volcano
-pack's shape — one 1280×720 painting sliced into layers, each hung at a fixed
-`layer_offset_y` recovered by matching it against that pack's own composed
-`bg_volcano.png`. It positions each layer once and scrolls it horizontally;
-it does **not** tile.
+Every layer in packs 12–14 (and pack 2's `night-town-background-files`, already
+on disk) is the opposite shape: a small **seamless-loop strip** (as narrow as
+96px, as wide as 688px) meant to repeat edge-to-edge across whatever width the
+camera sweeps, not one fixed composition.
 
-Every layer in packs 12–14 (and pack 2's `night-town-background-files`,
-already on disk) is the opposite shape: a small **seamless-loop strip** (as
-narrow as 96px, as wide as 688px) meant to repeat edge-to-edge across
-whatever width the camera sweeps, not one fixed composition. Dropping these
-into `layer_textures` as-is will leave gaps the moment the camera moves past
-one copy's width — most of these are narrower than the 640px viewport itself.
+**What shipped, in order:**
 
-**Steps, in order:**
+- [x] **Cyberpunk ships first**, one era at a time as planned — swamp and town
+      are still just staged packs, not wired.
+- [x] **`parallax_backdrop.gd` got a tiling mode.** Each layer now gets
+      `ceil(640 / tile_width) + 3` `Sprite2D` copies, and every `_process()`
+      call repositions *all* of them from scratch based on the camera's current
+      x — no recycling/wraparound state to drift out of sync, just a fresh
+      `base_index` computed each frame. The old single-sprite-per-layer path is
+      gone; tiling is now the only mode (a layer wider than the viewport still
+      works, it just needs 1-3 copies instead of many).
+- [x] **Layer PNGs copied** into `assets/sprites/backgrounds/cyberpunk/` —
+      Version 2's `back.png` / `middle.png` / `foreground-empty.png` (not
+      Version 1, and not the busier `foreground.png` with cars/props — the
+      empty variant reads cleaner behind combat, and this is the layer closest
+      to the camera so it's also the most visually salient one).
+- [x] **Reimport**: nothing extra needed. `project.godot` already sets
+      `textures/canvas_textures/default_texture_filter=0` project-wide, and
+      `parallax_backdrop.gd` additionally forces `TEXTURE_FILTER_NEAREST` on
+      every tile it creates — pixel-art filtering was never a per-file import
+      setting in this project, it's enforced at the project/node level.
+- [x] **Wired into `game.tscn`** directly (`layer_textures` swapped, no
+      `stage_manager.gd` era-switching — not in scope for this pass).
+- [x] **`horizon_y` / `canvas_height` re-derived, not copied.** Each of these
+      three layers is a complete, independent 272px-tall scene (sky down to
+      street), not a slice of one shared painting — so `canvas_height = 272`
+      (matching the layers' own height) makes every layer bottom-align by
+      default, and `horizon_y = 288` was chosen to equal `ArenaRenderer.GROUND_Y`
+      exactly, so each layer's own painted street sits flush with where the
+      arena's real ground tiles begin. `base_x` lost its old meaning (it was
+      solved against the volcano's 1280px canvas and the camera's sweep) and
+      is now just a per-layer phase nudge, defaulted to 0.
+- [x] **`assets/sprites/backgrounds/volcano/` deleted**, its `game.tscn`
+      references replaced.
+- [x] **ansimuz credited** in the README's credits table.
 
-- [ ] **Decide which era ships first.** Given the deadline, treat this as
-      one background swap at a time, not three at once.
-- [ ] **Give `parallax_backdrop.gd` a tiling mode.** Simplest version: for
-      layers under a size threshold, instance N copies of the `Sprite2D`
-      side by side (width × N ≥ camera sweep + one screen), and re-tile them
-      in `_update_layers()` as the camera crosses each copy's edge — same
-      pattern as an infinite scroller background. This is new code, not a
-      config change; budget real time for it before touching the art.
-- [ ] **Copy the chosen layer PNGs** into a new folder, matching the existing
-      convention: `assets/sprites/backgrounds/<era_name>/`.
-- [ ] **Reimport with pixel-art settings**: Godot import tab → **Filter:
-      Off**, **Mipmaps: Off** (matches every other sprite in this project;
-      skipping this is the #1 way new art shows up blurry against everything
-      else).
-- [ ] **Wire the new textures into `game.tscn`**, either by swapping
-      `parallax_backdrop.gd`'s exported `layer_textures` directly for a single
-      hardcoded era, or — if era-switching is actually in scope for the jam
-      build — by giving `stage_manager.gd` (currently an empty stub) the job
-      of swapping `layer_textures`/`layer_scroll`/`horizon_y` on era
-      boundaries. Don't build the second option unless the first one is
-      already working and there's time left; it's strictly more code.
-- [ ] **Re-tune `horizon_y` and `base_x` per era.** These were solved
-      specifically for the volcano pack's 720-tall canvas and camera sweep
-      (see the comments in `parallax_backdrop.gd` — the math is: a layer
-      must cover the 640px viewport at both ends of the camera's ~-30..1110
-      sweep). A 288px-tall town layer or a 192px cyberpunk layer needs this
-      re-derived, not copied — the volcano numbers will place them wrong.
-- [ ] **Delete or replace `assets/sprites/backgrounds/volcano/`** once a real
-      replacement is wired in, so nothing in the scene points at art the team
-      already decided against.
-- [ ] **Credit ansimuz** in the README's credits table (see below) — not
-      legally required under CC0, but costs one line.
-
-None of this is done yet. The packs are on disk and Godot has already
-`.import`-cached them (they sit inside the project directory), but the game
-still only renders the volcano layers until the steps above happen.
+Swamp and town are unaffected — same tiling script will handle them whenever
+one of those eras is wired in next, following this same pattern.
 
 ---
 
@@ -289,6 +294,38 @@ pack now.
 Supplies the arena ground tiles in `assets/sprites/arenas/` that `arena_renderer.gd`
 draws. Also contains Tiled and Construct 3 project files, which are reference only —
 the arena is generated in GDScript, not authored in a tile editor.
+
+### 18. `18_craftpix_cyberpunk_sprites/` — cyberpunk-era enemies
+
+**Free 3 Cyberpunk Sprites Pixel Art.zip** · 71 kB ·
+<https://free-game-assets.itch.io/free-3-cyberpunk-sprites-pixel-art>
+
+```
+1 Biker/  2 Punk/  3 Cyborg/
+  {name}_idle.png        192x48  (4 frames, 48x48 each)
+  {name}_run.png         288x48  (6 frames, 48x48 each)
+  {name}_jump.png        192x48  (4 frames) — unused, no jump animation exists yet
+  {name}_punch.png       288x48  (6 frames) — unused, no attack animation exists yet
+  {name}_attack1/2/3.png 288-384 wide       — unused
+  {name}_climb/death/doublejump/hurt.png    — unused
+```
+
+**Not CC0.** This is a free (name-your-own-price, $0 is a valid price) repost by
+"Free Game Assets" of a **CraftPix.net** freebie — the original is
+<https://craftpix.net/freebies/free-3-cyberpunk-characters-pixel-art/>, and
+`license.txt` inside the zip points at CraftPix's own terms:
+<https://craftpix.net/file-licenses/>. Summary: commercial use is explicitly
+permitted, attribution is *not* required ("any credit will be highly
+appreciated"), but — unlike every CC0 pack in this file — **redistributing the
+source files themselves is prohibited** ("resell the art source files ... or a
+slightly modified version"), and the assets may not be used to train AI models.
+None of that blocks using the sprites in the shipped game; it blocks handing the
+zip or the cropped PNGs out as a standalone asset pack.
+
+Only `idle` and `run` were used, cropped and re-scaled by
+`tools/build_cyberpunk_enemies.py` into `assets/sprites/enemies/{walker,lunger,
+hopper}/` — see that script's docstring for the character-to-behavior mapping
+and why each frame is cropped to a per-character (not per-frame) box.
 
 ### 15. `15_selected_devolution_assets/` — this pass's curated picks
 
@@ -378,11 +415,14 @@ project's actual homepage, not this file:
 | RPG Audio | Kenney | CC0 1.0 | https://kenney.nl/assets/rpg-audio |
 | Music Jingles | Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles |
 | Fantasy Ambience & Drum Loops | North Fantasy Music | CC BY 4.0 | https://opengameart.org/content/fantasy-music-and-drum-loops-pack |
+| Free 3 Cyberpunk Sprites Pixel Art | CraftPix.net (reposted by Free Game Assets) | Free for commercial use, no attribution required, no redistribution of source files | https://free-game-assets.itch.io/free-3-cyberpunk-sprites-pixel-art |
 ```
 
 Only pack 11 (and pack 2, loosely) actually asks for it — but everything
 sourcing pack 15 is listed regardless, same "credit is deserved, not just
-owed" reasoning the README's own Credits section already states.
+owed" reasoning the README's own Credits section already states. Pack 18
+(CraftPix) is the one entry here that is **not** CC0 — see its own section
+above for what its licence actually restricts.
 
 ## Version control
 

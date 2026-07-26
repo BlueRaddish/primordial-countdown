@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cg4eam87piw35"
-path="res://.godot/imported/bg_volcano_2.png-d74f8c81a4da724c7a30592b8c4338f2.ctex"
+uid="uid://ddv5psf3o8q71"
+path="res://.godot/imported/lunger_run_anim_f4.png-1dbe49e73e7a81cd4d52952d77f2c111.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/backgrounds/volcano/bg_volcano_2.png"
-dest_files=["res://.godot/imported/bg_volcano_2.png-d74f8c81a4da724c7a30592b8c4338f2.ctex"]
+source_file="res://assets/sprites/enemies/lunger/lunger_run_anim_f4.png"
+dest_files=["res://.godot/imported/lunger_run_anim_f4.png-1dbe49e73e7a81cd4d52952d77f2c111.ctex"]
 
 [params]
 

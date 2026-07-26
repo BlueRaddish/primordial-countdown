@@ -4,7 +4,7 @@
 [ext_resource type="SpriteFrames" path="res://resources/sprite_frames/enemy_walker.tres" id="2_frames"]
 
 [sub_resource type="RectangleShape2D" id="shape_enemy_col"]
-size = Vector2(14, 20)
+size = Vector2(16, 20)
 
 [node name="BaseEnemy" type="CharacterBody2D"]
 collision_layer = 2

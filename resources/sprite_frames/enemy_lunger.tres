@@ -1,4 +1,4 @@
-[gd_resource type="SpriteFrames" load_steps=9 format=3]
+[gd_resource type="SpriteFrames" load_steps=11 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/sprites/enemies/lunger/lunger_idle_anim_f0.png" id="1_lunger_idle_anim_f0"]
 [ext_resource type="Texture2D" path="res://assets/sprites/enemies/lunger/lunger_idle_anim_f1.png" id="2_lunger_idle_anim_f1"]
@@ -8,6 +8,8 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/enemies/lunger/lunger_run_anim_f1.png" id="6_lunger_run_anim_f1"]
 [ext_resource type="Texture2D" path="res://assets/sprites/enemies/lunger/lunger_run_anim_f2.png" id="7_lunger_run_anim_f2"]
 [ext_resource type="Texture2D" path="res://assets/sprites/enemies/lunger/lunger_run_anim_f3.png" id="8_lunger_run_anim_f3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemies/lunger/lunger_run_anim_f4.png" id="9_lunger_run_anim_f4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemies/lunger/lunger_run_anim_f5.png" id="10_lunger_run_anim_f5"]
 
 [resource]
 animations = [
@@ -47,8 +49,16 @@ animations = [
 {
 "duration": 1.0,
 "texture": ExtResource("8_lunger_run_anim_f3")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("9_lunger_run_anim_f4")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("10_lunger_run_anim_f5")
 }],
 "loop": true,
 "name": &"walk",
-"speed": 11.0
+"speed": 16.5
 }]

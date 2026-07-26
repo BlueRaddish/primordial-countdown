@@ -753,38 +753,46 @@ always read first.
 
 ## Art
 
-Every character is its own animated sprite from 0x72's DungeonTileset II, at four frames
-per idle and run cycle. The three enemy patterns are deliberately given three different
-bodies, so a pattern is readable before it acts rather than only once it moves:
+The player and boss are animated sprites from 0x72's DungeonTileset II, at four frames per
+idle and run cycle. The three enemy patterns wear the cyberpunk era's CraftPix sprites
+(Biker/Punk/Cyborg) instead, chosen to keep the same "readable before it acts" rule the
+0x72 minions followed — a pattern is given its own distinct body so it's legible before it
+even moves:
 
-| On screen | Sprite | Size |
+| On screen | Sprite | Frame size |
 | --- | --- | --- |
 | Player | `knight_m` | 16×28 |
-| Walker | `orc_warrior` | 16×23 |
-| Lunger | `chort` | 16×23 |
-| Hopper | `imp` | 16×16 |
+| Walker | Biker (cyberpunk) | 33×34, drawn at 0.6× |
+| Lunger | Punk (cyberpunk) | 27×34, drawn at 0.6× |
+| Hopper | Cyborg (cyberpunk) | 32×35, drawn at 0.6× |
 | Stage boss | `big_demon` | 32×36 |
 
 The boss sprite is drawn at native size and needs no scaling: at 32×36 against a 16px
 minion it is already the "twice the size" the boss is specified as, which is also why its
-collider is 28×40 against a normal enemy's 14×20.
+collider is 28×40 against a normal enemy's 16×20. The three cyberpunk sprites are cropped
+(not redrawn) from a 48px-tall sheet, then scaled to 0.6× — the same `SPRITE_SCALE` the
+player uses — so they read at roughly the footprint the 0x72 minions had rather than
+towering over the arena at native size.
 
 Frames live in `assets/sprites/`, and each pattern's animation set is a `SpriteFrames`
 resource in `resources/sprite_frames/`. `base_enemy.gd` picks the set in `_ready()` from
 its `behavior`, which the spawner assigns before `add_child()`, so it resolves once per
 enemy. The boss brings its own frames and opts out via `use_behavior_sprite = false`.
 
-Behind the arena is a six-layer parallax backdrop (`scripts/systems/parallax_backdrop.gd`).
-It is a plain `Node2D` under `Arena` rather than a `ParallaxBackground`, because a
-`CanvasModulate` only tints its own canvas layer — a `ParallaxBackground` makes its own, so
-the Eyes trait would have dimmed the world and left the sky bright. Keeping the layers in
-`Arena` means they darken with everything else.
+Behind the arena is a tiling parallax backdrop (`scripts/systems/parallax_backdrop.gd`), the
+cyberpunk era's three-layer street (back/middle/foreground). It is a plain `Node2D` under
+`Arena` rather than a `ParallaxBackground`, because a `CanvasModulate` only tints its own
+canvas layer — a `ParallaxBackground` makes its own, so the Eyes trait would have dimmed the
+world and left the sky bright. Keeping the layers in `Arena` means they darken with
+everything else.
 
-The layers are pieces of one 1280×720 painting, so each has a fixed place on that canvas —
-five bottom-aligned, the cloud band anchored to the top — recorded in `layer_offset_y`. The
-canvas hangs by its bottom edge at y=470, well below the ground line, because the painting
-puts its peaks mid-frame and the game only shows 360px at a time; anchoring at the ground
-left everything worth seeing above the top of the screen.
+Unlike the volcano pack this replaced (one painting sliced into fixed-position layers), each
+of these layers is its own small seamless-loop strip meant to repeat edge to edge, so the
+script tiles several copies of each and repositions all of them every frame from the
+camera's current position — no fixed-canvas placement, no recycling state to drift out of
+sync. Every layer here is a complete 272px-tall scene in its own right (sky down to street),
+so each bottom-aligns at `horizon_y = 288`, chosen to equal the arena's own ground line —
+each layer's painted street sits flush with where the real ground tiles begin.
 
 UI uses Kenney Pixel as the project-wide default font. The year counter overrides it with
 Kenney Mini Square Mono: it is the one number that changes constantly, and in a
@@ -799,8 +807,9 @@ readouts (`~25`, `??`) the same width as the real thing.
 | Asset | Author | License | Link |
 | --- | --- | --- | --- |
 | Pixel Platformer (1.2) | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer |
-| 16x16 DungeonTileset II (1.7) — player, enemies, boss, devolution-stage avatars, wings reference | 0x72 | CC0 1.0 | https://0x72.itch.io/dungeontileset-ii |
-| 2D Platformer Volcano Pack 1.1 — parallax backdrop | Tio Aimar | CC0 1.0 | https://opengameart.org/content/2d-platformer-volcano-pack-11 |
+| 16x16 DungeonTileset II (1.7) — player, boss, devolution-stage avatars, wings reference | 0x72 | CC0 1.0 | https://0x72.itch.io/dungeontileset-ii |
+| Synth Cities Environment — cyberpunk-era parallax backdrop | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/cyberpunk-street-environment |
+| Free 3 Cyberpunk Sprites Pixel Art — cyberpunk-era Walker/Lunger/Hopper enemy sprites | CraftPix.net (reposted by Free Game Assets) | Free for commercial use, no attribution required, no redistribution of source files | https://free-game-assets.itch.io/free-3-cyberpunk-sprites-pixel-art |
 | Pixel Platformer Industrial Expansion — ground tile | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer-industrial-expansion |
 | Kenney Fonts — Kenney Pixel, Kenney Mini Square Mono | Kenney | CC0 1.0 | https://kenney.nl/assets/kenney-fonts |
 | Gothicvania Patreon Collection — skill/attack animation reference | Luis Zuno (ansimuz) | Public domain, credit appreciated | https://opengameart.org/content/gothicvania-patreons-collection |

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bkgxs2g72qxlg"
-path="res://.godot/imported/bg_volcano_3.png-f7642a334732d2e9a64ec205b05a8fe3.ctex"
+uid="uid://305iy7petqyb"
+path="res://.godot/imported/cyberpunk_foreground.png-6e9f37e1e7f8ea7acc7209f066965ea3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/backgrounds/volcano/bg_volcano_3.png"
-dest_files=["res://.godot/imported/bg_volcano_3.png-f7642a334732d2e9a64ec205b05a8fe3.ctex"]
+source_file="res://assets/sprites/backgrounds/cyberpunk/cyberpunk_foreground.png"
+dest_files=["res://.godot/imported/cyberpunk_foreground.png-6e9f37e1e7f8ea7acc7209f066965ea3.ctex"]
 
 [params]
 

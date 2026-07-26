@@ -89,7 +89,7 @@ const SPRITE_SCALE: float = 0.6
 
 # --- Dash / roll ---
 # The game's baseline evade, and the reason the telegraph contract is fair: every
-# enemy commits to a windup before it can hurt you, so there has to be one answer
+# enemy commits to a windup before izZt can hurt you, so there has to be one answer
 # that always works and never depends on which traits you still have.
 #
 # Purely horizontal, toward whichever side the cursor is on. It grants i-frames for

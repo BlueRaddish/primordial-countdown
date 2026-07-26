@@ -30,6 +30,24 @@ This folder is a staging area — copy out only what you use.
 - `assets/audio/` — the curated SFX/jingles plus four music tracks, converted from
   WAV to OGG Vorbis (30MB -> 1.8MB).
 
+- `assets/sprites/player/wings_bat.png` — the **Wings evolved trait**, cut out of
+  `02_ansimuz_gothicvania_collection`'s `demon-idle.png` by `tools/build_wings.py`.
+  Replaces the five-point polygon `body_marks.gd` used to draw, which looked like the
+  placeholder it was on what is meant to be a reward for losing a limb.
+
+  Wings had to be side-on (this is a sidescroller), genuinely animated, and by ansimuz —
+  the player wears his Gothic hero, and a wing from another artist sits on it at the
+  wrong outline weight. The demon's 6-frame idle is one full wing beat and satisfies all
+  three, without adding a pack.
+
+  The build script masks the three palette entries the membrane owns, keeps the largest
+  connected component (the near wing — the demon is drawn in 3/4, so its far wing is a
+  stunted fragment that vanishes on the up-stroke), and flattens the three colours to
+  three levels of grey so `wing_color` still tints the result. `body_marks.gd` mirrors
+  the one wing about the body's centre line to make the pair, which is also why the
+  wings need no flip when the player turns around. Re-run the script to change any of
+  this; nothing was hand-edited, and the pack is untouched.
+
 - `assets/sprites/backgrounds/volcano/bg_volcano_1.png` … `_6.png` — driving
   `parallax_backdrop.gd`, referenced by `scenes/main/game.tscn`. **Scrapped**:
   the team decided against a volcanic look in favor of the three eras below.

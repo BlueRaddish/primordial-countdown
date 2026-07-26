@@ -808,6 +808,7 @@ readouts (`~25`, `??`) the same width as the real thing.
 | Free Pixel Effects Pack — the 13 frame-animated skill/impact effects | CodeManu | CC0 1.0 | https://opengameart.org/content/free-pixel-effects-pack |
 | Pixel Art Sword Slash Effect — the melee/enemy slash animation | tbbk | CC0 1.0 | https://opengameart.org/content/pixel-art-sword-slash-effect |
 | Gothicvania Patreon Collection — the player character (Gothic hero) | Luis Zuno (ansimuz) | Public domain, credit appreciated | https://opengameart.org/content/gothicvania-patreons-collection |
+| Gothicvania Patreon Collection — the Wings evolved trait, cut from the demon's idle | Luis Zuno (ansimuz) | Public domain, credit appreciated | https://opengameart.org/content/gothicvania-patreons-collection |
 | Impact Sounds — hit/impact SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/impact-sounds |
 | RPG Audio — blade slice SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/rpg-audio |
 | Music Jingles — devolution/skill/death stingers | Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles |

@@ -17,6 +17,29 @@ extends Node2D
 const BODY_HALF_W: float = 7.0
 const BODY_HALF_H: float = 10.0
 
+# --- Wings, built by tools/build_wings.py from the Gothicvania demon ---
+# preload rather than a scene-exported Texture2D: this node is created in code paths the
+# headless test runner exercises, and an unset export there fails as a null draw with no
+# hint as to why.
+const WING_TEXTURE: Texture2D = preload("res://assets/sprites/player/wings_bat.png")
+# One frame of the strip, and the point inside it where the wing meets the back. Both
+# come straight out of the build script — it prints them when it runs. The strip holds a
+# single wing; _draw_wings() mirrors it to make the pair.
+const WING_FRAME: Vector2 = Vector2(86.0, 93.0)
+const WING_PIVOT: Vector2 = Vector2(6.0, 49.0)
+# The character sprite is drawn at 0.6 (Player.SPRITE_SCALE), and the wings are further
+# scaled to a wingspan of roughly 1.8 body widths — big enough to read as the reason you
+# can now hover, small enough that they do not swallow the arena.
+const WING_SCALE: float = 0.30
+# Shoulder blades, in this node's local space. BodyMarks sits at the body's centre and
+# the body runs -10..+10, so this is high on the back.
+#
+# Measured, not guessed: on the demon the wings meet the body about a fifth of the way
+# down its torso. Anchoring at -3 put them a third of the way down instead, and on the
+# down-stroke the wings reached the character's knees and read as growing out of its
+# legs rather than its back.
+const WING_ANCHOR: Vector2 = Vector2(0.0, -7.0)
+
 # --- State, pushed in by the player on every trait recalculation ---
 var has_wings: bool = false
 var has_tail: bool = false
@@ -105,17 +128,48 @@ func _draw_armor_rim() -> void:
 
 
 func _draw_wings() -> void:
-	var beat: float = sin(_phase) * (3.5 if airborne else 1.2)
-	for side: float in [-1.0, 1.0]:
-		var pts: PackedVector2Array = PackedVector2Array([
-			Vector2(side * 3.0, -5.0),
-			Vector2(side * 15.0, -11.0 - beat),
-			Vector2(side * 17.0, -1.0 - beat * 0.5),
-			Vector2(side * 9.0, 2.0),
-			Vector2(side * 4.0, 1.0),
-		])
-		draw_colored_polygon(pts, Color(wing_color, 0.85))
-		draw_polyline(pts, Color(wing_color.lightened(0.3), 0.9), 1.0, true)
+	"""Real bat wings, lifted off Gothicvania's demon by tools/build_wings.py.
+
+	This replaced a five-point polygon that beat up and down. The polygon was honest
+	placeholder work, but Wings is an evolved trait — the reward for losing something —
+	and a flat quad made the payoff look unfinished. The demon is by ansimuz, same as
+	the hero sprite, so the membrane, outline weight and shading all match the body
+	they are attached to.
+
+	The strip is greyscale on purpose so `wing_color` still drives the colour, exactly
+	as it did for the polygon. Trait colours stay the trait system's business."""
+	var tex: Texture2D = WING_TEXTURE
+	if tex == null:
+		return
+
+	# Three poses: up-stroke, spread, down-stroke, with spread passed through on the way
+	# back so the loop reads as a beat rather than a snap to the top.
+	const ORDER: Array[int] = [0, 1, 2, 1]
+	# Airborne already drives _phase three times faster (see _process), so this is the
+	# beat *shape*, not its speed.
+	var step: int = ORDER[int(_phase * 1.6) % ORDER.size()]
+	var src: Rect2 = Rect2(
+		float(step) * WING_FRAME.x, 0.0, WING_FRAME.x, WING_FRAME.y
+	)
+
+	# Drawn at the character sprite's own scale, so the wings resample identically to
+	# the body instead of crawling against it as the camera moves. The pivot is the point
+	# where the wing meets the back, so it stays pinned there through the whole beat.
+	var dst: Rect2 = Rect2(
+		WING_ANCHOR - WING_PIVOT * WING_SCALE, WING_FRAME * WING_SCALE
+	)
+	# A beat lifts the body a little; on the ground the feet say otherwise, so only in air.
+	if airborne:
+		dst.position.y -= sin(_phase) * 1.2
+
+	var tint: Color = Color(wing_color, 0.92)
+	# The texture holds one wing. Drawing it, then drawing it mirrored about x = 0 — the
+	# body's centre line — gives the pair. The far wing is deliberately dimmer: without
+	# it the two overlap into one flat shape, and this is the cheapest depth cue there is.
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(-1.0, 1.0))
+	draw_texture_rect_region(tex, dst, src, Color(tint, tint.a * 0.72).darkened(0.25))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_texture_rect_region(tex, dst, src, tint)
 
 
 func _draw_tail() -> void:

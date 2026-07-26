@@ -43,17 +43,59 @@ const BODY_HEIGHT: float = 22.0
 # small one and accepts the occasional fall-through.
 const ONE_WAY_MARGIN_MIN: float = 6.0
 
+# Half a tile. The arena climbs in 27px steps (1.5 tiles), so half-tile offsets are a
+# first-class thing here, not an edge case. See _build_tilemaps().
+const HALF_TILE: int = TILE_SIZE / 2
+
+# Atlas coordinates into the Kenney sheet, in tiles. The terrain block is arranged as
+# left-cap / middle / middle / right-cap across the top row, with plain dirt further
+# down — which is why the old single-texture draw could never cap an edge properly:
+# ground_top_left/right were pointed at the same art as ground_top.
+# Column meaning, measured off the sheet rather than guessed — each tile's edge pixels
+# were compared against its interior to find which sides carry a baked-in dark border:
+#
+#   col 0 = border BOTH sides  -> a one-tile-wide platform
+#   col 1 = border LEFT only   -> left cap
+#   col 2 = no side borders    -> middle, the only one safe to repeat
+#   col 3 = border RIGHT only  -> right cap
+#
+# Getting this off by one is not subtle: a bordered tile in the middle of a run draws a
+# dark seam straight down the platform.
+const TILE_SINGLE: Vector2i = Vector2i(0, 0)
+const TILE_TOP_LEFT: Vector2i = Vector2i(1, 0)
+const TILE_TOP_MID: Vector2i = Vector2i(2, 0)
+const TILE_TOP_RIGHT: Vector2i = Vector2i(3, 0)
+
+# Plain dirt, no grass lip — the interior of the ground slab. The old fill pointed at a
+# diagonal slope tile, which is where the orange banding under the ground came from.
+#
+# Exactly ONE tile in the dirt block is borderless: (2,6). Every other candidate carries
+# an edge — the whole of row 7 has a dark underline, which tiled into the scattered
+# outlined rectangles that made the ground look like brickwork. So the fill is
+# deliberately a single repeating tile; its own speckle is the variation.
+const FILL_TILES: Array[Vector2i] = [Vector2i(2, 6)]
+
+# Scenery that sits on the ground surface. Non-colliding.
+const DECOR_TILES: Array[Vector2i] = [
+	Vector2i(4, 6), Vector2i(5, 6), Vector2i(6, 6), Vector2i(8, 6),
+]
+# Percent of ground columns that get a prop.
+const DECOR_DENSITY: int = 16
+
+@export var tile_atlas: Texture2D = preload(
+	"res://assets/sprites/arenas/tilemap_packed.png"
+)
+
+# SUPERSEDED by the tilemap. The terrain used to be drawn as individual textures
+# through draw_texture(); it is now painted into TileMapLayers from `tile_atlas`, which
+# indexes the same Kenney sheet by tile coordinate and so has every edge and cap
+# variant available instead of one texture per role.
+#
+# These five are kept only because `scenes/main/game.tscn` still assigns three of them,
+# and dropping a property a scene sets makes the scene noisy on load. Nothing reads
+# them. Delete these and the matching lines in game.tscn together whenever convenient.
 @export var ground_top_texture: Texture2D
 @export var ground_fill_texture: Texture2D
-# Edge caps and fill variants. The arena used to draw exactly two tiles — one top, one
-# fill — repeated across 60 columns and every platform, which is why it read as flat
-# and synthetic no matter how good the individual tile was.
-#
-# The fill variants are wired up and doing the work. The end caps are left EMPTY on
-# purpose: the only left/right caps in the Kenney pack are grass-topped, and the ground
-# here uses the stone top, so capping the ends put a green tile on the end of a stone
-# shelf. Assign them if a matching pair ever exists — the drawing code already handles
-# them.
 @export var ground_top_left_texture: Texture2D
 @export var ground_top_right_texture: Texture2D
 @export var ground_fill_variants: Array[Texture2D] = []
@@ -134,9 +176,15 @@ const ONE_WAY_MARGIN_MIN: float = 6.0
 ]
 
 
+var _layer_even: TileMapLayer
+var _layer_odd: TileMapLayer
+var _atlas_source_id: int = -1
+
+
 func _ready() -> void:
 	add_to_group("arena")
 	_build_colliders()
+	_build_tilemaps()
 	queue_redraw()
 
 
@@ -272,65 +320,153 @@ func _make_body(
 
 # ---- Drawing ----
 
-func _fill_for(x: int, y: int) -> Texture2D:
-	"""Pick a fill tile from the variants, keyed on position.
-
-	Deterministic rather than random: the arena is redrawn on every queue_redraw, and a
-	random pick would make the dirt shimmer. Hashing the coordinates gives the same tile
-	in the same place forever while still breaking up the grid."""
-	if ground_fill_variants.is_empty():
-		return ground_fill_texture
-	var h: int = absi(x * 73856093 ^ y * 19349663) % (ground_fill_variants.size() + 1)
-	if h == 0:
-		return ground_fill_texture
-	return ground_fill_variants[h - 1]
-
-
 func _draw() -> void:
-	if not ground_top_texture or not ground_fill_texture:
+	# Terrain is painted into TileMapLayers (see _build_tilemaps). All that is left to
+	# draw by hand is the warning under a solid platform, which is gameplay marking
+	# rather than scenery: a red underline means "this one will block your jump".
+	for i: int in range(platforms.size()):
+		if one_way_platforms.has(i):
+			continue
+		var rect: Rect2 = platforms[i]
+		draw_line(
+			rect.position + Vector2(0.0, rect.size.y + 1.0),
+			rect.position + Vector2(rect.size.x, rect.size.y + 1.0),
+			Color(0.9, 0.35, 0.3, 0.6),
+			1.0
+		)
+
+
+# ---- Tilemap terrain ----
+
+func _build_tilemaps() -> void:
+	"""Paint the ground and platforms into TileMapLayers.
+
+	WHY TWO LAYERS: a TileMapLayer snaps cells to its own grid, but this arena is not
+	on an 18px grid — the main route climbs in 27px steps, which is a tile and a half,
+	because 27px is what a degraded-legs jump can clear. So platform tops land on
+	y=207, y=153, y=63... none of which are multiples of 18.
+	Every one of them *is* a multiple of 9, so two layers offset half a tile apart
+	cover the whole arena and the jump maths in this file's header stays untouched.
+	Snapping the platforms to 18px instead would have been the tail wagging the dog.
+
+	Collision is NOT built from these. _build_colliders() remains the source of truth,
+	so per-platform one-way margins and the `one_way_platform` group still work."""
+	if tile_atlas == null:
 		return
 
-	# Ground: capped ends, then varied fill beneath.
+	var tile_set_res: TileSet = _build_tile_set()
+	_layer_even = _make_layer("TerrainEven", 0.0, tile_set_res)
+	_layer_odd = _make_layer("TerrainOdd", float(HALF_TILE), tile_set_res)
+
+	_paint_ground()
+	for i: int in range(platforms.size()):
+		_paint_platform(platforms[i], i)
+	_paint_decoration()
+
+
+func _build_tile_set() -> TileSet:
+	var ts: TileSet = TileSet.new()
+	ts.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
+	var source: TileSetAtlasSource = TileSetAtlasSource.new()
+	source.texture = tile_atlas
+	source.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
+	var cols: int = int(tile_atlas.get_width()) / TILE_SIZE
+	var rows: int = int(tile_atlas.get_height()) / TILE_SIZE
+	for x: int in range(cols):
+		for y: int in range(rows):
+			source.create_tile(Vector2i(x, y))
+	_atlas_source_id = ts.add_source(source)
+	return ts
+
+
+func _make_layer(layer_name: String, y_offset: float, ts: TileSet) -> TileMapLayer:
+	var layer: TileMapLayer = TileMapLayer.new()
+	layer.name = layer_name
+	layer.tile_set = ts
+	layer.position = Vector2(0.0, y_offset)
+	layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(layer)
+	return layer
+
+
+func _layer_for(world_y: float) -> TileMapLayer:
+	"""Whichever layer can actually represent this row. Half-tile rows go to the odd
+	layer; anything else rounds onto the even one."""
+	var offset: int = posmod(int(round(world_y)), TILE_SIZE)
+	return _layer_odd if offset == HALF_TILE else _layer_even
+
+
+func _set_cell(world_pos: Vector2, atlas_coords: Vector2i) -> void:
+	var layer: TileMapLayer = _layer_for(world_pos.y)
+	var cell: Vector2i = Vector2i(
+		int(floor(world_pos.x / float(TILE_SIZE))),
+		int(floor((world_pos.y - layer.position.y) / float(TILE_SIZE)))
+	)
+	layer.set_cell(cell, _atlas_source_id, atlas_coords)
+
+
+func _paint_ground() -> void:
 	var w: int = arena_width_tiles
 	for x: int in range(w):
-		var top: Texture2D = ground_top_texture
-		if x == 0 and ground_top_left_texture:
-			top = ground_top_left_texture
-		elif x == w - 1 and ground_top_right_texture:
-			top = ground_top_right_texture
-		draw_texture(top, Vector2(float(x * TILE_SIZE), GROUND_Y))
+		var top: Vector2i = TILE_TOP_MID
+		if x == 0:
+			top = TILE_TOP_LEFT
+		elif x == w - 1:
+			top = TILE_TOP_RIGHT
+		_set_cell(Vector2(float(x * TILE_SIZE), GROUND_Y), top)
 	for y: int in range(1, floor_depth_tiles):
 		for x: int in range(w):
-			draw_texture(
-				_fill_for(x, y),
-				Vector2(float(x * TILE_SIZE), GROUND_Y + float(y * TILE_SIZE))
+			_set_cell(
+				Vector2(float(x * TILE_SIZE), GROUND_Y + float(y * TILE_SIZE)),
+				_fill_tile(x, y)
 			)
 
-	# Platforms: top tiles across the surface, fill for any depth below.
-	for i: int in range(platforms.size()):
-		var rect: Rect2 = platforms[i]
-		var cols: int = maxi(1, int(round(rect.size.x / float(TILE_SIZE))))
-		var rows: int = maxi(1, int(round(rect.size.y / float(TILE_SIZE))))
-		for cx: int in range(cols):
-			for cy: int in range(rows):
-				var pos: Vector2 = rect.position + Vector2(
-					float(cx * TILE_SIZE), float(cy * TILE_SIZE)
-				)
-				var tex: Texture2D = _fill_for(cx + i * 7, cy)
-				if cy == 0:
-					tex = ground_top_texture
-					if cx == 0 and ground_top_left_texture:
-						tex = ground_top_left_texture
-					elif cx == cols - 1 and ground_top_right_texture:
-						tex = ground_top_right_texture
-				draw_texture(tex, pos)
 
-		# A solid floating platform is now the exception, so it is the one worth
-		# marking — a red underline means "this one will block your jump".
-		if not one_way_platforms.has(i):
-			draw_line(
-				rect.position + Vector2(0.0, rect.size.y + 1.0),
-				rect.position + Vector2(rect.size.x, rect.size.y + 1.0),
-				Color(0.9, 0.35, 0.3, 0.6),
-				1.0
-			)
+func _paint_platform(rect: Rect2, _index: int) -> void:
+	var cols: int = maxi(1, int(round(rect.size.x / float(TILE_SIZE))))
+	for cx: int in range(cols):
+		var coords: Vector2i = TILE_TOP_MID
+		if cols == 1:
+			coords = TILE_SINGLE  # capped on both sides
+		elif cx == 0:
+			coords = TILE_TOP_LEFT
+		elif cx == cols - 1:
+			coords = TILE_TOP_RIGHT
+		_set_cell(rect.position + Vector2(float(cx * TILE_SIZE), 0.0), coords)
+
+
+func _fill_tile(x: int, y: int) -> Vector2i:
+	"""Deterministic rather than random: the same cell always gets the same dirt, so
+	nothing shimmers, while the grid still reads as broken up."""
+	var h: int = absi(x * 73856093 ^ y * 19349663) % FILL_TILES.size()
+	return FILL_TILES[h]
+
+
+func _paint_decoration() -> void:
+	"""Scatter props along the ground surface.
+
+	Purely cosmetic and non-colliding — they sit on the row above the ground, so they
+	never touch the collider set. Skipped wherever a platform sits low enough that a
+	prop would poke through it."""
+	var w: int = arena_width_tiles
+	for x: int in range(2, w - 2):
+		var h: int = absi(x * 2654435761) % 100
+		if h >= DECOR_DENSITY:
+			continue
+		var world_x: float = float(x * TILE_SIZE)
+		if _is_covered(world_x):
+			continue
+		var prop: Vector2i = DECOR_TILES[absi(x * 40503) % DECOR_TILES.size()]
+		_set_cell(Vector2(world_x, GROUND_Y - float(TILE_SIZE)), prop)
+
+
+func _is_covered(world_x: float) -> bool:
+	"""True if a platform hangs low enough over this column that a prop would clip it."""
+	for rect: Rect2 in platforms:
+		if world_x + float(TILE_SIZE) <= rect.position.x:
+			continue
+		if world_x >= rect.position.x + rect.size.x:
+			continue
+		if rect.position.y > GROUND_Y - float(TILE_SIZE) * 2.0:
+			return true
+	return false

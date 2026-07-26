@@ -47,7 +47,15 @@ const ONE_WAY_MARGIN_MIN: float = 6.0
 @export var ground_fill_texture: Texture2D
 @export var arena_width_tiles: int = 60
 @export var floor_depth_tiles: int = 4
-@export var wall_height: float = 320.0
+# Side walls are OFF by default. They spanned the full playable height, so any aerial
+# line that reached the edge of the arena stopped dead against nothing visible — the
+# worst kind of boundary, because the player cannot see what stopped them. With wings,
+# a dash and a glide in the kit, the edges are where the interesting movement happens.
+#
+# The trade is that the arena now ends in open air: leaving it means falling into the
+# death zone. That is a real risk and it is meant to be. Set this above 0 to put the
+# walls back — the build code is unchanged, it simply skips a zero height.
+@export var wall_height: float = 0.0
 
 # Platform surfaces in world pixels: Rect2(x, top_y, width, height).
 #
@@ -72,6 +80,24 @@ const ONE_WAY_MARGIN_MIN: float = 6.0
 	Rect2(612, 108, 54, 18),   # 8: HIGH — 45 px above the summit
 	Rect2(504, 63, 54, 18),    # 9: HIGH — one-way, top of the arena
 	Rect2(378, 99, 54, 18),    # 10: HIGH — descent perch on the far left
+
+	# OPTIONAL ROUTES (11+). Appended rather than folded into the staircase above,
+	# because 0-10 are sized against the jump arc in this file's header and rebuilding
+	# them risks the one property that must hold: the main route stays climbable on
+	# partial legs, the high route does not.
+	#
+	# These are all skippable. They exist to stop the arena reading as a single
+	# left-to-right staircase, and to give the air something to aim at.
+	Rect2(36, 252, 54, 18),    # 11: low perch left of the staircase's first step
+	Rect2(450, 153, 45, 18),   # 12: island over the 2->3 gap. 54px above platform 2,
+	                           #     so intact legs only — a shortcut, not a route.
+	Rect2(792, 126, 45, 18),   # 13: perch above the right-hand descent, same rule
+
+	# OUTBOARD (14-15) — beyond the arena floor, over open air. Only reachable now the
+	# side walls are gone, and standing on one means a fall kills you rather than a wall
+	# catching you. This is the risk half of removing the walls.
+	Rect2(-90, 207, 54, 18),   # 14: left, past the edge of the ground
+	Rect2(1116, 216, 54, 18),  # 15: right, past the edge of the ground
 ]
 
 # Indices into `platforms` that the player can jump up through from below.
@@ -90,7 +116,9 @@ const ONE_WAY_MARGIN_MIN: float = 6.0
 # Kept as an export rather than hardcoded so a future arena can still opt a platform
 # out — but the default is "all of them", and a solid floating platform should be a
 # deliberate decision with a reason next to it.
-@export var one_way_platforms: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+@export var one_way_platforms: Array[int] = [
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+]
 
 
 func _ready() -> void:
@@ -140,19 +168,20 @@ func _build_colliders() -> void:
 		false
 	)
 
-	# Side walls, so the player cannot simply walk out of the arena.
-	_make_body(
-		"WallLeft",
-		Vector2(-TILE_SIZE * 0.5, GROUND_Y - wall_height * 0.5),
-		Vector2(float(TILE_SIZE), wall_height),
-		false
-	)
-	_make_body(
-		"WallRight",
-		Vector2(width + TILE_SIZE * 0.5, GROUND_Y - wall_height * 0.5),
-		Vector2(float(TILE_SIZE), wall_height),
-		false
-	)
+	# Side walls, only if a height is set. See the export for why they default to off.
+	if wall_height > 0.0:
+		_make_body(
+			"WallLeft",
+			Vector2(-TILE_SIZE * 0.5, GROUND_Y - wall_height * 0.5),
+			Vector2(float(TILE_SIZE), wall_height),
+			false
+		)
+		_make_body(
+			"WallRight",
+			Vector2(width + TILE_SIZE * 0.5, GROUND_Y - wall_height * 0.5),
+			Vector2(float(TILE_SIZE), wall_height),
+			false
+		)
 
 	# Platforms.
 	for i: int in range(platforms.size()):

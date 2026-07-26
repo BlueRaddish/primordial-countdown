@@ -38,6 +38,7 @@ Rules that matter more than the bookkeeping:
 
 | Session | Area | Finished | Summary |
 | --- | --- | --- | --- |
+| 5b853033 | `scripts/systems/arena_renderer.gd`, `scripts/systems/year_shrine.gd`, `scripts/enemies/base_enemy.gd`, `scripts/ui/hud.gd`, `scripts/ui/offscreen_markers.gd` (new), `ideate.md` | 2026-07-25 22:05 | Side walls removed (`wall_height` now 0, set >0 to restore); 5 optional platforms incl. two outboard over open air; off-screen enemy edge markers in the HUD; shrines now stand until used instead of being cleared by the next wave; ground enemies leap after `unreachable_patience` so a high perch is not safe; enemies past `FALL_KILL_Y` are culled so a knock-off cannot softlock a wave. Both smoke tests green. |
 | 60ada46b | `scripts/ui/*`, `scripts/enemies/*`, `scripts/player/*`, `scripts/systems/*`, `project.godot`, `scenes/*`, `tests/*` | 2026-07-25 | UI scaling + fullscreen fix, settings panel, dev-tools gate, loadout lock, horizontal devolution cards. Earlier in the same session: combat rework, enemy statuses, boss phases, Tier 2.1/2.2, devolution pacing. Added `tests/ui_smoke_test.*`. |
 
 ## Notes worth carrying between sessions

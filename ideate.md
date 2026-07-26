@@ -453,6 +453,22 @@ Wall-cling, ledge-grab, ziplines — mobility that isn't a skill. **Why:** the u
 for a more dynamic, engaging *feel*; traversal verbs do that even between fights.
 **Depends on:** player controller work; pairs with Wings/Tail.
 
+### 3.5 Aerial boss phases
+A phase where the boss leaves the floor entirely — hovering, diving, or holding a
+position only reachable from the high route — so the fight moves into the air rather
+than staying a ground brawl with a bigger sprite.
+
+**Why:** the arena is now built for this. The side walls are gone, there are outboard
+platforms over open air, and the kit already has Wings, Updraft, Wing Slam and a dash.
+Right now every boss phase is fought standing on the floor, which spends none of that.
+An aerial phase is also the natural place to make Wings feel like the reward they are
+meant to be — and, inverted, to make *lacking* Wings a real problem, which is the
+devolution premise doing its job.
+
+**Depends on:** the phase system already exists (66%/33% thresholds in `boss_enemy.gd`),
+so this is a new phase behaviour rather than new machinery. Worth pairing with 2.3, the
+era-tied boss reskins.
+
 ---
 
 ## Tier 4 — meta and longevity

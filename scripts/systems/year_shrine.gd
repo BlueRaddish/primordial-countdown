@@ -60,8 +60,12 @@ func _ready() -> void:
 
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
-	# The next wave starting clears the offer — this is a between-waves decision.
-	EventBus.wave_started.connect(_on_wave_started)
+	# A shrine now stands until it is used. It used to be cleared by the next wave
+	# starting, which made it a between-waves decision — but the gap between waves is
+	# only a few seconds, so in practice the offer vanished before it could be read,
+	# let alone weighed. A standing shrine turns "spend years to heal" into a choice
+	# you can walk away from and come back to mid-fight, which is the tactical decision
+	# ideate 2.1 was after.
 
 
 func _process(delta: float) -> void:
@@ -157,10 +161,6 @@ func _on_body_exited(body: Node2D) -> void:
 	_player_inside = false
 	_prompt.visible = false
 
-
-func _on_wave_started(_wave: int, _count: int) -> void:
-	if not _used:
-		queue_free()
 
 
 # ---- Drawing ----

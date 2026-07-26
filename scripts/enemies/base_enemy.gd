@@ -102,6 +102,21 @@ const BEHAVIOR_ATTACK_PROFILES: Dictionary = {
 @export var strike_radius: float = 30.0
 @export var strike_rise: float = -70.0
 
+# Below this an enemy has left the arena entirely and is cleaned up. Sits under the
+# DeathZone band (y=440..480) so anything that falls past the floor is caught.
+const FALL_KILL_Y: float = 520.0
+
+# --- Anti-camping ---
+# A player standing on a high shelf used to be safe from walkers and lungers: both stop
+# at ledges, so they would gather underneath and mill about indefinitely. Waiting out a
+# wave from a perch is not a strategy, it is an exploit — and it gets easier now the
+# arena has more verticality. After this long failing to close the gap, a ground chaser
+# leaps instead.
+@export var unreachable_patience: float = 2.5
+# 330^2 / (2*800) = 68px of rise, the same as the player's intact jump. Enough for one
+# shelf at a time; a higher perch simply takes several leaps.
+@export var desperation_hop_force: float = -330.0
+
 # --- Hopper tuning ---
 @export var hop_force: float = -230.0
 @export var hop_interval: float = 0.75
@@ -123,6 +138,7 @@ var _hurt_timer: float = 0.0
 var _death_timer: float = 0.0
 var _state_timer: float = 0.0
 var _hop_timer: float = 0.0
+var _unreachable_timer: float = 0.0
 var _flash_timer: float = 0.0
 var _lunge_dir: float = 1.0
 # One connect per strike, so a dash cannot rake the player for its whole duration.
@@ -203,6 +219,13 @@ func _physics_process(delta: float) -> void:
 		_process_dead(delta)
 		return
 
+	# The arena no longer has side walls, so an enemy knocked past the edge falls
+	# forever. The DeathZone only masks the player layer, so nothing else would ever
+	# clean it up — and a wave that can never be cleared is a softlocked run.
+	if global_position.y > FALL_KILL_Y:
+		_die()
+		return
+
 	match _state:
 		State.PATROL:
 			_process_patrol()
@@ -277,11 +300,41 @@ func _process_chase(delta: float) -> void:
 		_begin_windup(dir)
 		return
 
+	if _try_desperation_leap(delta, to_player, dir):
+		return
+
 	match behavior:
 		Behavior.HOPPER:
 			_chase_as_hopper(delta, to_player, dir)
 		_:
 			_chase_as_ground(dir)
+
+
+func _try_desperation_leap(delta: float, to_player: Vector2, dir: float) -> bool:
+	"""Ground patterns leap once they have spent long enough unable to reach a player
+	standing above them. Returns true if the leap fired this frame.
+
+	Hoppers already climb, so they are exempt — this exists to stop a perch being
+	permanently safe, not to erase the difference between the patterns."""
+	if behavior == Behavior.HOPPER or not is_on_floor():
+		return false
+
+	# "Cannot reach" means the player is meaningfully above AND we have either run out
+	# of floor or are already standing underneath them.
+	var player_above: bool = to_player.y < -24.0
+	var stuck: bool = _is_ledge_ahead(dir) or absf(to_player.x) < 44.0
+	if not (player_above and stuck):
+		_unreachable_timer = maxf(_unreachable_timer - delta, 0.0)
+		return false
+
+	_unreachable_timer += delta
+	if _unreachable_timer < unreachable_patience:
+		return false
+
+	_unreachable_timer = 0.0
+	velocity.y = desperation_hop_force
+	velocity.x = dir * _effective_chase_speed()
+	return true
 
 
 func _can_begin_strike(to_player: Vector2) -> bool:

@@ -10,9 +10,9 @@
 # carrying its own volume.
 #
 # ASSETS: the curated picks from art-resources/15_selected_devolution_assets/audio,
-# copied into assets/audio. Licensing is CC0 (Kenney impact sounds + jingles) except
-# the music, which is North Fantasy Music under CC BY 4.0 and is credited in the
-# README — see ART_RESOURCES.md.
+# copied into assets/audio. Licensing is CC0 (Kenney impact sounds + jingles, ansimuz's
+# town/cyberpunk era tracks) except MUSIC_BASE, which is North Fantasy Music under
+# CC BY 4.0 and is credited in the README — see ART_RESOURCES.md.
 #
 # FORMAT: everything is OGG Vorbis, as ART_RESOURCES.md asks for. The music started as
 # 16-bit WAV (30MB) and was converted with libsndfile via Python's soundfile — there is
@@ -39,7 +39,11 @@ const SFX: Dictionary = {
 }
 
 # --- Music ---
+# One base track per era (prehistoric/industrial/cyberpunk), keyed by stage_manager.gd's
+# StageManager.Era — see its advance_to_era().
 const MUSIC_BASE: AudioStream = preload("res://assets/audio/music/music_swamp_era.ogg")
+const MUSIC_TOWN: AudioStream = preload("res://assets/audio/music/music_town_era.ogg")
+const MUSIC_CYBERPUNK: AudioStream = preload("res://assets/audio/music/music_cyberpunk_era.ogg")
 const MUSIC_BOSS: AudioStream = preload("res://assets/audio/music/music_boss_tension.ogg")
 # Layered on top rather than replacing the base: the run getting late should sound
 # like something added to the world, not like a different track.
@@ -64,6 +68,10 @@ var _layer: AudioStreamPlayer
 var _boss_active: bool = false
 var _layer_target_db: float = -80.0
 var _devolution_system: Node
+
+# What to return to once a boss dies — whichever era track was last playing, so a boss
+# fought in the industrial or cyberpunk era doesn't fall back to the prehistoric one.
+var _current_era_music: AudioStream = MUSIC_BASE
 
 
 func _ready() -> void:
@@ -144,6 +152,8 @@ func play_sfx(id: String, pitch_variance: float = 0.08) -> void:
 
 
 func play_music(stream: AudioStream) -> void:
+	if stream != MUSIC_BOSS:
+		_current_era_music = stream
 	if _music.stream == stream and _music.playing:
 		return
 	_play_music_stream(_music, stream, MUSIC_DB)
@@ -246,4 +256,4 @@ func _on_boss_defeated() -> void:
 	if not _boss_active:
 		return
 	_boss_active = false
-	play_music(MUSIC_BASE)
+	play_music(_current_era_music)

@@ -9,10 +9,22 @@
 # existing `boss_every_n_waves = 3`. The visual swap itself is gated behind the player
 # physically walking through an EraDoor, not the wave counter directly — see
 # `_on_boss_defeated()`.
+#
+# advance_to_era() also swaps the base music track (_MUSIC), the same mechanism the boss
+# fight already uses to swap to AudioManager.MUSIC_BOSS and back — see audio_manager.gd's
+# _current_era_music, which is what a defeated boss reverts to instead of always the
+# prehistoric track.
 class_name StageManager
 extends Node
 
+const UILayout := preload("res://scripts/ui/ui_layout.gd")
+
 enum Era { PREHISTORIC = 1, INDUSTRIAL = 2, CYBERPUNK = 3 }
+
+# Shown once, after the cyberpunk boss — there is no fourth era, so no door follows it.
+# Not a state change: the run keeps going exactly as wave_spawner.gd already continues
+# it past wave 9, this is purely an acknowledgment that the world has run out of eras.
+const FINAL_ERA_LINE: String = "No door opens after this one."
 
 # A distinct steely tint for the industrial Hopper, which reuses GraveRobber's own sprite
 # (already the Lunger) sourced from a different sheet — see build_industrial_sprites.py's
@@ -21,6 +33,10 @@ const INDUSTRIAL_HOPPER_TINT: Color = Color(0.75, 0.85, 1.25)
 
 var current_era: int = Era.PREHISTORIC
 var _bosses_defeated: int = 0
+
+# Set by _on_boss_defeated(), consumed by _on_wave_cleared(). The door itself doesn't
+# spawn until the wave is actually clear — see _on_wave_cleared() for why.
+var _pending_era: int = 0
 
 # --- Enemy appearance, per era per behavior. Y offsets follow the same formula
 # base_enemy.gd's own BEHAVIOR_SPRITE_Y already uses: -(crop_height * scale) / 2, so a
@@ -82,6 +98,14 @@ const _BOSS_APPEARANCE: Dictionary = {
 	},
 }
 
+# --- Per-era base music. Era 1 has no entry — AudioManager.start_run_music() already
+# starts MUSIC_BASE (the prehistoric track) at run start, so only the two transitions
+# need runtime data here, same as _BACKDROPS below.
+const _MUSIC: Dictionary = {
+	Era.INDUSTRIAL: AudioManager.MUSIC_TOWN,
+	Era.CYBERPUNK: AudioManager.MUSIC_CYBERPUNK,
+}
+
 # --- Backdrops, per era. Era 1 is authored directly on game.tscn's ParallaxBackdrop node
 # (the run's starting state), so it has no entry here — only the two transitions need
 # runtime data.
@@ -113,6 +137,7 @@ const _BACKDROPS: Dictionary = {
 func _ready() -> void:
 	add_to_group("stage_manager")
 	EventBus.boss_defeated.connect(_on_boss_defeated)
+	EventBus.wave_cleared.connect(_on_wave_cleared)
 	# game.tscn's ParallaxBackdrop is already authored with era 1's (swamp) textures as
 	# its scene default, so no backdrop swap is needed for the run's starting era.
 
@@ -121,11 +146,26 @@ func _on_boss_defeated() -> void:
 	_bosses_defeated += 1
 	match _bosses_defeated:
 		1:
-			_spawn_door(Era.INDUSTRIAL)
+			_pending_era = Era.INDUSTRIAL
 		2:
-			_spawn_door(Era.CYBERPUNK)
+			_pending_era = Era.CYBERPUNK
 		_:
-			pass # TODO: post-era-3 state (ending/victory) is undecided — no further eras.
+			# Post-era-3 state (ending/victory) is still undecided — this is deliberately
+			# NOT that. No pause, no run-state change, just an acknowledgment; wave_spawner.gd
+			# keeps spawning past wave 9 exactly as it already did before this line existed.
+			_show_final_era_banner()
+
+
+func _on_wave_cleared(_wave_number: int) -> void:
+	# wave_spawner.gd only emits this once every enemy from that wave — the boss
+	# included — is dead, so waiting for it here (rather than spawning the door the
+	# instant the boss dies) guarantees no stragglers are left alive when the door
+	# appears. Without this, the boss's own minions could still be up while the
+	# player walks straight past them.
+	if _pending_era == 0:
+		return
+	_spawn_door(_pending_era)
+	_pending_era = 0
 
 
 # ---- Appearance queries, pulled by newly-spawned enemies/bosses (see base_enemy.gd's
@@ -145,6 +185,8 @@ func get_boss_appearance() -> Dictionary:
 
 func advance_to_era(era: int) -> void:
 	current_era = era
+	if _MUSIC.has(era):
+		AudioManager.play_music(_MUSIC[era])
 	var backdrop_data: Dictionary = _BACKDROPS.get(era, {})
 	if backdrop_data.is_empty():
 		return
@@ -155,6 +197,33 @@ func advance_to_era(era: int) -> void:
 			backdrop_data["textures"], backdrop_data["offsets"], backdrop_data["scroll"],
 			backdrop_data["canvas_height"], backdrop_data["horizon_y"]
 		)
+
+
+func _show_final_era_banner() -> void:
+	"""A toast, not a screen: fades in, holds, fades out, frees itself. No pause
+	(GameState is never touched), so play continues under it exactly as it would
+	if this didn't exist. Uses CanvasLayer directly under the tree root rather than
+	the arena, so it draws in screen space regardless of camera position/zoom."""
+	var layer: CanvasLayer = CanvasLayer.new()
+	get_tree().root.add_child(layer)
+
+	var label: Label = Label.new()
+	label.text = FINAL_ERA_LINE
+	# Kenney Pixel (the project's default font) only rasterises crisply at multiples
+	# of 16 on this viewport — see devolution_popup.gd's BODY_SIZE note. 16 it is.
+	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_color_override("font_color", Color(0.9, 0.88, 0.95))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.modulate.a = 0.0
+	UILayout.center(label, 420.0, 24.0)
+	layer.add_child(label)
+
+	var tween: Tween = label.create_tween()
+	tween.tween_property(label, "modulate:a", 1.0, 0.6)
+	tween.tween_interval(2.4)
+	tween.tween_property(label, "modulate:a", 0.0, 0.9)
+	tween.tween_callback(layer.queue_free)
 
 
 func _spawn_door(target_era: int) -> void:

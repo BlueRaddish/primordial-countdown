@@ -59,6 +59,7 @@ const TEXT_DELAY: float = 0.35
 @onready var _readout: VBoxContainer = $Control/Readout
 @onready var _stats: Label = $Control/Readout/Stats
 @onready var _remains: Label = $Control/Readout/Remains
+@onready var _devolution: Label = $Control/Readout/Devolution
 @onready var _closing: Label = $Control/Readout/Closing
 @onready var _menu_btn: Button = $Control/Readout/MenuButton
 
@@ -92,6 +93,9 @@ func _style() -> void:
 	# subordinate to the stats line by colour instead of by size.
 	_remains.add_theme_font_size_override("font_size", SIZE_BODY)
 	_remains.add_theme_color_override("font_color", COLOR_QUIET)
+
+	_devolution.add_theme_font_size_override("font_size", SIZE_BODY)
+	_devolution.add_theme_color_override("font_color", COLOR_QUIET)
 
 	_closing.add_theme_font_size_override("font_size", SIZE_BODY)
 	_closing.add_theme_color_override("font_color", COLOR_QUIET)
@@ -146,6 +150,7 @@ func _fill_in() -> void:
 		maxi(GameState.current_wave, 1), GameState.kill_count, era,
 	]
 	_remains.text = _remains_line()
+	_devolution.text = _devolution_line()
 
 
 # StageManager is found by group — the same lookup base_enemy.gd and year_shrine.gd use.
@@ -178,10 +183,41 @@ func _remains_line() -> String:
 
 
 func _trait_manager() -> Node:
-	var player: Node = get_tree().get_first_node_in_group("player")
-	if player == null:
-		return null
-	return player.get_node_or_null("TraitManager")
+	# Same lookup devolution_popup.gd::_find_trait_manager uses: the player group can be
+	# empty in isolated test scenes, and get_nodes_in_group returns an untyped Node the
+	# TraitManager script is a child of, not a global.
+	var players: Array[Node] = get_tree().get_nodes_in_group("player")
+	if players.size() > 0 and players[0].has_node("TraitManager"):
+		return players[0].get_node("TraitManager")
+	return null
+
+
+# Devolution buckets. Thresholds copied from ideate.md 1.5.1's body-stage avatars (0 =
+# Knight, 1-4 = unarmored, 5-9 = rotting, 10-13 = skeleton, 14 = run already over) so
+# that if that system gets built later, it shares boundaries with this line instead of
+# drifting from it.
+func _devolution_line() -> String:
+	var total: int = _total_devolutions()
+	if total <= 0:
+		return "Devolution never touched you."
+	elif total <= 4:
+		return "Only the first cracks had shown."
+	elif total <= 9:
+		return "Rot had set in deep before the end."
+	elif total <= 13:
+		return "Little more than bone was left standing."
+	else:
+		return "You had already devolved all the way down."
+
+
+# total_devolutions (0-14) lives on DevolutionSystem, not TraitManager — it counts every
+# degradation across all traits, where TraitManager only tracks each trait's own stage.
+# Found by group the same way devolution_popup.gd::_apply reaches it to apply a choice.
+func _total_devolutions() -> int:
+	var devo: Node = get_tree().get_first_node_in_group("devolution_system")
+	if devo == null:
+		return 0
+	return devo.get("total_devolutions") as int
 
 
 # Tweens run on a paused tree because process_mode is ALWAYS on this layer.

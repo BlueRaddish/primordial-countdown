@@ -111,18 +111,21 @@ signal, so adding a sound never means editing a system.
 | Boss slam | `sfx_boss_slam_impact` |
 | Devolution / skill unlock / evolved trait / death | the four jingle stingers |
 
-Music is layered rather than swapped: a base era track, a boss track while a boss is
-alive, and a **tension layer that fades in once the countdown drops below 45%** — the
-run getting late sounds like something added to the world, not a different song. A
-small voice pool with slight pitch scatter keeps repeated swings from turning into a
-machine gun.
+Music is layered rather than swapped: a base track for the current era (swapped by
+`stage_manager.gd`'s `advance_to_era()` as the player walks through each `EraDoor`), a
+boss track while a boss is alive, and a **tension layer that fades in once the
+countdown drops below 45%** — the run getting late sounds like something added to the
+world, not a different song. A small voice pool with slight pitch scatter keeps
+repeated swings from turning into a machine gun.
 
 > **Format:** everything is OGG Vorbis. The music arrived as 16-bit WAV (30MB) and was
 > converted with libsndfile via Python's `soundfile` — there is no ffmpeg on this
 > machine — down to **1.8MB** with identical duration, channels and sample rate. If you
 > ever repeat it: libsndfile's Vorbis encoder crashes outright on a whole 72-second
-> buffer, so the conversion has to be written in blocks. Music is North Fantasy Music
-> under **CC BY 4.0** and needs attribution; everything else is Kenney CC0.
+> buffer, so the conversion has to be written in blocks. The prehistoric- and
+> industrial-era tracks are North Fantasy Music under **CC BY 4.0** and need
+> attribution; the cyberpunk-era track is ansimuz CC0, like the rest of that pack;
+> everything else is Kenney CC0.
 
 ---
 
@@ -808,7 +811,7 @@ readouts (`~25`, `??`) the same width as the real thing.
 | --- | --- | --- | --- |
 | Pixel Platformer (1.2) | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer |
 | 16x16 DungeonTileset II (1.7) — player, boss, devolution-stage avatars, wings reference | 0x72 | CC0 1.0 | https://0x72.itch.io/dungeontileset-ii |
-| Synth Cities Environment — cyberpunk-era parallax backdrop | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/cyberpunk-street-environment |
+| Synth Cities Environment — cyberpunk-era parallax backdrop + cyberpunk-era music | Luis Zuno (ansimuz) | CC0 1.0 | https://ansimuz.itch.io/cyberpunk-street-environment |
 | Free 3 Cyberpunk Sprites Pixel Art — cyberpunk-era Walker/Lunger/Hopper enemy sprites | CraftPix.net (reposted by Free Game Assets) | Free for commercial use, no attribution required, no redistribution of source files | https://free-game-assets.itch.io/free-3-cyberpunk-sprites-pixel-art |
 | Pixel Platformer Industrial Expansion — ground tile | Kenney | CC0 1.0 | https://kenney.nl/assets/pixel-platformer-industrial-expansion |
 | Kenney Fonts — Kenney Pixel, Kenney Mini Square Mono | Kenney | CC0 1.0 | https://kenney.nl/assets/kenney-fonts |
@@ -821,7 +824,7 @@ readouts (`~25`, `??`) the same width as the real thing.
 | Impact Sounds — hit/impact SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/impact-sounds |
 | RPG Audio — blade slice SFX | Kenney | CC0 1.0 | https://kenney.nl/assets/rpg-audio |
 | Music Jingles — devolution/skill/death stingers | Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles |
-| Fantasy Ambience & Drum Loops — background music | North Fantasy Music | CC BY 4.0 | https://opengameart.org/content/fantasy-music-and-drum-loops-pack |
+| Fantasy Ambience & Drum Loops — background music (prehistoric + industrial eras) | North Fantasy Music | CC BY 4.0 | https://opengameart.org/content/fantasy-music-and-drum-loops-pack |
 
 Every CC0 asset above needs no attribution — it is here because the work deserves the
 credit, not because a licence demands it. The Gothicvania Patreon Collection is public

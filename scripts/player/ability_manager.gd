@@ -25,6 +25,10 @@ var available_skills: Array[SkillData] = []
 # Filling an EMPTY slot is always allowed; that is how a skill first lands.
 var _reassign_window_open: bool = false
 
+# Preloaded rather than referenced by class_name: a newly declared global class is
+# invisible to a headless run until the editor rescans.
+const SweepIndicator := preload("res://scripts/player/sweep_indicator.gd")
+
 # --- Travelling hitbox state (see _begin_sweep) ---
 var _sweep_skill: SkillData = null
 var _sweep_timer: float = 0.0
@@ -255,10 +259,17 @@ func _begin_sweep(skill: SkillData, aim_dir: Vector2) -> void:
 		_sweep_timer = _player.call("get_impulse_time")
 	if _sweep_timer <= 0.0:
 		_sweep_timer = 0.25
-	_show_aoe(
-		_player.global_position + Vector2(0.0, -10.0),
-		skill.aoe_radius, skill.aoe_color, skill.is_directional, aim_dir
-	)
+	# A visual that FOLLOWS the player, rather than one flash at the cast point. A
+	# static burst was actively misleading here: it drew a circle where the dash began
+	# while the damage was happening somewhere else, so there was no way to see that
+	# the hitbox travelled at all, or how far it reached.
+	var sweep_vis: SweepIndicator = SweepIndicator.new()
+	sweep_vis.target = _player
+	sweep_vis.radius = skill.aoe_radius
+	sweep_vis.color = skill.aoe_color
+	sweep_vis.duration = _sweep_timer
+	_player.get_parent().add_child(sweep_vis)
+
 	# Tick once immediately so anything already in reach is hit on the frame the
 	# skill fires, not one frame later.
 	_tick_sweep(0.0)
@@ -292,6 +303,14 @@ func _tick_sweep(delta: float) -> void:
 			kb_dir = Vector2.RIGHT
 		enemy.call("take_damage", damage, Vector2(kb_dir.x * 220.0, -90.0))
 		_sweep_skill.apply_status_to(enemy)
+		# A pop on each target as the sweep passes through it, so a connect is
+		# distinguishable from a near miss at speed.
+		var pop: AoEIndicator = AoEIndicator.new()
+		pop.aoe_center = enemy.global_position
+		pop.aoe_radius = _sweep_skill.aoe_radius * 0.55
+		pop.aoe_color = _sweep_skill.aoe_color
+		pop.is_directional = false
+		_player.get_parent().add_child(pop)
 		hit_count += 1
 
 	if hit_count > 0:

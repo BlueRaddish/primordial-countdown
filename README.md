@@ -257,6 +257,14 @@ Each enemy is still hit once per cast. Reversed impulses (Backstep Slash) are ex
 on purpose: there the strike lands where you *were* while the movement carries you away,
 which is the whole shape of the move.
 
+The hitbox is **drawn while it travels** (`scripts/player/sweep_indicator.gd`): a bright
+ring at the leading edge — that ring is the real hitbox, at the real radius — plus a
+fading trail of where it has been, so the swept path reads as a path. A single flash at
+the cast point was worse than nothing here: it drew a circle where the dash *started*
+while the damage happened somewhere else, so there was no way to tell the hitbox moved
+at all. Each connect also pops a small burst on the target, so a hit is distinguishable
+from a near miss at speed.
+
 ### The loadout locks between unlocks
 
 Skills can only be **reassigned in the window right after learning a new one**

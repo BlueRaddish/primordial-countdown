@@ -6,9 +6,10 @@
 [ext_resource type="PackedScene" uid="uid://death_screen_scene" path="res://scenes/ui/death_screen.tscn" id="4_death_screen"]
 [ext_resource type="Script" path="res://scripts/systems/arena_renderer.gd" id="5_arena_renderer"]
 [ext_resource type="Script" path="res://scripts/systems/parallax_backdrop.gd" id="19_backdrop"]
-[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/cyberpunk/cyberpunk_back.png" id="20_cyber_back"]
-[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/cyberpunk/cyberpunk_middle.png" id="21_cyber_middle"]
-[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/cyberpunk/cyberpunk_foreground.png" id="22_cyber_fg"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/swamp/swamp_back.png" id="20_swamp_back"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/swamp/swamp_mid1.png" id="21_swamp_mid1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/backgrounds/swamp/swamp_mid2.png" id="22_swamp_mid2"]
+[ext_resource type="Script" path="res://scripts/systems/stage_manager.gd" id="23_stage_manager"]
 [ext_resource type="Script" path="res://scripts/systems/camera_follow.gd" id="6_camera_follow"]
 [ext_resource type="Script" path="res://scripts/systems/death_zone.gd" id="7_death_zone"]
 [ext_resource type="Texture2D" path="res://assets/sprites/arenas/ground_top_stone.png" id="8_ground_top"]
@@ -48,6 +49,9 @@ script = ExtResource("15_devo_system")
 [node name="TimelineClock" type="Node" parent="."]
 script = ExtResource("16_timeline_clock")
 
+[node name="StageManager" type="Node" parent="."]
+script = ExtResource("23_stage_manager")
+
 [node name="Arena" type="Node2D" parent="."]
 
 [node name="VisionModulate" type="CanvasModulate" parent="Arena" groups=["vision_modulate"]]
@@ -55,10 +59,10 @@ script = ExtResource("16_timeline_clock")
 [node name="ParallaxBackdrop" type="Node2D" parent="Arena"]
 z_index = -10
 script = ExtResource("19_backdrop")
-layer_textures = Array[Texture2D]([ExtResource("20_cyber_back"), ExtResource("21_cyber_middle"), ExtResource("22_cyber_fg")])
-canvas_height = 272.0
+layer_textures = Array[Texture2D]([ExtResource("20_swamp_back"), ExtResource("21_swamp_mid1"), ExtResource("22_swamp_mid2")])
+canvas_height = 256.0
 horizon_y = 288.0
-layer_scroll = Array[float]([0.06, 0.18, 0.32])
+layer_scroll = Array[float]([0.05, 0.15, 0.3])
 
 [node name="ArenaRenderer" type="Node2D" parent="Arena"]
 modulate = Color(0.68, 0.62, 0.78, 1)

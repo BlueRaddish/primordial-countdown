@@ -1,0 +1,64 @@
+[gd_resource type="SpriteFrames" load_steps=11 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_idle_anim_f0.png" id="1_boss_idle_anim_f0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_idle_anim_f1.png" id="2_boss_idle_anim_f1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_idle_anim_f2.png" id="3_boss_idle_anim_f2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_idle_anim_f3.png" id="4_boss_idle_anim_f3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_run_anim_f0.png" id="5_boss_run_anim_f0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_run_anim_f1.png" id="6_boss_run_anim_f1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_run_anim_f2.png" id="7_boss_run_anim_f2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_run_anim_f3.png" id="8_boss_run_anim_f3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_run_anim_f4.png" id="9_boss_run_anim_f4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bosses/industrial/boss_run_anim_f5.png" id="10_boss_run_anim_f5"]
+
+[resource]
+animations = [
+{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_boss_idle_anim_f0")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("2_boss_idle_anim_f1")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("3_boss_idle_anim_f2")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("4_boss_idle_anim_f3")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("5_boss_run_anim_f0")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("6_boss_run_anim_f1")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("7_boss_run_anim_f2")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("8_boss_run_anim_f3")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("9_boss_run_anim_f4")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("10_boss_run_anim_f5")
+}],
+"loop": true,
+"name": &"walk",
+"speed": 8.0
+}]

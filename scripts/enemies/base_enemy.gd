@@ -202,16 +202,30 @@ func _ready() -> void:
 # Swap in the sprite for whichever pattern this enemy was spawned as. The spawner
 # assigns `behavior` before add_child(), so by the time _ready runs the value is
 # final and this only ever happens once per enemy.
+#
+# stage_manager.gd (found by group, same lookup year_shrine.gd uses for
+# devolution_system) owns which era's skin is current and is asked fresh every time —
+# so an already-alive enemy never changes skin mid-fight, only enemies spawned after an
+# era transition do. BEHAVIOR_SPRITE_FRAMES/_Y/_SCALE stay as the fallback default (today's
+# cyberpunk set) for whichever behaviors/eras stage_manager doesn't override, and as a
+# safety net if stage_manager isn't in the tree at all (e.g. an isolated test scene).
 func _apply_behavior_sprite() -> void:
 	if not use_behavior_sprite or not _sprite:
 		return
-	if BEHAVIOR_SPRITE_FRAMES.has(behavior):
-		_sprite.sprite_frames = BEHAVIOR_SPRITE_FRAMES[behavior]
+	var appearance: Dictionary = {}
+	var stage: Node = get_tree().get_first_node_in_group("stage_manager")
+	if stage and stage.has_method("get_enemy_appearance"):
+		appearance = stage.call("get_enemy_appearance", behavior)
+
+	var frames: SpriteFrames = appearance.get("frames", BEHAVIOR_SPRITE_FRAMES.get(behavior))
+	if frames:
+		_sprite.sprite_frames = frames
 		_sprite.play(&"idle")
-	if BEHAVIOR_SPRITE_Y.has(behavior):
-		_sprite.position.y = BEHAVIOR_SPRITE_Y[behavior]
-	if BEHAVIOR_SPRITE_SCALE.has(behavior):
-		_sprite.scale = BEHAVIOR_SPRITE_SCALE[behavior]
+	_sprite.position.y = appearance.get("y", BEHAVIOR_SPRITE_Y.get(behavior, 0.0))
+	_sprite.scale = appearance.get("scale", BEHAVIOR_SPRITE_SCALE.get(behavior, Vector2.ONE))
+	# Most behaviors don't need a tint; only a era/behavior combo reusing another role's
+	# sprite (see stage_manager.gd's INDUSTRIAL_HOPPER_TINT) sets one.
+	_sprite.modulate = appearance.get("modulate", Color.WHITE)
 
 
 func _apply_behavior_profile() -> void:

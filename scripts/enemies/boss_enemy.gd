@@ -79,12 +79,33 @@ var _base_windup_time: float = 0.0
 
 func _ready() -> void:
 	super()
+	_apply_era_sprite()
 	_base_slam_interval = slam_interval
 	_base_slam_windup = slam_windup
 	_base_chase_speed = chase_speed
 	_base_windup_time = windup_time
 	_slam_timer = slam_interval
 	EventBus.boss_spawned.emit(self, max_health)
+
+
+# The boss has no `behavior` axis (use_behavior_sprite is off in boss_enemy.tscn — see
+# base_enemy.gd), so it asks stage_manager for its own era-keyed appearance instead. If
+# stage_manager isn't in the tree, the boss keeps its scene-authored default
+# (boss_big_demon.tres) — same defensive fallback shape base_enemy.gd's minions use.
+func _apply_era_sprite() -> void:
+	var stage: Node = get_tree().get_first_node_in_group("stage_manager")
+	if not stage or not stage.has_method("get_boss_appearance"):
+		return
+	var appearance: Dictionary = stage.call("get_boss_appearance")
+	if appearance.is_empty() or not _sprite:
+		return
+	if appearance.has("frames"):
+		_sprite.sprite_frames = appearance["frames"]
+		_sprite.play(&"idle")
+	if appearance.has("y"):
+		_sprite.position.y = appearance["y"]
+	if appearance.has("scale"):
+		_sprite.scale = appearance["scale"]
 
 
 func _physics_process(delta: float) -> void:

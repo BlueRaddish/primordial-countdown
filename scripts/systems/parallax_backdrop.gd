@@ -57,6 +57,26 @@ var _layer_tile_width: Array[float] = []
 
 
 func _ready() -> void:
+	add_to_group("parallax_backdrop")
+	_build_tiles()
+	_update_layers()
+
+
+func _process(_delta: float) -> void:
+	_update_layers()
+
+
+# Tears down the current tile set and rebuilds it from `layer_textures`/`layer_offset_y`/
+# `canvas_height`/`horizon_y` as they currently stand. Called once from `_ready()`; also
+# the second half of `set_layers()` below, so an era swap gets exactly the same tile setup
+# a fresh scene load would.
+func _build_tiles() -> void:
+	for tiles: Array in _layer_tiles:
+		for t: Sprite2D in tiles:
+			t.queue_free()
+	_layer_tiles.clear()
+	_layer_tile_width.clear()
+
 	for i: int in layer_textures.size():
 		var tex: Texture2D = layer_textures[i]
 		var tiles: Array = []
@@ -78,10 +98,26 @@ func _ready() -> void:
 				tiles.append(tile)
 		_layer_tiles.append(tiles)
 		_layer_tile_width.append(tile_width)
-	_update_layers()
 
 
-func _process(_delta: float) -> void:
+# Swaps in a new era's layers at runtime — same shape `layer_textures`/`layer_offset_y`/
+# `canvas_height`/`horizon_y`/`layer_scroll` already have as exports, just settable after
+# `_ready()` instead of only being read once. Used by stage_manager.gd on an era
+# transition; game.tscn's own authored values are era 1's, so this is never called for
+# the run's starting era.
+func set_layers(
+	textures: Array[Texture2D],
+	offsets: Array[float],
+	scroll: Array[float],
+	new_canvas_height: float,
+	new_horizon_y: float
+) -> void:
+	layer_textures = textures
+	layer_offset_y = offsets
+	layer_scroll = scroll
+	canvas_height = new_canvas_height
+	horizon_y = new_horizon_y
+	_build_tiles()
 	_update_layers()
 
 

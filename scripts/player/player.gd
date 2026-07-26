@@ -15,6 +15,9 @@ const BASE_MELEE_LENGTH: float = 40.0 # Hitbox length along the aim direction
 # Coyote time is rebuilt from this every recalculate, because an evolved Tail adds
 # to it and the rebuild has to start from a clean base rather than compounding.
 const BASE_COYOTE_TIME: float = 0.08
+# How long a skill impulse owns locomotion. AbilityManager reads this so a
+# dash-attack's travelling hitbox lasts exactly as long as the movement does.
+const IMPULSE_TIME: float = 0.25
 
 # --- Live values (rebuilt from traits) ---
 @export var move_speed: float = 120.0
@@ -58,6 +61,15 @@ const BASE_COYOTE_TIME: float = 0.08
 # Degraded legs make it a scramble rather than a roll: shorter, but never removed.
 @export var dash_legs_partial_mult: float = 0.8
 @export var dash_legs_lost_mult: float = 0.55
+
+# --- Aerial skill hang ---
+# A brief float after firing a skill in mid-air. Skills already refresh the jump up
+# there, but the moment you land one you were immediately back at full falling speed
+# with no time to read where the chain had put you — so aerial play was committing
+# blind. This hands back a beat to look, aim and choose the next move, which is what
+# makes chaining feel deliberate rather than frantic.
+@export var air_skill_hang_time: float = 0.18
+@export var air_skill_hang_gravity_mult: float = 0.22
 @export var melee_aoe_color: Color = Color("4ecdc4")
 
 # --- Capability gates (set by TraitManager) ---
@@ -101,6 +113,8 @@ var _impulse_timer: float = 0.0
 var _dash_timer: float = 0.0
 var _dash_cooldown_timer: float = 0.0
 var _dash_dir: float = 1.0
+# Counts down the float granted by an aerial skill.
+var _air_hang_timer: float = 0.0
 var _facing_right: bool = true
 var _aim_angle: float = 0.0
 var _aim_dir: Vector2 = Vector2.RIGHT
@@ -375,6 +389,12 @@ func _refresh_aim_from_mouse() -> Vector2:
 
 # ---- Alternative movement (skill impulse) ----
 
+func get_impulse_time() -> float:
+	"""How long a skill impulse owns locomotion. AbilityManager matches its travelling
+	hitbox to this, so a dash-attack damages for exactly as long as it is moving."""
+	return IMPULSE_TIME
+
+
 func apply_impulse(direction: Vector2, speed: float, upward_bias: float) -> void:
 	"""Alternative movement hook, used when a skill takes over locomotion."""
 	if _is_dead:
@@ -384,7 +404,7 @@ func apply_impulse(direction: Vector2, speed: float, upward_bias: float) -> void
 		dir = Vector2.RIGHT if _facing_right else Vector2.LEFT
 	velocity = dir.normalized() * speed
 	velocity.y -= upward_bias
-	_impulse_timer = 0.25
+	_impulse_timer = IMPULSE_TIME
 	_facing_right = dir.x >= 0.0
 
 
@@ -404,7 +424,20 @@ func report_damage_dealt(amount: float) -> void:
 
 func _apply_gravity(delta: float) -> void:
 	if is_on_floor():
+		_air_hang_timer = 0.0
 		return
+
+	# A skill fired in mid-air buys a moment of near-weightlessness to read the
+	# situation. Applied before the fall multiplier so it works on the way down,
+	# which is when you actually need it.
+	if _air_hang_timer > 0.0:
+		_air_hang_timer -= delta
+		velocity.y = minf(
+			velocity.y + gravity * air_skill_hang_gravity_mult * delta,
+			max_fall_speed * 0.3
+		)
+		return
+
 	var grav: float = gravity
 	if velocity.y > 0.0:
 		grav *= fall_gravity_mult
@@ -689,7 +722,13 @@ func _on_skill_used(_skill: Resource) -> void:
 	into a jump lets the player keep height and stay mobile. Refilling air jumps
 	and reopening the coyote window covers both the floor-jump and air-jump paths.
 	Skipped when the legs are fully gone, since there is no jump to give back."""
-	if _is_dead or is_on_floor() or (not _can_jump and not has_wings):
+	if _is_dead or is_on_floor():
+		return
+	# The hang is granted to ANY aerial skill, including when the legs are gone and
+	# there is no jump left to refresh — that case is exactly when a moment to
+	# reorient matters most.
+	_air_hang_timer = air_skill_hang_time
+	if not _can_jump and not has_wings:
 		return
 	_air_jumps_left = max_air_jumps
 	_coyote_timer = coyote_time

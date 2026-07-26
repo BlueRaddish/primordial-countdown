@@ -30,6 +30,10 @@ func _run() -> void:
 	_check_boss_math()
 	await _check_dash()
 	await _check_enemy_not_trapped()
+	_check_loadout_lock()
+	_check_evolved_takes_slot()
+	await _check_dash_attack_sweeps()
+	await _check_air_skill_hang()
 
 	print("[gameplay] FAILURES: %d" % _failures)
 	get_tree().quit(1 if _failures > 0 else 0)
@@ -160,6 +164,182 @@ func _check_enemy_not_trapped() -> void:
 	_expect(escaped, "enemy walks out from under the shelf (x %.0f -> %.0f)" % [start_x, best_x])
 	if is_instance_valid(enemy):
 		enemy.queue_free()
+
+
+# ---- Dash-attacks ----
+
+func _check_dash_attack_sweeps() -> void:
+	"""A skill that hits AND moves must damage what it travels through, not only what
+	was in range at the cast point. Otherwise a Wing Dash flies through an enemy
+	without touching it — no damage and, worse, no knockback, leaving you parked
+	inside something that immediately hits you."""
+	# Degrading traits above unlocked skills, which opens the loadout editor and pauses
+	# the tree — and a paused tree does not tick the sweep. Drain it first; the editor
+	# queues one screen per newly learned skill, so closing once is not enough.
+	var editor: Node = get_tree().root.find_child("PopupControl", true, false)
+	for i: int in range(10):
+		if editor and editor.visible:
+			editor.call("_close")
+		await get_tree().physics_frame
+
+	var am: AbilityManager = _player.get_node("AbilityManager") as AbilityManager
+	var dash_skill: SkillData = null
+	for s: SkillData in SkillDefinitions.get_all_skills():
+		if s.skill_name == "Wing Dash":
+			dash_skill = s
+	if not am or not dash_skill:
+		_fail("Wing Dash not found")
+		return
+
+	# Both on the ground: the sweep is a radius around the player, so a target parked
+	# 28px above or below it is out of reach for reasons that have nothing to do with
+	# whether the hitbox travels.
+	_player.global_position = Vector2(300, 288)
+	await _wait(6)
+
+	# Skills aim at the cursor and headless has no real mouse, so the dash can go off
+	# at any angle — including diagonally, straight over a target pinned to the floor.
+	# Place the target along the ACTUAL aim vector, and hold it there each frame so
+	# gravity does not drop it out of the path mid-test.
+	var aim: Vector2 = (_player.call("get_aim_direction") as Vector2).normalized()
+	var target_pos: Vector2 = _player.global_position + aim * 55.0
+
+	var enemy: BaseEnemy = load("res://scenes/enemies/base_enemy.tscn").instantiate() as BaseEnemy
+	enemy.behavior = BaseEnemy.Behavior.WALKER
+	enemy.global_position = target_pos
+	get_tree().current_scene.add_child(enemy)
+	await _wait(2)
+	enemy.global_position = target_pos
+
+	var start_gap: float = enemy.global_position.distance_to(_player.global_position)
+	_expect(
+		start_gap > dash_skill.aoe_radius,
+		"target starts outside the cast-point AoE (%.0f px vs %.0f radius)"
+			% [start_gap, dash_skill.aoe_radius]
+	)
+
+	var hp_before: float = enemy.get_health_fraction()
+	# Closing the editor above locked the loadout again, and the editor auto-filled
+	# the free slots — so an assign into an occupied slot would be silently refused
+	# and we would end up firing whatever skill happened to be sitting there. Use the
+	# dev override to guarantee the slot holds what this test is about.
+	GameState.show_dev_tools = true
+	for i: int in range(3):
+		am.unassign_skill(i)
+	am.assign_skill(0, dash_skill)
+	GameState.show_dev_tools = false
+	var slotted: SkillData = am.get_skill_in_slot(0)
+	_expect(
+		slotted != null and slotted.skill_name == "Wing Dash",
+		"Wing Dash is the skill actually being fired"
+	)
+	am.activate_skill(0)
+	for i: int in range(20):
+		await get_tree().physics_frame
+		if not is_instance_valid(enemy):
+			break
+		enemy.global_position = target_pos
+
+	if not is_instance_valid(enemy):
+		_expect(true, "dash-attack hit the enemy it travelled through (killed it)")
+		return
+	_expect(
+		enemy.get_health_fraction() < hp_before,
+		"dash-attack damages what it travels through (%.2f -> %.2f)"
+			% [hp_before, enemy.get_health_fraction()]
+	)
+	enemy.queue_free()
+
+
+# ---- Aerial hang ----
+
+func _check_air_skill_hang() -> void:
+	"""Firing a skill in mid-air buys a brief float, so an aerial chain leaves time to
+	read where it put you instead of dropping straight back to terminal velocity."""
+	var hang: float = _player.get("air_skill_hang_time")
+	var cap: float = (_player.get("max_fall_speed") as float) * 0.3
+
+	# Baseline: fall freely from height and record the speed reached.
+	_player.global_position = Vector2(320, 120)
+	_player.velocity = Vector2.ZERO
+	await _wait(14)
+	var free_fall: float = _player.velocity.y
+
+	# Now the same fall, but with a skill fired on the way down.
+	_player.global_position = Vector2(320, 120)
+	_player.velocity = Vector2.ZERO
+	await _wait(8)
+	EventBus.skill_used.emit(SkillDefinitions.get_all_skills()[0])
+	await _wait(4)
+	var hung: float = _player.velocity.y
+
+	_expect(hang > 0.0, "aerial hang is configured (%.2fs)" % hang)
+	_expect(
+		hung < free_fall,
+		"an aerial skill slows the fall (%.0f vs %.0f free-fall)" % [hung, free_fall]
+	)
+	_expect(hung <= cap + 1.0, "hang caps descent at %.0f (got %.0f)" % [cap, hung])
+
+
+# ---- Loadout lock ----
+
+func _check_loadout_lock() -> void:
+	"""Occupied slots are locked outside the post-unlock window — except with dev
+	tools on, where a tester must be able to slot a skill on demand."""
+	var am: AbilityManager = _player.get_node("AbilityManager") as AbilityManager
+	var skills: Array[SkillData] = SkillDefinitions.get_all_skills()
+	if not am or skills.size() < 2:
+		_fail("no ability manager / skills")
+		return
+
+	GameState.show_dev_tools = false
+	am.close_reassign_window()
+	for i: int in range(3):
+		am.unassign_skill(i)
+
+	am.assign_skill(0, skills[0])
+	_expect(am.get_skill_in_slot(0) != null, "an empty slot fills even while locked")
+
+	am.assign_skill(0, skills[1])
+	_expect(
+		am.get_skill_in_slot(0).skill_name == skills[0].skill_name,
+		"an occupied slot is locked in normal play"
+	)
+
+	GameState.show_dev_tools = true
+	am.assign_skill(0, skills[1])
+	_expect(
+		am.get_skill_in_slot(0).skill_name == skills[1].skill_name,
+		"an occupied slot is editable with dev tools on"
+	)
+	am.unassign_skill(0)
+	_expect(am.get_skill_in_slot(0) == null, "unassign works with dev tools on")
+	GameState.show_dev_tools = false
+
+
+# ---- Evolved traits ----
+
+func _check_evolved_takes_slot() -> void:
+	"""A grown evolved trait owns the base trait's slot, which is what lets the
+	character screen show it in that trait's row instead of in a separate list."""
+	var em: Node = _player.get_node_or_null("EvolvedTraitManager")
+	var tm: TraitManager = _player.get_node("TraitManager") as TraitManager
+	if not em or not tm:
+		_fail("no evolved/trait manager")
+		return
+
+	_expect(em.call("get_slot_owner", "arms") == null, "arms slot starts unowned")
+
+	tm.set_trait_stage("arms", TraitManager.STAGE_LOST)
+	tm.set_trait_stage("skin", TraitManager.STAGE_LOST)
+	em.call("grow", "claws")
+
+	var owner_data: EvolvedTraitData = em.call("get_slot_owner", "arms")
+	_expect(owner_data != null and owner_data.id == "claws", "claws owns the arms slot")
+	_expect(em.call("get_slot_owner", "legs") == null, "an untouched slot stays unowned")
+	# Same-slot exclusivity: growing claws must close wings off for good.
+	var blocker: EvolvedTraitData = em.call("get_blocker", "wings")
+	_expect(blocker != null and blocker.id == "claws", "wings closed off by claws")
 
 
 # ---- Helpers ----

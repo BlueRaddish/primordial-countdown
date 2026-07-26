@@ -26,6 +26,13 @@ Firing **any skill while in mid-air refreshes your jump** (not a double jump —
 ground jump itself is handed back), so weaving a skill into a jump keeps you
 airborne. Aerial skill chains are a real mobility option.
 
+Firing a skill in mid-air also grants a **brief float** (0.18s at ~22% gravity). Skills
+already hand back the jump up there, but you were previously returned to full falling
+speed the instant one landed, so aerial chains meant committing blind. The hang buys a
+beat to read where the chain put you. It applies to *any* aerial skill, including when
+the legs are gone and there is no jump left to refresh — which is exactly when a moment
+to reorient matters most.
+
 The **dash** is the baseline evade and the thing that makes the telegraph contract
 fair: every enemy commits to a windup before it can hurt you, so there has to be one
 answer that always works and never depends on which traits you still have. It grants
@@ -79,7 +86,10 @@ pulsing sprite colour — enemy windups, the boss slam, the invincibility flicke
 is a photosensitivity hazard and is also simply harder to read. With it on, each becomes
 a steady colour in the same hue: the information is preserved, the strobe is not.
 
-**Developer tools** gates the testing controls out of the character screen. Someone
+**Developer tools** also **unlocks the loadout**: with it on, skills can be assigned
+from the character screen at any time, ignoring the post-unlock window. Exercising a
+skill means being able to slot it on demand, not devolving until the game happens to
+grant it. It gates the testing controls out of the character screen too. Someone
 playtesting normally should see a character sheet, not a god-mode switch and a row of
 trait +/- buttons that make it trivial to invalidate the thing they were testing.
 
@@ -192,6 +202,12 @@ a body forced down *one* path — a run where you grow everything would be a pow
 not a devolution. A closed-off form stays listed on the character screen, greyed out, so
 the choice remains visible.
 
+**Evolved traits do not degrade.** They are a permanent grown / not-grown state, and
+devolution only ever targets the seven base traits — so the 14-step schedule stays exactly
+as long whatever you grow. On the character screen a grown form therefore **takes over the
+row of the trait it replaced** (`Claws — GROWN — was Arms`) instead of being listed
+separately: one slot, one answer to "what does this do now?".
+
 Because these read *combinations* — some traits lost, others deliberately kept —
 they are things you **steer toward** through the devolution choices (below), not
 accidents.
@@ -228,6 +244,18 @@ core idea of the trait it comes from.
 
 Every skill costs **years** off the countdown when it fires, on top of its cooldown. A
 normal attack costs 1 year for comparison.
+
+### Dash-attacks carry their hitbox
+
+A skill that both **hits and moves you** gets a hitbox that travels with you for the
+duration of the impulse, rather than one AoE resolved at the cast point. Landing it once
+on departure meant a Wing Dash flew straight through an enemy without touching it — no
+damage and, worse, no knockback, so the dash ended with you parked inside something that
+immediately hit you. The dash read as a way to hurt yourself.
+
+Each enemy is still hit once per cast. Reversed impulses (Backstep Slash) are excluded
+on purpose: there the strike lands where you *were* while the movement carries you away,
+which is the whole shape of the move.
 
 ### The loadout locks between unlocks
 

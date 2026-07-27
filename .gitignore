@@ -26,3 +26,6 @@ export_credentials.cfg
 # from is a second copy of the same bytes, so archives are not kept in the tree. The
 # download URL for each pack is recorded in art-resources/ART_RESOURCES.md.
 *.zip
+
+# Multi-session register (local only — see .claude/ protocol)
+working.md

@@ -12,9 +12,26 @@ branch:
 git worktree add ../pc-<topic> -b claude/<topic>
 ```
 
-Work only inside that folder. **Commit often** — isolation protects committed work only;
-an abandoned worktree full of uncommitted changes is still lost work. When done: merge
-into `main`, `git worktree remove ../pc-<topic>`, drop your row from the register.
+Work only inside that folder. When done: merge into `main`, `git worktree remove
+../pc-<topic>`, drop your row from the register.
+
+**Never work in the main worktree.** `primordial-countdown/` stays parked on `main`,
+clean. It is the merge target so it wants to be stable, and the user's open Godot editor
+holds a lock on its `.godot/`. Take a worktree even when you are the only session running.
+
+**Keep branches short-lived, and rebase onto `main` often.** Branch age is what makes
+merges painful — a branch that lives an hour merges clean, one that lives days fights you,
+and with `.tscn` files it fights dirty. Rebase at the start of each work chunk; merge back
+before the session ends; never let a `claude/*` branch outlive the session that made it.
+
+**Both smoke tests must pass before merging into `main`.** They exit non-zero on failure,
+so this is one command. A broken branch then can never poison the merge target — which is
+what makes it safe to be sloppy inside a session branch.
+
+**Committing is automatic.** A global `Stop` hook auto-commits WIP after every turn on
+`claude/*` branches (`~/.claude/hooks/wip-autocommit.sh`), so a crashed session loses at
+most one turn. Commit deliberately anyway at meaningful points — the auto-saves are a
+safety net, not a history. Squash them when merging.
 
 ### The register lives in the main worktree
 
@@ -30,6 +47,12 @@ Read it before choosing what to work on, add a row when you start, delete your r
 you merge. It coordinates **scope**, not individual files — its job is stopping two
 sessions from picking overlapping areas, so merges stay clean. A stale row means a session
 died; ask the user before clearing it, since its worktree may still hold uncommitted work.
+
+**`git worktree list` outranks the register.** The register is hand-maintained, so it can
+lie in both directions — a crashed session leaves a phantom row, and a session that forgot
+to write one is invisible. Git knows which worktrees actually exist; the register only adds
+the scope column, which git cannot know. Cross-check the two and flag a mismatch to the
+user rather than trusting the file.
 
 `.tscn` scenes and `.uid` files merge badly, which is why scope discipline still matters.
 Each worktree re-imports assets into its own `.godot/` on first launch — slow once.

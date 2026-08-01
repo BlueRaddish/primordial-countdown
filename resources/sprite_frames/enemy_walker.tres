@@ -1,64 +1,55 @@
-[gd_resource type="SpriteFrames" load_steps=11 format=3]
+[gd_resource type="SpriteFrames" format=3 uid="uid://cgmkqqwy5e5o5"]
 
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_idle_anim_f0.png" id="1_walker_idle_anim_f0"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_idle_anim_f1.png" id="2_walker_idle_anim_f1"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_idle_anim_f2.png" id="3_walker_idle_anim_f2"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_idle_anim_f3.png" id="4_walker_idle_anim_f3"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_run_anim_f0.png" id="5_walker_run_anim_f0"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_run_anim_f1.png" id="6_walker_run_anim_f1"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_run_anim_f2.png" id="7_walker_run_anim_f2"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_run_anim_f3.png" id="8_walker_run_anim_f3"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_run_anim_f4.png" id="9_walker_run_anim_f4"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/walker/walker_run_anim_f5.png" id="10_walker_run_anim_f5"]
+[ext_resource type="Texture2D" uid="uid://5wau87bcmnvn" path="res://assets/sprites/enemies/walker/walker_idle_anim_f0.png" id="1_walker_idle_anim_f0"]
+[ext_resource type="Texture2D" uid="uid://j2sfyqi7m73r" path="res://assets/sprites/enemies/walker/walker_idle_anim_f1.png" id="2_walker_idle_anim_f1"]
+[ext_resource type="Texture2D" uid="uid://beoqycjvcra1r" path="res://assets/sprites/enemies/walker/walker_idle_anim_f2.png" id="3_walker_idle_anim_f2"]
+[ext_resource type="Texture2D" uid="uid://befhentc35keo" path="res://assets/sprites/enemies/walker/walker_idle_anim_f3.png" id="4_walker_idle_anim_f3"]
+[ext_resource type="Texture2D" uid="uid://5bsjtuf70237" path="res://assets/sprites/enemies/walker/walker_run_anim_f0.png" id="5_walker_run_anim_f0"]
+[ext_resource type="Texture2D" uid="uid://cil3uakclwjc" path="res://assets/sprites/enemies/walker/walker_run_anim_f1.png" id="6_walker_run_anim_f1"]
+[ext_resource type="Texture2D" uid="uid://mwyt8ky70a6e" path="res://assets/sprites/enemies/walker/walker_run_anim_f2.png" id="7_walker_run_anim_f2"]
+[ext_resource type="Texture2D" uid="uid://6t4ouux832cd" path="res://assets/sprites/enemies/walker/walker_run_anim_f3.png" id="8_walker_run_anim_f3"]
+[ext_resource type="Texture2D" uid="uid://cvo1bxu0gt4ko" path="res://assets/sprites/enemies/walker/walker_run_anim_f4.png" id="9_walker_run_anim_f4"]
+[ext_resource type="Texture2D" uid="uid://ba4dqylgmade8" path="res://assets/sprites/enemies/walker/walker_run_anim_f5.png" id="10_walker_run_anim_f5"]
 
 [resource]
-animations = [
-{
+animations = [{
 "frames": [{
 "duration": 1.0,
 "texture": ExtResource("1_walker_idle_anim_f0")
-},
-{
+}, {
 "duration": 1.0,
 "texture": ExtResource("2_walker_idle_anim_f1")
-},
-{
+}, {
 "duration": 1.0,
 "texture": ExtResource("3_walker_idle_anim_f2")
-},
-{
+}, {
 "duration": 1.0,
 "texture": ExtResource("4_walker_idle_anim_f3")
 }],
-"loop": true,
+"loop": 1,
 "name": &"idle",
 "speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
 "texture": ExtResource("5_walker_run_anim_f0")
-},
-{
+}, {
 "duration": 1.0,
 "texture": ExtResource("6_walker_run_anim_f1")
-},
-{
+}, {
 "duration": 1.0,
 "texture": ExtResource("7_walker_run_anim_f2")
-},
-{
+}, {
 "duration": 1.0,
 "texture": ExtResource("8_walker_run_anim_f3")
-},
-{
+}, {
 "duration": 1.0,
 "texture": ExtResource("9_walker_run_anim_f4")
-},
-{
+}, {
 "duration": 1.0,
 "texture": ExtResource("10_walker_run_anim_f5")
 }],
-"loop": true,
+"loop": 1,
 "name": &"walk",
 "speed": 15.0
 }]
